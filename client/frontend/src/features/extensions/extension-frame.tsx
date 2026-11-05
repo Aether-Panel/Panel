@@ -15,10 +15,42 @@ function signedPanelUrl(): Promise<string> {
     return panelUrl;
 }
 
+// The panel's theme tokens an extension page gets, as resolved CSS colors (rgb(...)), so it
+// can look like the panel whatever theme the administrator chose
+const THEME_TOKENS = {
+    background: 'background',
+    foreground: 'foreground',
+    card: 'card',
+    cardForeground: 'card-foreground',
+    muted: 'muted',
+    mutedForeground: 'muted-foreground',
+    primary: 'primary',
+    primaryForeground: 'primary-foreground',
+    border: 'border',
+    destructive: 'destructive',
+    success: 'success',
+} as const;
+
+function themeColors(): Record<string, string> {
+    const probe = document.createElement('span');
+    probe.style.display = 'none';
+    document.body.appendChild(probe);
+    const colors: Record<string, string> = {};
+    for (const [name, token] of Object.entries(THEME_TOKENS)) {
+        probe.style.color = `hsl(var(--${token}))`;
+        colors[name] = getComputedStyle(probe).color;
+    }
+    probe.remove();
+    colors.radius = getComputedStyle(document.documentElement).getPropertyValue('--radius').trim();
+    colors.font = getComputedStyle(document.body).fontFamily;
+    return colors;
+}
+
 /**
  * An extension page. The frame is sandboxed (and the panel sends its files with a sandbox
  * policy too), so its scripts run in an opaque origin: no panel cookies, storage or API.
- * Once loaded it gets {type: 'aether:context', serverId, panelUrl, language, theme} by postMessage, and
+ * Once loaded it gets {type: 'aether:context', serverId, panelUrl, language, theme, colors} by
+ * postMessage (again when the theme changes), and
  * it may answer {type: 'aether:resize', height} to fit its content.
  */
 export function ExtensionFrame({
@@ -38,8 +70,16 @@ export function ExtensionFrame({
         if (!target) return;
         const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
         // the sandboxed page has an opaque origin, so "*" is the only target that reaches it
-        target.postMessage({ type: 'aether:context', serverId: serverId ?? null, panelUrl: url, language, theme }, '*');
+        target.postMessage({ type: 'aether:context', serverId: serverId ?? null, panelUrl: url, language, theme, colors: themeColors() }, '*');
     };
+
+    // a change of theme (light/dark or another palette) reaches a page that is already open
+    useEffect(() => {
+        const observer = new MutationObserver(() => void sendContext());
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] });
+        return () => observer.disconnect();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [serverId, language]);
 
     useEffect(() => {
         const onMessage = (event: MessageEvent) => {

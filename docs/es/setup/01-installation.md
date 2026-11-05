@@ -232,6 +232,7 @@ Todas las opciones con valor admiten `--opcion VALOR` y `--opcion=VALOR` (use la
 | `-u`, `--uninstall`, `--uninstall-data`, `--uninstall-all` | Desinstalar |
 | `--create-admin` | Solo crear una cuenta de administrador |
 | `--apply-panel-url` | Aplicar la URL principal de Configuración (lo usa el servicio `aether-domain`) |
+| `--node --panel URL --join CÓDIGO` | Instalar esta máquina como [nodo secundario](#método-3-nodo-secundario-solo-daemon) con el código de un solo uso del panel (también `AETHER_NODE_PANEL` y `AETHER_NODE_JOIN`) |
 | `--debug`, `-V`/`--version`, `-h`/`--help` | Depuración, versión y ayuda |
 
 **Variables de entorno.** Cada opción tiene su variable (`AETHER_DOMAIN`, `AETHER_PORT`, `AETHER_ADMIN_PASSWORD`, `AETHER_DB_PASSWORD`, `AETHER_S3_SECRET_KEY`…; la lista completa está en `--help`), además de `AETHER_YES`, `AETHER_NONINTERACTIVE`, `AETHER_DRY_RUN`, `AETHER_FORCE`, `AETHER_DEBUG` y `AETHER_REPO` (otro repositorio, para forks). Use variables para las contraseñas: los argumentos quedan en el historial y en `ps`, y el instalador avisa si se pasan así.
@@ -312,57 +313,47 @@ Un despliegue manual no tiene Nginx, HTTPS ni el servicio `aether-domain`: póng
 
 ## Método 3: nodo secundario (solo daemon)
 
-Un nodo secundario ejecuta servidores de juego en otra máquina y lo gestiona el panel maestro. En él, el panel web está desactivado (`panel.enable=false`) y solo funciona la API del daemon (`/daemon`) en el puerto HTTP, así que abrir ese puerto en el navegador da un 404: es lo esperado.
+Un nodo secundario ejecuta servidores de juego en otra máquina y lo gestiona el panel maestro. En él, el panel web está desactivado (`panel.enable=false`) y solo funciona la API del daemon (`/daemon`) en el puerto HTTP, así que abrir ese puerto en el navegador da un 404: es lo esperado. No lleva base de datos: el contenedor no espera a MySQL ni ejecuta migraciones.
 
-### 1. Crear el nodo en el panel maestro
+### Con un solo comando (recomendado)
 
-En **Nodos**, cree el nodo con su host público, el puerto HTTP (8080) y el puerto SFTP. El diálogo **Desplegar** del nodo muestra los valores que necesita:
+1. En el panel maestro, **Configuración → General → URL principal**: debe ser la que el nodo puede alcanzar (por ejemplo `https://panel.ejemplo.com`), no `localhost`.
+2. **Nodos → Añadir nodo**: nombre, host público de la máquina nueva, puerto HTTP (8080) y puerto SFTP.
+3. **Nodos → nodo → Desplegar → Generar comando**, y pegue el comando como `root` en la máquina nueva:
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/Aether-Panel/Panel/main/tools/install/install.sh \
+     | sudo bash -s -- --node --panel https://panel.ejemplo.com --join <código>
+   ```
+
+El código funciona una vez y durante una hora; generar otro anula el anterior. El instalador:
+
+- cambia el código en el panel (`POST /api/node-join`) por el ID de cliente y el secreto del nodo y sus puertos, y los guarda en `/etc/SkyPanel/node.json` (solo root): si algo falla después, se repite el mismo comando sin pedir otro código;
+- instala Docker y las dependencias, descarga el código en `/opt/skypanel` y compila la imagen (de 5 a 15 minutos la primera vez);
+- activa `SKYPANEL_PANEL_ENABLE=false` en `docker-compose.yml` y escribe en `docker-compose.override.yml` que MariaDB y Adminer no se arranquen (perfil `panel-database`) y que la comprobación de salud use `/daemon`;
+- escribe en el `config.json` del nodo `panel.enable`, `panel.settings.masterUrl`, `token.public`, `daemon.auth.url`, `daemon.auth.clientId`, `daemon.auth.clientSecret` y `daemon.sftp.host`;
+- abre en el cortafuegos SSH, el puerto HTTP y el SFTP, y arranca el nodo.
+
+El nodo se actualiza junto con el panel (Ajustes → Actualizaciones) o con `install.sh --update`: la línea `SKYPANEL_PANEL_ENABLE=false` y el `docker-compose.override.yml` se conservan, y el resto de la configuración vive en `storage/`.
+
+### A mano
+
+En **Nodos → nodo → Desplegar → Ver la instalación manual**, el panel muestra un `docker-compose.yml` con las credenciales reales del nodo. Estos son los valores que necesita:
 
 | Clave | Variable de entorno | Valor |
 |---|---|---|
 | `panel.enable` | `SKYPANEL_PANEL_ENABLE` | `false` |
-| `token.public` | `SKYPANEL_TOKEN_PUBLIC` | `https://<maestro>/auth/publickey` |
+| `token.public` | `SKYPANEL_TOKEN_PUBLIC` | `https://<maestro>/auth/publickey` (si falta, se deduce de `daemon.auth.url`) |
 | `daemon.auth.url` | `SKYPANEL_DAEMON_AUTH_URL` | `https://<maestro>/oauth2/token` |
 | `daemon.auth.clientId` | `SKYPANEL_DAEMON_AUTH_CLIENTID` | `.node_<ID del nodo>` |
-| `daemon.auth.clientSecret` | `SKYPANEL_DAEMON_AUTH_CLIENTSECRET` | El secreto del nodo |
+| `daemon.auth.clientSecret` | `SKYPANEL_DAEMON_AUTH_CLIENTSECRET` | El secreto del nodo (`GET /api/nodes/{id}/deployment`) |
 | `daemon.sftp.host` | `SKYPANEL_DAEMON_SFTP_HOST` | `0.0.0.0:<puerto SFTP>` |
 
-> **Atención: dos limitaciones del diálogo Desplegar en la versión actual.**
-> - El `clientSecret` que muestra es un valor fijo, no el del nodo. El secreto real lo devuelve `GET /api/nodes/{id}/deployment` (permiso `nodes.deploy`), en el campo `clientSecret`.
-> - El `docker-compose.yml` que propone no incluye base de datos, y el `entrypoint` de la imagen espera a MySQL (por defecto en el host `mysql`) y se detiene tras 60 segundos si no responde. Por eso se recomienda preparar el nodo con el instalador, como se indica a continuación.
-
-`daemon.auth.*` lo usa el SFTP del nodo para validar a los usuarios contra el maestro, y `token.public` para comprobar las peticiones que le envía el maestro. Si `token.public` está vacío con el panel desactivado, el log lo avisa al arrancar. Si `daemon.auth.url` es solo la dirección del maestro, sin ruta (por ejemplo `https://<maestro>`), el nodo le añade `/oauth2/token`; una URL con ruta se usa tal cual. Los inicios de sesión con clave SSH se comprueban en `/auth/sftp-key` de la misma dirección: el nodo sustituye `/oauth2/token` por esa ruta y conserva cualquier ruta que haya delante.
+`daemon.auth.*` lo usa el SFTP del nodo para validar a los usuarios contra el maestro, y la clave pública de `token.public` para comprobar las peticiones que le envía el maestro. El nodo la lee al arrancar; si no la consigue (el maestro no responde o la dirección es incorrecta), lo vuelve a intentar como mucho cada 15 segundos mientras lleguen peticiones, y el log dice `This node cannot read the panel's public key at <url>…`. Si `daemon.auth.url` es solo la dirección del maestro, sin ruta, el nodo le añade `/oauth2/token`; una URL con ruta se usa tal cual. Los inicios de sesión con clave SSH se comprueban en `/auth/sftp-key` de la misma dirección.
 
 `daemon.auth.clientSecret` debe ser el secreto real del nodo: las peticiones del maestro van ligadas a él, y el nodo las responde con `401` si no coincide (los usuarios ven entonces `ErrNodeAuthFailed`, véase [Solución de problemas](./troubleshooting.md#nodos-secundarios)). La hora de las dos máquinas también debe coincidir, porque las peticiones del maestro llevan tokens de corta duración.
 
-### 2. Instalar y convertir la máquina en nodo
-
-1. Instale con el [instalador](#método-1-instalador-automático-recomendado) en la máquina del nodo, sin dominio (el maestro tiene que llegar al puerto 8080) y con `--no-admin`.
-2. En `/opt/skypanel/docker-compose.yml`, descomente estas dos líneas del servicio `skypanel` y ponga la URL del maestro:
-
-   ```yaml
-         - SKYPANEL_PANEL_ENABLE=false
-         - SKYPANEL_TOKEN_PUBLIC=https://<maestro>/auth/publickey
-   ```
-
-   El instalador (`--update`) y la actualización desde el panel detectan estas dos líneas y las vuelven a aplicar después de descargar el código. Cualquier otro cambio en `docker-compose.yml` se pierde al actualizar.
-3. Con el contenedor parado, añada el resto al `config.json` del panel (`/opt/skypanel/storage/skypanel-data/config.json`, o `storage/skypanel-config/config.json` si existe), que vive en `storage/` y sobrevive a las actualizaciones:
-
-   ```json
-   {
-     "daemon": {
-       "auth": {
-         "url": "https://<maestro>/oauth2/token",
-         "clientId": ".node_<ID>",
-         "clientSecret": "<secreto del nodo>"
-       }
-     }
-   }
-   ```
-
-4. Arranque: `cd /opt/skypanel && docker compose up -d`.
-
-Al volver a ejecutar el instalador en una máquina así, la reconoce como nodo: no crea cuentas de administrador ni instala el servicio `aether-domain`.
+Al cambiar variables de `docker-compose.yml`, aplíquelas con `docker compose up -d`: `docker compose restart` conserva las anteriores.
 
 ---
 

@@ -92,16 +92,30 @@ El panel muestra cada página dentro de un marco **aislado**: `sandbox="allow-sc
 
 Los archivos se sirven desde `/api/extension-files/<id>/<ruta>` con el mismo sandbox como `Content-Security-Policy`, de modo que el aislamiento se mantiene aunque alguien abra un archivo directamente. Solo se sirven archivos normales de una extensión **encendida** (cualquier otra cosa responde `404`), con `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: SAMEORIGIN` y `Cache-Control: no-cache`; el tipo de contenido se deduce de la extensión del archivo. Los archivos de las páginas son públicos mientras la extensión está encendida: no ponga claves ni secretos en ellos.
 
-Al cargarse, la página recibe un mensaje con el contexto, y lo vuelve a recibir cada vez que el usuario pasa a otro servidor o cambia el idioma:
+Al cargarse, la página recibe un mensaje con el contexto, y lo vuelve a recibir cada vez que el usuario pasa a otro servidor, cambia el idioma o cambia el tema:
 
 ```js
 window.addEventListener('message', (event) => {
   if (event.source !== window.parent || event.data?.type !== 'aether:context') return;
-  const { serverId, panelUrl, language, theme } = event.data;
+  const { serverId, panelUrl, language, theme, colors } = event.data;
   // serverId: el servidor de la pestaña (null en una página de administración)
   // panelUrl: la dirección del panel (https://panel.ejemplo.com), la de Ajustes: la misma que el campo panel de los eventos; la página no puede verla por sí misma
   // language: "es" o "en"; theme: "dark" o "light" (el que había al enviar el mensaje)
+  // colors: los colores del tema del panel, ya resueltos (rgb(...)): background, foreground, card,
+  //   cardForeground, muted, mutedForeground, primary, primaryForeground, border, destructive,
+  //   success; además radius ("0.625rem") y font (la familia tipográfica del panel)
 });
+```
+
+Para que la página parezca parte del panel: deje el `body` transparente (el marco ya tiene el fondo y el borde de una tarjeta del panel), declare `<meta name="color-scheme" content="light dark">` (si no, el navegador pinta un fondo opaco cuando el tema del panel y el de la página no coinciden), y aplique `colors` como variables CSS:
+
+```js
+for (const [name, value] of Object.entries(colors ?? {})) {
+  document.documentElement.style.setProperty(`--aether-${name}`, value);
+}
+document.documentElement.style.colorScheme = theme;
+// en el CSS: button { background: var(--aether-primary); color: var(--aether-primaryForeground);
+//   border-radius: var(--aether-radius); } body { font-family: var(--aether-font); }
 ```
 
 Para ajustar la altura del marco a su contenido, la página puede contestar:

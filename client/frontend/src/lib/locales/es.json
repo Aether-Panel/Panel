@@ -2954,7 +2954,7 @@
     },
     "deployDialog": {
       "title": "Desplegar Nodo: {{name}}",
-      "description": "Este nodo se usará como esclavo: añade capacidad para ejecutar servidores en otra máquina mientras el Panel maestro centraliza la gestión. El servidor solo ejecutará el Daemon (<code>SKYPANEL_PANEL_ENABLE=false</code>) y se conectará a este Panel.",
+      "description": "Un nodo añade otra máquina que ejecuta servidores; este panel los sigue gestionando. En esa máquina solo corre el daemon, sin panel web ni base de datos.",
       "step1": "Paso 1: Instala Docker en el nuevo servidor.",
       "step1Description": "Instala Docker Engine y el plugin de Docker Compose en la máquina que será el nodo esclavo. Con la imagen de AetherPanel en Docker no necesitas configurar un Panel adicional, solo el Daemon.",
       "step2": "Paso 2: Crea la carpeta de despliegue.",
@@ -2963,8 +2963,19 @@
       "step3Description": "Crea un archivo <code>docker-compose.yml</code> en esa carpeta con el siguiente contenido. Con <code>SKYPANEL_PANEL_ENABLE=false</code> se desactiva el Panel local y el Daemon apunta al maestro (ajusta la IP del maestro si es distinta a esta URL):",
       "step4": "Paso 4: Arranca el contenedor.",
       "step4Description": "Ejecuta el siguiente comando para que el Daemon arranque dentro de Docker y se conecte de forma segura al Panel maestro:",
-      "successMessage": "¡Tu nuevo nodo esclavo está configurado y conectado. Ya puedes asignarle servidores desde el Panel maestro!",
-      "close": "Cerrar"
+      "successMessage": "¡Conectado! El nodo responde a este panel: ya puedes crear servidores en él.",
+      "close": "Cerrar",
+      "oneCommandTitle": "Con un solo comando (recomendado)",
+      "oneCommandDescription": "Genera el comando y pégalo como <code>root</code> en la máquina nueva. Instala Docker, configura el nodo con sus credenciales, abre sus puertos y lo conecta a este panel. El código funciona una sola vez y durante una hora.",
+      "generate": "Generar comando",
+      "regenerate": "Generar otro comando",
+      "codeExpires": "Funciona una vez, hasta las {{time}}. Generar otro invalida este.",
+      "requirements": "Necesita Linux (Ubuntu, Debian, Rocky, Alma, Fedora, Arch u openSUSE) con 2 GB de RAM y salida a Internet. La primera vez tarda de 5 a 15 minutos porque compila la imagen. Si falla a mitad, repite el mismo comando: no hace falta otro código.",
+      "showManual": "Ver la instalación manual",
+      "hideManual": "Ocultar la instalación manual",
+      "loadingSecret": "Cargando las credenciales del nodo…",
+      "manualFailed": "No se pudieron cargar las credenciales del nodo",
+      "waitingMessage": "Esperando a que el nodo se conecte… Cuando el comando termine en la máquina nueva, aparecerá aquí (puede tardar de 5 a 15 minutos)."
     },
     "detail": {
       "totalServers": "Total de servidores",
@@ -3792,7 +3803,10 @@
     "ErrGitHubBadName": "Ese nombre de repositorio o rama no es válido.",
     "ErrGitHubBadClient": "GitHub no reconoce ese Client ID o su OAuth App no tiene activado Device Flow. Revísalo en Configuración → GitHub.",
     "ErrClientScopes": "Un cliente solo puede limitarse a permisos de servidor que tengas.",
-    "ErrPluginsNotMinecraft": "Los plugins y mods solo existen en servidores de Minecraft: Java Edition."
+    "ErrPluginsNotMinecraft": "Los plugins y mods solo existen en servidores de Minecraft: Java Edition.",
+    "ErrNodeJoinCode": "Ese código de unión no existe, ya se usó o caducó: genera otro en el panel.",
+    "ErrNodeJoinLocal": "El nodo del propio panel se instala con el panel: no se despliega en otra máquina.",
+    "ErrNodeJoinURL": "Primero pon la URL principal del panel en Configuración → General (por ejemplo https://panel.tudominio.com): el nodo nuevo llega al panel por ella."
   },
   "apiErrorValues": {
     "ErrDiscordTestFailed": {

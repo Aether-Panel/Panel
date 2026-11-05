@@ -16,6 +16,8 @@ Nodos, configuración del panel, claves de API, plantillas, versiones de juego, 
 | GET | `/api/nodes/:id/system` | `nodes.view` | CPU, memoria, discos, contadores de red |
 | POST | `/api/nodes/:id/ports/check` | `server.create` | Qué puertos están ocupados, con alternativas libres |
 | GET | `/api/nodes/:id/deployment` | `nodes.deploy` | Credenciales para desplegar el daemon del nodo |
+| POST | `/api/nodes/:id/join` | `nodes.deploy` | Código de unión de un solo uso y el comando que instala el nodo |
+| POST | `/api/node-join` | Público | Cambia un código de unión por las credenciales del nodo |
 | GET | `/api/settings` | `settings.edit` | Todos los ajustes editables |
 | POST | `/api/settings` | `settings.edit` | Guarda varios ajustes |
 | GET | `/api/settings/:key` | `settings.edit` | Un ajuste |
@@ -88,6 +90,25 @@ Responde `204`. Un nodo que todavía tiene servidores responde `500` con el cód
 ```
 
 `clientId` y `clientSecret` van en `daemon.auth.clientId` y `daemon.auth.clientSecret` del nodo. `publicKey` siempre está vacío: el nodo lee las claves del panel en `GET /auth/publickey`.
+
+### `POST /api/nodes/:id/join`
+
+```json
+{ "code": "k3v7…", "expiresAt": "2026-11-05T05:10:00Z", "panelUrl": "https://panel.ejemplo.com",
+  "command": "curl -fsSL https://raw.githubusercontent.com/Aether-Panel/Panel/main/tools/install/install.sh | sudo bash -s -- --node --panel https://panel.ejemplo.com --join k3v7…" }
+```
+
+El código (32 caracteres) funciona una vez y durante una hora, y un código nuevo para el mismo nodo anula el anterior. El panel solo guarda su hash, en memoria: reiniciarlo anula los códigos pendientes. `panelUrl` es la URL principal de Configuración; si no está puesta o es local (`localhost`), responde `400 ErrNodeJoinURL`. El nodo propio del panel responde `400 ErrNodeJoinLocal`.
+
+### `POST /api/node-join`
+
+Público: lo llama el instalador del nodo con `{ "code": "…" }`.
+
+```json
+{ "nodeId": 2, "name": "eu-2", "clientId": ".node_2", "clientSecret": "4f9c…", "port": 8080, "sftpPort": 5657 }
+```
+
+`port` es el puerto privado del nodo (en el que escucha el daemon). Un código inexistente, usado o caducado responde `404 ErrNodeJoinCode`; más de 10 intentos por IP en 15 minutos, `429 ErrTooManyAttempts`.
 
 ### `GET /api/nodes/:id/features`
 

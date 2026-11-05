@@ -44,6 +44,9 @@ func registerNodes(g *gin.RouterGroup) {
 
 	g.Handle("GET", "/:id/deployment", middleware.RequiresPermission(scopes.ScopeNodesDeploy), deployNode)
 	g.Handle("OPTIONS", "/:id/deployment", response.CreateOptions("GET"))
+
+	g.Handle("POST", "/:id/join", middleware.RequiresPermission(scopes.ScopeNodesDeploy), createNodeJoinCode)
+	g.Handle("OPTIONS", "/:id/join", response.CreateOptions("POST"))
 }
 
 // @Summary Get nodes

@@ -8,13 +8,17 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/MicahParks/jwkset"
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/golang-jwt/jwt/v5"
-	"sync"
-	"time"
+	"golang.org/x/time/rate"
 )
 
 type TokenService interface {
@@ -96,13 +100,50 @@ func NewTokenService() (TokenService, error) {
 		}
 	} else if externalService == nil {
 		var err error
-		externalService, err = keyfunc.NewDefault([]string{config.TokenPublicURL.Value()})
+		externalService, err = newPanelKeyfunc(context.Background(), PanelPublicKeyURL(), panelKeyRetry)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return &tokenService{}, nil
+}
+
+// panelKeyRetry is how soon a node asks the panel for its public key again while it has none
+// (the panel was unreachable when the node started, or rotated its key). The library's 5
+// minutes left a node refusing every request from the panel for that long.
+const panelKeyRetry = 15 * time.Second
+
+// PanelPublicKeyURL is where a node reads the panel's public key: token.public, or else the
+// panel's own address taken from daemon.auth.url (https://panel/oauth2/token →
+// https://panel/auth/publickey), so a node set up with the panel's address needs nothing more
+func PanelPublicKeyURL() string {
+	if configured := strings.TrimSpace(config.TokenPublicURL.Value()); configured != "" {
+		return configured
+	}
+	panel := strings.TrimRight(strings.TrimSpace(config.AuthURL.Value()), "/")
+	panel = strings.TrimSuffix(panel, "/oauth2/token")
+	if panel == "" {
+		return ""
+	}
+	return panel + "/auth/publickey"
+}
+
+// newPanelKeyfunc reads the panel's public key from url and keeps it fresh: every 10 minutes,
+// and at most every retry while a token arrives that it cannot check yet
+func newPanelKeyfunc(ctx context.Context, url string, retry time.Duration) (keyfunc.Keyfunc, error) {
+	return keyfunc.NewDefaultOverrideCtx(ctx, []string{url}, keyfunc.Override{
+		HTTPTimeout:       10 * time.Second,
+		RefreshInterval:   10 * time.Minute,
+		RefreshUnknownKID: rate.NewLimiter(rate.Every(retry), 1),
+		// a request from the panel waits at most this long for a fresh key, then is refused
+		RateLimitWaitMax: retry,
+		RefreshErrorHandlerFunc: func(u string) func(context.Context, error) {
+			return func(_ context.Context, err error) {
+				logging.Error.Printf("This node cannot read the panel's public key at %s, so it refuses the panel's requests until it can: %s. Check that this machine reaches the panel at that address (token.public, or daemon.auth.url)", u, err)
+			}
+		},
+	})
 }
 
 // requestTokenLifetime bounds how long a token sent to a node stays usable. Every token is

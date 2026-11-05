@@ -16,6 +16,8 @@ Nodes, panel settings, API keys, templates, game versions, database hosts, exten
 | GET | `/api/nodes/:id/system` | `nodes.view` | CPU, memory, disks, network counters |
 | POST | `/api/nodes/:id/ports/check` | `server.create` | Which ports are taken, with free alternatives |
 | GET | `/api/nodes/:id/deployment` | `nodes.deploy` | Credentials to deploy the node's daemon |
+| POST | `/api/nodes/:id/join` | `nodes.deploy` | One-time join code and the command that installs the node |
+| POST | `/api/node-join` | Public | Trades a join code for the node's credentials |
 | GET | `/api/settings` | `settings.edit` | Every editable setting |
 | POST | `/api/settings` | `settings.edit` | Saves several settings |
 | GET | `/api/settings/:key` | `settings.edit` | One setting |
@@ -88,6 +90,25 @@ Same body; empty fields and `0` ports keep their value. `204`.
 ```
 
 `clientId` and `clientSecret` go into the node's `daemon.auth.clientId` and `daemon.auth.clientSecret`. `publicKey` is always empty: the node reads the panel's keys from `GET /auth/publickey`.
+
+### `POST /api/nodes/:id/join`
+
+```json
+{ "code": "k3v7…", "expiresAt": "2026-11-05T05:10:00Z", "panelUrl": "https://panel.example.com",
+  "command": "curl -fsSL https://raw.githubusercontent.com/Aether-Panel/Panel/main/tools/install/install.sh | sudo bash -s -- --node --panel https://panel.example.com --join k3v7…" }
+```
+
+The code (32 characters) works once and for an hour, and a new code for the same node cancels the previous one. The panel keeps only its hash, in memory: restarting it cancels pending codes. `panelUrl` is the base URL from Settings; when it is not set or is local (`localhost`), the answer is `400 ErrNodeJoinURL`. The panel's own node answers `400 ErrNodeJoinLocal`.
+
+### `POST /api/node-join`
+
+Public: the node's installer calls it with `{ "code": "…" }`.
+
+```json
+{ "nodeId": 2, "name": "eu-2", "clientId": ".node_2", "clientSecret": "4f9c…", "port": 8080, "sftpPort": 5657 }
+```
+
+`port` is the node's private port (the one the daemon listens on). A code that does not exist, was used or has expired answers `404 ErrNodeJoinCode`; more than 10 tries per address in 15 minutes, `429 ErrTooManyAttempts`.
 
 ### `GET /api/nodes/:id/features`
 

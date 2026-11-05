@@ -92,16 +92,30 @@ The panel shows each page inside an **isolated** frame: `sandbox="allow-scripts 
 
 The files themselves are served from `/api/extension-files/<id>/<path>` with the same sandbox as their `Content-Security-Policy`, so the isolation holds even if someone opens a file directly. Only regular files of a **switched-on** extension are served (anything else answers `404`), with `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: SAMEORIGIN` and `Cache-Control: no-cache`; the content type comes from the file extension. Page files are public while the extension is switched on: put no keys or secrets in them.
 
-Once loaded, the page receives a message with the context, and again whenever the user moves to another server or changes the language:
+Once loaded, the page receives a message with the context, and again whenever the user moves to another server, changes the language or changes the theme:
 
 ```js
 window.addEventListener('message', (event) => {
   if (event.source !== window.parent || event.data?.type !== 'aether:context') return;
-  const { serverId, panelUrl, language, theme } = event.data;
+  const { serverId, panelUrl, language, theme, colors } = event.data;
   // serverId: the tab's server (null on an administration page)
   // panelUrl: the panel's address (https://panel.example.com), the one in Settings: the same as the events' panel field; the page cannot see it by itself
   // language: "es" or "en"; theme: "dark" or "light" (as it was when the message was sent)
+  // colors: the panel's theme colors, already resolved (rgb(...)): background, foreground, card,
+  //   cardForeground, muted, mutedForeground, primary, primaryForeground, border, destructive,
+  //   success; plus radius ("0.625rem") and font (the panel's font family)
 });
+```
+
+To make the page look part of the panel: leave `body` transparent (the frame already has the background and border of a panel card), declare `<meta name="color-scheme" content="light dark">` (otherwise the browser paints an opaque background when the panel's and the page's themes differ), and apply `colors` as CSS variables:
+
+```js
+for (const [name, value] of Object.entries(colors ?? {})) {
+  document.documentElement.style.setProperty(`--aether-${name}`, value);
+}
+document.documentElement.style.colorScheme = theme;
+// in the CSS: button { background: var(--aether-primary); color: var(--aether-primaryForeground);
+//   border-radius: var(--aether-radius); } body { font-family: var(--aether-font); }
 ```
 
 To fit the frame to its content, the page can answer:
