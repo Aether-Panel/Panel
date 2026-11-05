@@ -88,7 +88,7 @@ Changes take effect at once: the list of active extensions is reloaded after eve
 
 ## Pages
 
-The panel shows each page inside an **isolated** frame: `sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads"`, without `allow-same-origin`, and `referrerpolicy="no-referrer"`. Its scripts run, but in an opaque origin, so they cannot read the administrator's session or call the panel's API on their behalf. They have no `localStorage` or cookies of their own either.
+The panel shows each page inside an **isolated** frame: `sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads"`, without `allow-same-origin`, and `referrerpolicy="no-referrer"`. Its scripts run, but in an opaque origin, so they cannot read the administrator's session or call the panel's API on their behalf. They have no `localStorage` or cookies of their own either. A link with `target="_blank"` opens the other site in a normal tab (`allow-popups-to-escape-sandbox`), with its own session: that way a page can take people to its service without it staying isolated.
 
 The files themselves are served from `/api/extension-files/<id>/<path>` with the same sandbox as their `Content-Security-Policy`, so the isolation holds even if someone opens a file directly. Only regular files of a **switched-on** extension are served (anything else answers `404`), with `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: SAMEORIGIN` and `Cache-Control: no-cache`; the content type comes from the file extension. Page files are public while the extension is switched on: put no keys or secrets in them.
 
@@ -99,7 +99,7 @@ window.addEventListener('message', (event) => {
   if (event.source !== window.parent || event.data?.type !== 'aether:context') return;
   const { serverId, panelUrl, language, theme } = event.data;
   // serverId: the tab's server (null on an administration page)
-  // panelUrl: the panel's address (https://panel.example.com); the page cannot see it by itself
+  // panelUrl: the panel's address (https://panel.example.com), the one in Settings: the same as the events' panel field; the page cannot see it by itself
   // language: "es" or "en"; theme: "dark" or "light" (as it was when the message was sent)
 });
 ```

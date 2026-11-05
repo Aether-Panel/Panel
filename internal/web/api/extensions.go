@@ -24,7 +24,7 @@ import (
 // extensionPageSandbox is the Content-Security-Policy of every extension file: its scripts
 // run in an opaque origin, so a page cannot read the panel's cookies or call its API with
 // the viewer's session, whoever wrote it
-const extensionPageSandbox = "sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads"
+const extensionPageSandbox = "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads"
 
 const extensionFilesPath = "/api/extension-files/"
 

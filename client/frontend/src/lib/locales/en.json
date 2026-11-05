@@ -275,7 +275,25 @@
       "copySecret": "Copy secret",
       "deleteAria": "Delete client {{name}}",
       "deleteTitle": "Delete this OAuth2 client?",
-      "deleteDescription": "Applications using it lose access immediately. This can't be undone."
+      "deleteDescription": "Applications using it lose access immediately. This can't be undone.",
+      "limits": {
+        "server": "Access",
+        "allServers": "My whole account (all my servers)",
+        "allServersHint": "The client can do everything your account can. Use it only for your own tools.",
+        "oneServerHint": "The client can only act on this server. Recommended for outside services, such as a game panel or a bot.",
+        "permissions": "Permissions on that server",
+        "everything": "Everything I can do there",
+        "groups": {
+          "power": "Start, stop and see the status",
+          "stats": "See CPU, memory and disk",
+          "console": "See the console and send commands",
+          "files": "See and edit files",
+          "data": "See the settings (variables)",
+          "backups": "See and create backups"
+        },
+        "limitedTo": "Only the server {{server}}",
+        "wholeAccount": "Whole account"
+      }
     },
     "messages": {
       "infoChanged": "Your information has been changed",
@@ -3772,7 +3790,8 @@
     "ErrGitHubTokenRevoked": "GitHub no longer accepts this connection. Connect your account again.",
     "ErrGitHubNotFound": "GitHub cannot find that repository or branch, or your account has no access to it.",
     "ErrGitHubBadName": "That repository or branch name is not valid.",
-    "ErrGitHubBadClient": "GitHub does not know that Client ID, or its OAuth App has Device Flow off. Check it in Settings → GitHub."
+    "ErrGitHubBadClient": "GitHub does not know that Client ID, or its OAuth App has Device Flow off. Check it in Settings → GitHub.",
+    "ErrClientScopes": "A client can only be limited to server permissions you hold."
   },
   "apiErrorValues": {
     "ErrDiscordTestFailed": {

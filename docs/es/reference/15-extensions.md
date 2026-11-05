@@ -88,7 +88,7 @@ Los cambios se aplican al momento: la lista de extensiones activas se recarga tr
 
 ## Páginas
 
-El panel muestra cada página dentro de un marco **aislado**: `sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads"`, sin `allow-same-origin`, y `referrerpolicy="no-referrer"`. Sus scripts se ejecutan, pero en un origen opaco, así que no pueden leer la sesión del administrador ni llamar a la API del panel en su nombre. Tampoco tienen `localStorage` ni cookies propias.
+El panel muestra cada página dentro de un marco **aislado**: `sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads"`, sin `allow-same-origin`, y `referrerpolicy="no-referrer"`. Sus scripts se ejecutan, pero en un origen opaco, así que no pueden leer la sesión del administrador ni llamar a la API del panel en su nombre. Tampoco tienen `localStorage` ni cookies propias. Un enlace con `target="_blank"` abre el otro sitio en una pestaña normal (`allow-popups-to-escape-sandbox`), con su propia sesión: así una página puede llevar a su servicio sin quedar aislada.
 
 Los archivos se sirven desde `/api/extension-files/<id>/<ruta>` con el mismo sandbox como `Content-Security-Policy`, de modo que el aislamiento se mantiene aunque alguien abra un archivo directamente. Solo se sirven archivos normales de una extensión **encendida** (cualquier otra cosa responde `404`), con `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: SAMEORIGIN` y `Cache-Control: no-cache`; el tipo de contenido se deduce de la extensión del archivo. Los archivos de las páginas son públicos mientras la extensión está encendida: no ponga claves ni secretos en ellos.
 
@@ -99,7 +99,7 @@ window.addEventListener('message', (event) => {
   if (event.source !== window.parent || event.data?.type !== 'aether:context') return;
   const { serverId, panelUrl, language, theme } = event.data;
   // serverId: el servidor de la pestaña (null en una página de administración)
-  // panelUrl: la dirección del panel (https://panel.ejemplo.com); la página no puede verla por sí misma
+  // panelUrl: la dirección del panel (https://panel.ejemplo.com), la de Ajustes: la misma que el campo panel de los eventos; la página no puede verla por sí misma
   // language: "es" o "en"; theme: "dark" o "light" (el que había al enviar el mensaje)
 });
 ```

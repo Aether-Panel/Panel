@@ -55,7 +55,7 @@ For integrations that act as a user:
 2. Exchange it at `POST /oauth2/token` with `grant_type=client_credentials`.
 3. Send `Authorization: Bearer <access_token>`.
 
-The access token is a panel session tied to the client and its owner: it lasts an hour and slides like any other session. Requests made with it have the owner's permissions. The panel can also bound a client to one server or a scope list, but clients created through the API carry neither, so they act with everything the account may do. A client token cannot call `/auth/reauth` (`403`). Deleting the client ends the sessions it opened.
+The access token is a panel session tied to the client and its owner: it lasts an hour and slides like any other session. Requests made with it have the owner's permissions. A client can be limited when created to one server (`serverId`) and a list of server permissions (`scopes`); it may then only do what the account may do and stays inside those limits (see [OAuth2 clients](./05-accounts.md#oauth2-clients)). Without limits it acts with everything the account may do. A client token cannot call `/auth/reauth` (`403`). Deleting the client ends the sessions it opened.
 
 ## Same-origin guard
 

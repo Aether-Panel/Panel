@@ -55,7 +55,7 @@ Para integraciones que actúan en nombre de un usuario:
 2. Cámbielo en `POST /oauth2/token` con `grant_type=client_credentials`.
 3. Envíe `Authorization: Bearer <access_token>`.
 
-El token de acceso es una sesión del panel ligada al cliente y a su propietario: dura una hora y se desliza como cualquier otra sesión. Las peticiones hechas con él tienen los permisos del propietario. El panel también puede limitar un cliente a un servidor o a una lista de scopes, pero los clientes creados mediante la API no llevan ninguno de los dos límites, así que actúan con todo lo que la cuenta puede hacer. Un token de cliente no puede llamar a `/auth/reauth` (`403`). Eliminar el cliente cierra las sesiones que abrió.
+El token de acceso es una sesión del panel ligada al cliente y a su propietario: dura una hora y se desliza como cualquier otra sesión. Las peticiones hechas con él tienen los permisos del propietario. Un cliente puede limitarse al crearlo a un servidor (`serverId`) y a una lista de permisos de servidor (`scopes`); entonces solo puede lo que la cuenta pueda y además esté dentro de esos límites (ver [Clientes OAuth2](./05-accounts.md#clientes-oauth2)). Sin límites actúa con todo lo que la cuenta puede hacer. Un token de cliente no puede llamar a `/auth/reauth` (`403`). Eliminar el cliente cierra las sesiones que abrió.
 
 ## Protección de mismo origen
 
