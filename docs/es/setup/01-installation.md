@@ -34,11 +34,11 @@ El instalador abre en `ufw` (Debian/Ubuntu/Arch) o `firewalld` (RHEL/Fedora/open
 
 ## Método 1: instalador automático (recomendado)
 
-El instalador (`tools/install/install.sh`, versión 4.2.3) instala Docker si hace falta, descarga el código, genera las contraseñas, construye la imagen, configura Nginx, HTTPS y el cortafuegos, crea la cuenta de administrador y arranca el panel.
+El instalador (`tools/install/install.sh`, versión 4.3.0) instala Docker si hace falta, descarga el código, genera las contraseñas, construye la imagen, configura Nginx, HTTPS y el cortafuegos, crea la cuenta de administrador y arranca el panel.
 
 ### Ejecutarlo
 
-Asistente interactivo, como `root` (pregunta todo paso a paso):
+Menú, como `root`: instalación automática o paso a paso, reinstalar, desinstalar…
 
 ```bash
 sudo -i
@@ -65,7 +65,8 @@ curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash -s -- --non-int
 
 | Modo | Cómo | Qué pregunta |
 |---|---|---|
-| Manual | `sudo bash install.sh` en una terminal | Todo: dominio y HTTPS, puertos, base de datos y cuenta de administrador |
+| Menú | `sudo bash install.sh` en una terminal, sin opciones | Lo que elija en el menú (ver [Administrar el panel con el instalador](#administrar-el-panel-con-el-instalador)) |
+| Manual | Opciones sueltas (por ejemplo `-d DOMINIO`) en una terminal | Lo que falte: dominio y HTTPS, puertos, base de datos, rama, cortafuegos y cuenta de administrador |
 | Automático | `-y` / `--yes` | Solo los datos sensibles (email y contraseña del administrador); el resto sale de las opciones o de los valores por defecto. `-y` también confirma los borrados |
 | Sin preguntas | `--non-interactive`, o la entrada no es una terminal (`curl … \| sudo bash`) | Nada. Sin `--admin-email` ni dominio no se crea la cuenta: el resumen final explica cómo crearla |
 | Simulación | `--dry-run` | Muestra lo que haría sin cambiar el sistema |
@@ -102,16 +103,18 @@ Volver a ejecutarlo sobre una instalación existente es seguro: conserva los dat
 
 ### Administrar el panel con el instalador
 
-Sin opciones y en una terminal, el instalador dice si el panel **no está instalado**, está **instalado pero detenido** o **funcionando** (con su rama y versión) y ofrece un menú:
+Sin opciones y en una terminal, el instalador dice si el panel **no está instalado**, está **instalado pero detenido** o **funcionando** (con su rama y versión) y ofrece un menú. Las opciones 3 a 6 solo se pueden elegir si ya hay una instalación.
 
 | Opción | Qué hace | Datos |
 |---|---|---|
-| **Instalar** | Pregunta dominio o IP, puertos y base de datos (interna o externa) e instala todo. | — |
-| **Actualizar** (`--update`) | Copia la base de datos y comprueba la copia, descarga la rama, reconstruye la imagen y reinicia. Si la versión nueva no arranca, vuelve sola al código y a la imagen anteriores. | Se conservan |
-| **Reconfigurar** (sobre una instalación existente) | Cambia dominio, puertos, etc. | Se conservan |
-| **Reinstalar** (`--reinstall`) | Ofrece una copia, pide escribir `REINSTALAR` (sin terminal, `--yes`), borra la instalación y vuelve a instalar desde cero. | Se borran (una BD externa no) |
-| **Desinstalar** (`--uninstall`, `--uninstall-data`, `--uninstall-all`) | Ver [Desinstalar](#desinstalar). | Según la opción |
-| **Crear cuenta administrador** (`--create-admin`) | Crea un administrador en una instalación en marcha. | — |
+| **1. Instalación automática** | Solo pregunta si la máquina será el **panel** o un **nodo extra**. El panel se instala con los valores por defecto (sin dominio, puertos 8080/5657, MariaDB local) y una cuenta de administrador generada: `admin@aether.local` (o `admin@` el dominio) con una contraseña segura que se muestra al final y se guarda en `/etc/SkyPanel/credenciales.txt`. El nodo extra pide la dirección del panel y el código de unión (ver [nodo secundario](#método-3-nodo-secundario-solo-daemon)). | — |
+| **2. Instalación** | Panel o nodo extra, y después todo paso a paso: dominio y HTTPS, puertos, base de datos (interna o externa), rama del código, cortafuegos y cuenta de administrador. El nodo extra pregunta la dirección del panel, el código, la rama y el cortafuegos (sus puertos los da el panel). | — |
+| **3. Reinstalar** | *Conservando los datos:* descarga el código, construye la imagen desde cero (sin caché) y recrea los contenedores; servidores, usuarios y contraseñas se quedan. *Desde cero* (`--reinstall`): ofrece una copia, pide escribir `REINSTALAR` (sin terminal, `--yes`), borra la instalación y vuelve a instalar paso a paso; un nodo extra necesita un código de unión nuevo. | Según la opción (una BD externa no se borra) |
+| **4. Desinstalar** (`--uninstall`, `--uninstall-data`, `--uninstall-all`) | Ver [Desinstalar](#desinstalar). | Según la opción |
+| **5. Actualizar** (`--update`) | Copia la base de datos y comprueba la copia, descarga la rama, reconstruye la imagen y reinicia. Si la versión nueva no arranca, vuelve sola al código y a la imagen anteriores. | Se conservan |
+| **6. Crear cuenta administrador** (`--create-admin`) | Crea un administrador en una instalación en marcha (no en un nodo extra). | — |
+
+Elegir 1 o 2 con el panel ya instalado vuelve a configurarlo conservando los datos, las contraseñas y las cuentas.
 
 ### Actualizar
 
@@ -325,6 +328,8 @@ Un nodo secundario ejecuta servidores de juego en otra máquina y lo gestiona el
    curl -fsSL https://raw.githubusercontent.com/Aether-Panel/Panel/main/tools/install/install.sh \
      | sudo bash -s -- --node --panel https://panel.ejemplo.com --join <código>
    ```
+
+También se puede desde el menú: `sudo bash install.sh` → **Instalación automática** o **Instalación** → **Nodo extra**, y pegar ese comando entero (o escribir la dirección del panel y el código).
 
 El código funciona una vez y durante una hora; generar otro anula el anterior. El instalador:
 

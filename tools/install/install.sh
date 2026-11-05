@@ -2,7 +2,7 @@
 
 ###############################################################################
 # Aether Panel - Script de Instalación Automática (Docker)
-# Versión: 4.2.3
+# Versión: 4.3.0
 # Repositorio: https://github.com/Aether-Panel/Panel.git
 # Nota: Aether Panel es el nombre oficial. SkyPanel es el nombre en clave.
 # Soporte: Solo instalación vía Docker. No existe modo nativo.
@@ -29,8 +29,8 @@ umask 022
 # CONFIGURACIÓN Y VARIABLES GLOBALES
 # =============================================================================
 
-readonly SCRIPT_VERSION="4.2.3"
-readonly SCRIPT_BUILD="20261026-hardening"
+readonly SCRIPT_VERSION="4.3.0"
+readonly SCRIPT_BUILD="20261105-menu"
 readonly PROJECT_NAME="Aether Panel"
 readonly PROJECT_CODENAME="SkyPanel"
 readonly INSTALL_URL="https://install.aetherpanel.es/install.sh"
@@ -91,11 +91,16 @@ readonly KNOWN_DEFAULT_DB_PASSWORDS=" secreto_root_super_seguro secreto_base_de_
 # Colores (solo si la salida es una terminal y no se pidió NO_COLOR)
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
     RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; YELLOW=$'\033[1;33m'
-    BLUE=$'\033[0;34m'; CYAN=$'\033[0;36m'; BOLD=$'\033[1m'; NC=$'\033[0m'
+    BLUE=$'\033[0;34m'; CYAN=$'\033[0;36m'; BOLD=$'\033[1m'; DIM=$'\033[2m'; NC=$'\033[0m'
 else
-    RED=""; GREEN=""; YELLOW=""; BLUE=""; CYAN=""; BOLD=""; NC=""
+    RED=""; GREEN=""; YELLOW=""; BLUE=""; CYAN=""; BOLD=""; DIM=""; NC=""
 fi
-readonly RED GREEN YELLOW BLUE CYAN BOLD NC
+readonly RED GREEN YELLOW BLUE CYAN BOLD DIM NC
+
+# La dirección de un panel para unir un nodo: https://panel.ejemplo.com o http://IP:puerto
+readonly NODE_PANEL_URL_RE='^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$'
+# Email de la cuenta admin que genera la instalación automática cuando no hay dominio
+readonly AUTO_ADMIN_EMAIL_DOMAIN="aether.local"
 
 INSTALL_DIR="$DEFAULT_INSTALL_DIR"
 DATA_DIR="$DEFAULT_DATA_DIR"
@@ -182,6 +187,9 @@ NODE_PANEL_URL="${AETHER_NODE_PANEL:-}"
 NODE_JOIN_CODE="${AETHER_NODE_JOIN:-}"
 NODE_ID=""; NODE_NAME=""; NODE_CLIENT_ID=""; NODE_CLIENT_SECRET=""
 REINSTALL_MODE=false
+FROM_MENU=false                 # la acción se eligió en el menú principal
+AUTO_ADMIN=false                # instalación automática del menú: la cuenta admin se genera sola
+BUILD_FRESH=false               # reinstalar conservando datos: la imagen se construye sin caché
 SKIP_BACKUP=false
 DB_ADMIN_USER="${AETHER_DB_ADMIN_USER:-}"
 DB_ADMIN_PASSWORD="${AETHER_DB_ADMIN_PASSWORD:-}"
@@ -271,7 +279,7 @@ print_banner() {
     fi
     printf '%s' "$BOLD"
     echo "$BANNER_LINE"
-    echo "  $PROJECT_NAME - Instalador Automático (Docker)"
+    echo "  $PROJECT_NAME - Instalador (Docker)"
     echo "  ($PROJECT_CODENAME - nombre en clave)"
     echo "  Versión: $SCRIPT_VERSION (build: $SCRIPT_BUILD)"
     if [[ "$DRY_RUN" == "true" ]]; then
@@ -1121,6 +1129,11 @@ existing_installation_menu() {
         log_info "Modo forzado: se recrearán los contenedores (los datos se conservan)"
         return 0
     fi
+    # en el menú principal ya se eligió qué hacer: instalar de nuevo sobre lo que hay
+    if [[ "$FROM_MENU" == "true" ]]; then
+        log_info "Ya está instalado: se vuelve a configurar conservando los datos, contraseñas y cuentas"
+        return 0
+    fi
     if ! interactive_manual; then
         log_info "Se reconfigurará manteniendo los datos, contraseñas y cuentas existentes"
         return 0
@@ -1153,6 +1166,24 @@ existing_installation_menu() {
 # =============================================================================
 
 db_is_initialized() { [[ -d "$INSTALL_DIR/storage/mysql-data/mysql" ]]; }
+
+# Rama del código y cortafuegos: solo se preguntan en la instalación paso a paso
+# (panel y nodo extra). Después de load_state, para proponer la rama ya instalada.
+ask_branch_and_firewall() {
+    interactive_manual || return 0
+    local ans i branch
+    resolve_branch
+    echo ""
+    for i in 1 2 3; do
+        ask_input branch "Rama del código ($DEFAULT_GIT_BRANCH = estable)" "$GIT_BRANCH"
+        if [[ "$branch" =~ ^[A-Za-z0-9._/-]+$ ]]; then GIT_BRANCH="$branch"; break; fi
+        log_error "Nombre de rama inválido: '$branch'"
+    done
+    if [[ "$SKIP_FIREWALL" != "true" ]]; then
+        ask_yes_no ans "¿Abrir los puertos necesarios en el cortafuegos (ufw o firewalld)?" "yes"
+        if [[ "$ans" != "yes" ]]; then SKIP_FIREWALL=true; fi
+    fi
+}
 
 ask_configuration() {
     print_step "Configuración de instalación"
@@ -1256,6 +1287,8 @@ ask_configuration() {
         esac
     fi
 
+    ask_branch_and_firewall
+
     # --- Cuenta administrador -------------------------------------------------------
     if [[ "$IS_NODE_ONLY" == "true" ]]; then
         CREATE_ADMIN=false
@@ -1279,7 +1312,11 @@ ask_configuration() {
     fi
 
     if [[ "$CREATE_ADMIN" == "true" ]]; then
-        if [[ "$CAN_PROMPT" == "true" ]]; then
+        if [[ "$AUTO_ADMIN" == "true" ]]; then
+            # instalación automática del menú: ni una pregunta; la contraseña se genera
+            # al crear la cuenta y el resumen final la muestra
+            if [[ -z "$ADMIN_EMAIL" ]]; then ADMIN_EMAIL="admin@${DOMAIN:-$AUTO_ADMIN_EMAIL_DOMAIN}"; fi
+        elif [[ "$CAN_PROMPT" == "true" ]]; then
             echo ""
             echo "$BANNER_LINE"
             echo "  Cuenta administrador inicial"
@@ -2215,7 +2252,12 @@ build_images() {
     check_build_platform
     print_step "Construyendo la imagen Docker"
     log_info "Esto puede tardar 5-15 minutos la primera vez. El panel actual (si existe) sigue funcionando mientras tanto."
-    if ! dc build; then
+    local -a fresh=()
+    if [[ "$BUILD_FRESH" == "true" ]]; then
+        fresh=(--pull --no-cache)
+        log_info "Reinstalación: la imagen se construye desde cero, sin reutilizar nada de la anterior"
+    fi
+    if ! dc build "${fresh[@]+"${fresh[@]}"}"; then
         log_error "La construcción de la imagen falló."
         log_error "Causas habituales: poca memoria (añade swap), poco disco (docker system prune) o sin red."
         die "Revisa los mensajes anteriores y vuelve a ejecutar el instalador"
@@ -2881,7 +2923,11 @@ print_summary() {
         echo "$BANNER_LINE"
         printf '  Usuario:    %s%s%s\n' "$GREEN" "$ADMIN_NAME" "$NC"
         printf '  Email:      %s%s%s\n' "$GREEN" "$ADMIN_EMAIL" "$NC"
-        if [[ "$ADMIN_PASSWORD_GENERATED" == "true" ]]; then
+        if [[ "$ADMIN_PASSWORD_GENERATED" == "true" && "$AUTO_ADMIN" == "true" ]]; then
+            # la instalación automática no preguntó nada: la contraseña se enseña aquí
+            printf '  Contraseña: %s%s%s\n' "$GREEN" "$ADMIN_PASSWORD" "$NC"
+            echo "              (copia en $CREDENTIALS_FILE, solo root)"
+        elif [[ "$ADMIN_PASSWORD_GENERATED" == "true" ]]; then
             echo "  Contraseña: generada; está en $CREDENTIALS_FILE (solo root):"
             echo "              sudo cat $CREDENTIALS_FILE"
         else
@@ -3787,9 +3833,16 @@ Uso:
 
 Nota: Este script requiere permisos de root (usa sudo)
 
-Modos de instalación:
-  Manual:   sudo bash install.sh                    (pregunta todo paso a paso)
+Menú:     sudo bash install.sh                    (en una terminal y sin opciones)
+  1) Instalación automática   sin preguntas: solo panel o nodo extra
+  2) Instalación              paso a paso: dominio, HTTPS, puertos, BD, rama…
+  3) Reinstalar               conservando los datos o desde cero
+  4) Desinstalar   5) Actualizar   6) Crear cuenta administrador
+
+Modos de instalación con opciones:
+  Manual:   sudo bash install.sh -d DOMINIO …       (pregunta lo que falte paso a paso)
   Auto:     sudo bash install.sh -y                 (pregunta solo la cuenta admin)
+  Nodo:     … --node --panel URL --join CÓDIGO      (Nodos → nodo → Desplegar nodo)
   Sin preguntas: sudo bash install.sh --non-interactive [opciones]
   Simulación:    sudo bash install.sh --dry-run [opciones]  (no cambia nada)
 
@@ -3888,7 +3941,7 @@ no quedan en el historial ni en la lista de procesos):
   Valores que empiezan por '-': usa --opcion=valor.
 
 Ejemplos:
-  # Instalar (wizard manual)
+  # Menú: instalación automática o paso a paso, reinstalar, desinstalar…
   sudo bash install.sh
 
   # Instalar automático
@@ -4050,10 +4103,79 @@ parse_args() {
 #   panelUpdate.sh conserva.
 # =============================================================================
 
+# El panel al que ya se unió esta máquina (lo guardó node_join en $NODE_FILE)
+saved_node_panel() {
+    [[ -r "$NODE_FILE" ]] || return 0
+    sed -n 's/.*"panel"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$NODE_FILE" 2>/dev/null | head -n1
+}
+
+# parse_join_command "TEXTO": saca --panel y --join del comando que da el panel
+# (curl … | sudo bash -s -- --node --panel URL --join CÓDIGO), pegado tal cual
+parse_join_command() {
+    local -a words=()
+    local i word value
+    read -r -a words <<<"$1"
+    for ((i = 0; i < ${#words[@]}; i++)); do
+        word=${words[i]}
+        value=""
+        case "$word" in
+            --panel=*|--join=*) value=${word#*=} ;;
+            --panel|--join) value=${words[i + 1]:-} ;;
+            *) continue ;;
+        esac
+        value=${value//[\"\']/}
+        case "$word" in
+            --panel*) NODE_PANEL_URL="$value" ;;
+            *) NODE_JOIN_CODE="$value" ;;
+        esac
+    done
+}
+
+# ask_node_join: la dirección del panel y el código de unión de un nodo extra. Se puede
+# pegar el comando entero de «Generar comando». Un nodo que ya se unió a ese panel no
+# necesita código (node_join reutiliza lo que guardó); en la instalación automática ni
+# siquiera se pregunta la dirección.
+ask_node_join() {
+    local saved input i
+    saved=$(saved_node_panel)
+    if [[ -z "$NODE_PANEL_URL" ]]; then NODE_PANEL_URL="$saved"; fi
+
+    echo ""
+    printf '  %sNodo extra%s\n' "$BOLD" "$NC"
+    if interactive_manual || [[ ! "$NODE_PANEL_URL" =~ $NODE_PANEL_URL_RE ]]; then
+        echo "  En el panel: Nodos → (el nodo) → Desplegar nodo → Generar comando."
+        echo "  Pega aquí ese comando entero, o escribe la dirección del panel y después el código."
+        echo ""
+        for i in 1 2 3; do
+            prompt_read input "Comando o dirección del panel" "$NODE_PANEL_URL"
+            if [[ "$input" == *--panel* || "$input" == *--join* ]]; then
+                parse_join_command "$input"
+            else
+                NODE_PANEL_URL="$input"
+            fi
+            NODE_PANEL_URL="${NODE_PANEL_URL%/}"
+            if [[ "$NODE_PANEL_URL" =~ $NODE_PANEL_URL_RE ]]; then break; fi
+            log_error "Hace falta la dirección del panel, como https://panel.ejemplo.com (recibido: '$NODE_PANEL_URL')"
+            NODE_PANEL_URL=""
+        done
+        [[ -n "$NODE_PANEL_URL" ]] || die "No se indicó la dirección del panel"
+    fi
+
+    if [[ -n "$saved" && "$saved" == "$NODE_PANEL_URL" ]]; then
+        log_info "Esta máquina ya se unió a $NODE_PANEL_URL: no hace falta código"
+        return 0
+    fi
+    for i in 1 2 3; do
+        if [[ -n "$NODE_JOIN_CODE" ]]; then return 0; fi
+        prompt_read NODE_JOIN_CODE "Código de unión (dura una hora)" ""
+    done
+    die "Falta el código de unión: genéralo en el panel (Nodos → nodo → Desplegar nodo)"
+}
+
 node_join() {
     print_step "Uniendo esta máquina al panel"
     NODE_PANEL_URL="${NODE_PANEL_URL%/}"
-    if [[ ! "$NODE_PANEL_URL" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$ ]]; then
+    if [[ ! "$NODE_PANEL_URL" =~ $NODE_PANEL_URL_RE ]]; then
         die "--panel debe ser la dirección del panel, como https://panel.ejemplo.com (recibido: '${NODE_PANEL_URL}')"
     fi
     if [[ "$NODE_PANEL_URL" == http://* ]]; then # NOSONAR: se avisa de que http no cifra
@@ -4161,6 +4283,12 @@ install_node() {
     if [[ "$EXISTING_INSTALL" == "true" && "$IS_NODE_ONLY" != "true" ]]; then
         die "Esta máquina ya tiene el panel instalado en $INSTALL_DIR: un nodo va en otra máquina"
     fi
+    # Reinstalar desde cero (menú): se borra el nodo anterior y se une otra vez con un código nuevo
+    if [[ "$REINSTALL_MODE" == "true" ]]; then reinstall_prepare; fi
+    if [[ "$CAN_PROMPT" == "true" ]] && { [[ -z "$NODE_PANEL_URL" || -z "$NODE_JOIN_CODE" ]]; }; then
+        ask_node_join
+    fi
+    if [[ "$FROM_MENU" == "true" ]]; then ask_branch_and_firewall; fi
     IS_NODE_ONLY=true
     CREATE_ADMIN=false
     SKIP_NGINX=true
@@ -4183,6 +4311,133 @@ install_node() {
     start_stack
     save_state
     print_node_summary
+}
+
+# =============================================================================
+# MENÚ PRINCIPAL
+#   sudo bash install.sh sin opciones y en una terminal. Cada opción solo deja
+#   preparadas las variables de los modos de siempre (los mismos que las opciones
+#   de la línea de comandos), y main sigue con su flujo.
+# =============================================================================
+
+# menu_option NÚMERO "texto" ["detalle"] [disponible]: una línea del menú; sin instalación,
+# las opciones que la necesitan salen apagadas
+menu_option() {
+    local number=$1 text=$2 detail=${3:-} available=${4:-true}
+    if [[ "$available" != "true" ]]; then
+        printf '   %s%s) %s  (no hay instalación)%s\n' "$DIM" "$number" "$text" "$NC"
+        return 0
+    fi
+    printf '   %s%s)%s %s%s%s' "$CYAN$BOLD" "$number" "$NC" "$BOLD" "$text" "$NC"
+    if [[ -n "$detail" ]]; then printf '  %s%s%s' "$DIM" "$detail" "$NC"; fi
+    printf '\n'
+}
+
+# menu_choice VAR "opciones válidas (regex)" "rango para el texto" defecto
+menu_choice() {
+    local __var=$1 __valid=$2 __range=$3 __def=$4 __c=""
+    echo ""
+    while true; do
+        prompt_read __c "Selecciona [$__range]" "$__def"
+        if [[ "$__c" =~ ^($__valid)$ ]]; then break; fi
+        log_warning "Elige una de las opciones: $__range"
+    done
+    printf -v "$__var" '%s' "$__c"
+}
+
+main_menu() {
+    require_root
+    detect_existing_installation
+    show_install_state
+
+    local installed=$EXISTING_INSTALL choice def=1 can_admin=$EXISTING_INSTALL
+    if [[ "$installed" == "true" ]]; then def=5; fi
+    if [[ "$IS_NODE_ONLY" == "true" ]]; then can_admin=false; fi
+
+    echo ""
+    printf '  %s¿Qué quieres hacer?%s\n\n' "$BOLD" "$NC"
+    menu_option 1 "Instalación automática" "sin preguntas: solo eliges panel o nodo extra"
+    menu_option 2 "Instalación" "paso a paso: dominio, HTTPS, puertos, base de datos…"
+    menu_option 3 "Reinstalar" "conservando los datos o desde cero" "$installed"
+    menu_option 4 "Desinstalar" "conservando los datos o borrándolo todo" "$installed"
+    menu_option 5 "Actualizar" "a la última versión; conserva los datos" "$installed"
+    menu_option 6 "Crear cuenta administrador" "" "$can_admin"
+    menu_option 0 "Salir"
+
+    while true; do
+        menu_choice choice '[0-6]' "0-6" "$def"
+        if [[ "$choice" =~ ^[3-6]$ && "$installed" != "true" ]]; then
+            log_warning "No hay ninguna instalación de $PROJECT_NAME: elige 1 o 2 para instalar"
+        elif [[ "$choice" == 6 && "$can_admin" != "true" ]]; then
+            log_warning "Esta máquina es un nodo extra: las cuentas se crean en el panel"
+        else
+            break
+        fi
+    done
+
+    FROM_MENU=true
+    case "$choice" in
+        1) menu_install auto ;;
+        2) menu_install manual ;;
+        3) menu_reinstall ;;
+        4) UNINSTALL_MODE=""; uninstall; exit 0 ;;
+        5) UPDATE_MODE=true ;;
+        6) CREATE_ADMIN=true; CREATE_ADMIN_ONLY=true ;;
+        *) echo "¡Hasta luego!"; exit 0 ;;
+    esac
+}
+
+# menu_install auto|manual: panel o nodo extra. En automático no se pregunta nada más
+# (el nodo solo necesita la dirección del panel y su código); en manual, todo.
+menu_install() {
+    local mode=$1 target
+    if [[ "$mode" == "auto" ]]; then
+        AUTO_MODE=true
+        AUTO_CONFIRMED=true
+    fi
+
+    if [[ "$EXISTING_INSTALL" == "true" ]]; then
+        # lo que ya hay manda: se vuelve a instalar encima conservando los datos
+        if [[ "$IS_NODE_ONLY" == "true" ]]; then target=node; else target=panel; fi
+    else
+        local c
+        echo ""
+        printf '  %s¿Qué vas a instalar en esta máquina?%s\n\n' "$BOLD" "$NC"
+        menu_option 1 "Panel" "la web, la base de datos y su propio nodo"
+        menu_option 2 "Nodo extra" "solo el daemon, unido a un panel que ya tienes"
+        menu_choice c '[12]' "1-2" "1"
+        if [[ "$c" == 2 ]]; then target=node; else target=panel; fi
+    fi
+
+    if [[ "$target" == "node" ]]; then
+        NODE_MODE=true
+    elif [[ "$mode" == "auto" ]]; then
+        AUTO_ADMIN=true
+    fi
+}
+
+# Reinstalar: conservando los datos (código, imagen y contenedores nuevos; los mismos datos,
+# contraseñas y cuentas) o desde cero (borra todo, con copia antes, e instala paso a paso)
+menu_reinstall() {
+    local c
+    echo ""
+    printf '  %sReinstalar%s\n\n' "$BOLD" "$NC"
+    menu_option 1 "Conservando los datos" "código e imagen nuevos; servidores, usuarios y contraseñas se quedan"
+    menu_option 2 "Desde cero" "BORRA todo (ofrece copia antes) e instala de nuevo"
+    menu_option 0 "Cancelar"
+    menu_choice c '[0-2]' "0-2" "1"
+    case "$c" in
+        1)
+            FORCE=true
+            BUILD_FRESH=true
+            AUTO_MODE=true
+            AUTO_CONFIRMED=true
+            ;;
+        2) REINSTALL_MODE=true ;;
+        *) echo "Cancelado."; exit 0 ;;
+    esac
+    # un nodo extra se reinstala con su propio flujo (y, desde cero, con un código nuevo)
+    if [[ "$IS_NODE_ONLY" == "true" ]]; then NODE_MODE=true; fi
 }
 
 # =============================================================================
@@ -4238,48 +4493,15 @@ main() {
     # Banner inicial
     print_banner
 
+    # Menú principal (sudo bash install.sh sin opciones, en una terminal)
+    if [[ "$HAS_INSTALL_ARGS" == "false" ]] && interactive_manual; then
+        main_menu
+    fi
+
     # Nodo con código de unión: un flujo propio, sin panel web, base de datos ni Nginx
     if [[ "$NODE_MODE" == "true" ]]; then
         install_node
         exit 0
-    fi
-
-    # Menú principal interactivo (solo si no se pasó ningún argumento)
-    if [[ "$HAS_INSTALL_ARGS" == "false" ]] && interactive_manual; then
-        require_root
-        detect_existing_installation
-        show_install_state
-        local main_choice def=1
-        if [[ "$EXISTING_INSTALL" == "true" ]]; then def=2; fi
-        echo ""
-        echo "$BANNER_LINE"
-        echo "  Menú Principal"
-        echo "$BANNER_LINE"
-        echo ""
-        echo "  1) Instalar"
-        echo "  2) Actualizar (conserva los datos)"
-        echo "  3) Reinstalar desde cero (borra los datos)"
-        echo "  4) Desinstalar"
-        echo "  5) Crear cuenta administrador"
-        echo "  6) Salir"
-        echo ""
-        while true; do
-            prompt_read main_choice "Selecciona [1-6]" "$def"
-            if [[ "$main_choice" =~ ^[2-5]$ && "$EXISTING_INSTALL" != "true" ]]; then
-                log_warning "No hay ninguna instalación de $PROJECT_NAME: elige 1 para instalar"
-                continue
-            fi
-            break
-        done
-        case "$main_choice" in
-            1) : ;;
-            2) UPDATE_MODE=true ;;
-            3) REINSTALL_MODE=true ;;
-            4) UNINSTALL_MODE=""; uninstall; exit 0 ;;
-            5) CREATE_ADMIN=true; CREATE_ADMIN_ONLY=true ;;
-            6) echo "¡Hasta luego!"; exit 0 ;;
-            *) echo "Opción inválida"; exit 1 ;;
-        esac
     fi
 
     # Modo solo crear cuenta administrador

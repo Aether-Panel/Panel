@@ -34,11 +34,11 @@ The installer opens SSH, the panel, SFTP and the Nginx ports in `ufw` (Debian/Ub
 
 ## Method 1: automatic installer (recommended)
 
-The installer (`tools/install/install.sh`, version 4.2.3) installs Docker if needed, downloads the code, generates the passwords, builds the image, sets up Nginx, HTTPS and the firewall, creates the administrator account and starts the panel.
+The installer (`tools/install/install.sh`, version 4.3.0) installs Docker if needed, downloads the code, generates the passwords, builds the image, sets up Nginx, HTTPS and the firewall, creates the administrator account and starts the panel.
 
 ### Running it
 
-Interactive wizard, as `root` (asks everything step by step):
+Menu, as `root`: automatic or step-by-step install, reinstall, uninstall…
 
 ```bash
 sudo -i
@@ -65,7 +65,8 @@ curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash -s -- --non-int
 
 | Mode | How | What it asks |
 |---|---|---|
-| Manual | `sudo bash install.sh` in a terminal | Everything: domain and HTTPS, ports, database and administrator account |
+| Menu | `sudo bash install.sh` in a terminal, without options | Whatever you pick in the menu (see [Managing the panel with the installer](#managing-the-panel-with-the-installer)) |
+| Manual | Some options (for example `-d DOMAIN`) in a terminal | Whatever is missing: domain and HTTPS, ports, database, branch, firewall and administrator account |
 | Automatic | `-y` / `--yes` | Only sensitive data (administrator email and password); the rest comes from options or defaults. `-y` also confirms deletions |
 | No questions | `--non-interactive`, or input is not a terminal (`curl … \| sudo bash`) | Nothing. Without `--admin-email` or a domain no account is created: the final summary explains how to create it |
 | Simulation | `--dry-run` | Shows what it would do without changing the system |
@@ -102,16 +103,18 @@ Running it again on an existing install is safe: it keeps the data, the database
 
 ### Managing the panel with the installer
 
-Run without options in a terminal, the installer says whether the panel is **not installed**, **installed but stopped** or **running** (with its branch and version) and shows a menu:
+Run without options in a terminal, the installer says whether the panel is **not installed**, **installed but stopped** or **running** (with its branch and version) and shows a menu. Options 3 to 6 can only be picked when there is already an install.
 
 | Option | What it does | Data |
 |---|---|---|
-| **Install** | Asks for a domain or IP, ports and the database (internal or external) and installs everything. | — |
-| **Update** (`--update`) | Backs up the database and checks the copy, pulls the branch, rebuilds the image and restarts. If the new version does not start, it goes back to the previous code and image by itself. | Kept |
-| **Reconfigure** (on an existing install) | Changes the domain, ports, etc. | Kept |
-| **Reinstall** (`--reinstall`) | Offers a backup, asks you to type `REINSTALAR` (without a terminal, `--yes`), removes the install and installs again from scratch. | Deleted (an external DB is not) |
-| **Uninstall** (`--uninstall`, `--uninstall-data`, `--uninstall-all`) | See [Uninstalling](#uninstalling). | Depends on the option |
-| **Create administrator account** (`--create-admin`) | Creates an administrator on a running install. | — |
+| **1. Automatic install** | Only asks whether the machine is the **panel** or an **extra node**. The panel is installed with the defaults (no domain, ports 8080/5657, local MariaDB) and a generated administrator account: `admin@aether.local` (or `admin@` the domain) with a strong password shown at the end and saved in `/etc/SkyPanel/credenciales.txt`. An extra node asks for the panel address and the join code (see [secondary node](#method-3-secondary-node-daemon-only)). | — |
+| **2. Install** | Panel or extra node, then everything step by step: domain and HTTPS, ports, database (internal or external), code branch, firewall and administrator account. An extra node asks for the panel address, the code, the branch and the firewall (the panel gives its ports). | — |
+| **3. Reinstall** | *Keeping the data:* pulls the code, builds the image from scratch (no cache) and recreates the containers; servers, users and passwords stay. *From scratch* (`--reinstall`): offers a backup, asks you to type `REINSTALAR` (without a terminal, `--yes`), removes the install and installs again step by step; an extra node needs a new join code. | Depends on the option (an external DB is never deleted) |
+| **4. Uninstall** (`--uninstall`, `--uninstall-data`, `--uninstall-all`) | See [Uninstalling](#uninstalling). | Depends on the option |
+| **5. Update** (`--update`) | Backs up the database and checks the copy, pulls the branch, rebuilds the image and restarts. If the new version does not start, it goes back to the previous code and image by itself. | Kept |
+| **6. Create administrator account** (`--create-admin`) | Creates an administrator on a running install (not on an extra node). | — |
+
+Picking 1 or 2 when the panel is already installed configures it again, keeping the data, the passwords and the accounts.
 
 ### Updating
 
@@ -325,6 +328,8 @@ A secondary node runs game servers on another machine and is managed by the mast
    curl -fsSL https://raw.githubusercontent.com/Aether-Panel/Panel/main/tools/install/install.sh \
      | sudo bash -s -- --node --panel https://panel.example.com --join <code>
    ```
+
+You can also do it from the menu: `sudo bash install.sh` → **Automatic install** or **Install** → **Extra node**, and paste that whole command (or type the panel address and the code).
 
 The code works once and for an hour; generating another one cancels the previous one. The installer:
 
