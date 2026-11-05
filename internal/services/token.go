@@ -129,15 +129,21 @@ func PanelPublicKeyURL() string {
 	return panel + "/auth/publickey"
 }
 
+// panelKeyWait is how long a request from the panel waits for its turn to read the key again.
+// A request that arrives right after a failed read is refused at once instead of waiting for
+// the next retry: with a node that cannot reach the panel, waiting made every request (the
+// node's metrics among them) take the whole retry to fail.
+const panelKeyWait = 100 * time.Millisecond
+
 // newPanelKeyfunc reads the panel's public key from url and keeps it fresh: every 10 minutes,
 // and at most every retry while a token arrives that it cannot check yet
 func newPanelKeyfunc(ctx context.Context, url string, retry time.Duration) (keyfunc.Keyfunc, error) {
 	return keyfunc.NewDefaultOverrideCtx(ctx, []string{url}, keyfunc.Override{
-		HTTPTimeout:       10 * time.Second,
+		// the key is a few bytes: a panel that takes longer does not answer at all
+		HTTPTimeout:       5 * time.Second,
 		RefreshInterval:   10 * time.Minute,
 		RefreshUnknownKID: rate.NewLimiter(rate.Every(retry), 1),
-		// a request from the panel waits at most this long for a fresh key, then is refused
-		RateLimitWaitMax: retry,
+		RateLimitWaitMax:  panelKeyWait,
 		RefreshErrorHandlerFunc: func(u string) func(context.Context, error) {
 			return func(_ context.Context, err error) {
 				logging.Error.Printf("This node cannot read the panel's public key at %s, so it refuses the panel's requests until it can: %s. Check that this machine reaches the panel at that address (token.public, or daemon.auth.url)", u, err)

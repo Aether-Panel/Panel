@@ -1,8 +1,10 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
@@ -16,6 +18,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func registerNodes(g *gin.RouterGroup) {
@@ -299,6 +302,9 @@ func getFeatures(c *gin.Context) {
 	c.JSON(http.StatusOK, features)
 }
 
+// nodeSystemTimeout bounds how long the panel waits for a node's metrics
+const nodeSystemTimeout = 10 * time.Second
+
 // @Summary Gets the system information of a node
 // @Description Gets detailed system information including CPU, memory, and disk
 // @Success 200 {object} daemon.SystemInfo
@@ -325,11 +331,24 @@ func getSystemInfo(c *gin.Context) {
 		return
 	}
 
-	res, err := ns.CallNode(node, "GET", "/daemon/system", nil, nil)
+	// the nodes page asks every few seconds: a node that does not answer must not hold it
+	ctx, cancel := context.WithTimeout(c.Request.Context(), nodeSystemTimeout)
+	defer cancel()
+	res, err := ns.CallNodeContext(ctx, node, "GET", "/daemon/system", nil, nil)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 	defer utils.CloseResponse(res)
+	// the node's refusal is not its metrics: passing its error body on as a 200 showed the node
+	// online with empty metrics
+	if answerNodeAuthFailure(c, node, res) {
+		return
+	}
+	if res.StatusCode != http.StatusOK {
+		logging.Error.Printf("Node %d answered %d to the panel's request for its metrics", node.ID, res.StatusCode)
+		c.AbortWithStatusJSON(http.StatusBadGateway, &skypanel.ErrorResponse{Error: skypanel.ErrInternal})
+		return
+	}
 
 	var systemInfo map[string]interface{}
 	err = json.NewDecoder(res.Body).Decode(&systemInfo)

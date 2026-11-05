@@ -13,48 +13,62 @@ export type NodeNetMetric = {
     networkOut: number; // KB/s
 };
 
+/** Gives a node still pending its first metrics (or null when it did not answer). */
+function fillPending(id: number, info: unknown) {
+    return (nodes: any[]) => nodes.map(n => (n.id === id && n.systemInfo === undefined ? { ...n, systemInfo: info } : n));
+}
+
 export function useNodes(skip = false) {
     const [nodes, setNodes] = useState<any[]>([]);
     const [loading, setLoading] = useState(!skip);
     const [error, setError] = useState<Error | null>(null);
+    // a poll that is still waiting on a slow node is not stacked with another one
+    const inFlight = useRef(false);
 
     const fetchNodes = async () => {
-        if (skip) return;
+        if (skip || inFlight.current) return;
+        inFlight.current = true;
         try {
             const data = await api.get('/api/nodes');
-            const nodesList = Array.isArray(data) ? data : [];
+            const nodesList: any[] = Array.isArray(data) ? data : [];
 
-            // Try to fetch system info for each node
-            const nodesWithStats = await Promise.all(nodesList.map(async (node: any) => {
-                try {
-                    const systemInfo = await api.get(`/api/nodes/${node.id}/system`).catch(() => null);
-                    return { ...node, systemInfo };
-                } catch {
-                    // Stats are optional: a node whose /system call fails is still listed, just without them.
-                    return node;
-                }
-            }));
-
-            setNodes(nodesWithStats);
+            // the list shows at once, with the metrics it had; it does not wait for the slowest node.
+            // A node not asked yet has undefined metrics (pending), one that did not answer null.
+            setNodes(prev => {
+                const known = new Map(prev.map(n => [n.id, n.systemInfo]));
+                return nodesList.map(node => ({ ...node, systemInfo: known.get(node.id) }));
+            });
             setError(null);
+            setLoading(false);
+
+            // a node whose /system call fails is still listed, without metrics (offline). A node
+            // still pending shows its first answer at once instead of waiting for the slowest one;
+            // later polls land together, so the network chart sums one reading of every node.
+            const infos = await Promise.all(nodesList.map(node =>
+                api.get(`/api/nodes/${node.id}/system`).catch(() => null).then(info => {
+                    setNodes(fillPending(node.id, info));
+                    return info;
+                })));
+            setNodes(nodesList.map((node, i) => ({ ...node, systemInfo: infos[i] })));
         } catch (e: any) {
             setError(e);
             console.error('Failed to fetch nodes:', e);
         } finally {
             setLoading(false);
+            inFlight.current = false;
         }
     };
 
     useEffect(() => {
         if (skip) return;
-        
+
         void fetchNodes();
         const interval = setInterval(() => {
             // a hidden tab does not poll: each /system call keeps the node busy for a second
             if (document.visibilityState === 'hidden') return;
             void fetchNodes();
         }, 5000);
-        
+
         return () => clearInterval(interval);
     }, [skip]);
 
@@ -95,6 +109,8 @@ function rateKBps(current: number, previous: number, elapsedSeconds: number): nu
 export function useGlobalNetworkMetrics(nodes: any[]) {
     const [metrics, setMetrics] = useState<NodeNetMetric[]>([]);
     const lastSnapshotsRef = useRef<Record<number, NodeNetSnapshot>>({});
+    // the reading each node's rate was last taken from: the same reading shown again is no new sample
+    const lastInfoRef = useRef<Record<number, unknown>>({});
 
     useEffect(() => {
         if (nodes.length === 0) return;
@@ -107,7 +123,8 @@ export function useGlobalNetworkMetrics(nodes: any[]) {
 
         for (const node of nodes) {
             const sysInfo = node.systemInfo;
-            if (!sysInfo) continue;
+            if (!sysInfo || lastInfoRef.current[node.id] === sysInfo) continue;
+            lastInfoRef.current[node.id] = sysInfo;
 
             const bytesRecv: number = sysInfo.networkBytesRecv ?? 0;
             const bytesSent: number = sysInfo.networkBytesSent ?? 0;

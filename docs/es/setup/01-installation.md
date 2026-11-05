@@ -34,7 +34,7 @@ El instalador abre en `ufw` (Debian/Ubuntu/Arch) o `firewalld` (RHEL/Fedora/open
 
 ## Método 1: instalador automático (recomendado)
 
-El instalador (`tools/install/install.sh`, versión 4.2.2) instala Docker si hace falta, descarga el código, genera las contraseñas, construye la imagen, configura Nginx, HTTPS y el cortafuegos, crea la cuenta de administrador y arranca el panel.
+El instalador (`tools/install/install.sh`, versión 4.2.3) instala Docker si hace falta, descarga el código, genera las contraseñas, construye la imagen, configura Nginx, HTTPS y el cortafuegos, crea la cuenta de administrador y arranca el panel.
 
 ### Ejecutarlo
 

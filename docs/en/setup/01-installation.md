@@ -34,7 +34,7 @@ The installer opens SSH, the panel, SFTP and the Nginx ports in `ufw` (Debian/Ub
 
 ## Method 1: automatic installer (recommended)
 
-The installer (`tools/install/install.sh`, version 4.2.2) installs Docker if needed, downloads the code, generates the passwords, builds the image, sets up Nginx, HTTPS and the firewall, creates the administrator account and starts the panel.
+The installer (`tools/install/install.sh`, version 4.2.3) installs Docker if needed, downloads the code, generates the passwords, builds the image, sets up Nginx, HTTPS and the firewall, creates the administrator account and starts the panel.
 
 ### Running it
 

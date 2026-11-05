@@ -79,3 +79,32 @@ func TestPanelKeyfunc_RecoversAsSoonAsThePanelAnswers(t *testing.T) {
 		return err == nil
 	}, 3*time.Second, 100*time.Millisecond, "the key is read again within the retry, not five minutes later")
 }
+
+// A node that cannot reach the panel refuses its requests at once. It used to hold each one
+// until its next try to read the key (15 seconds), so the nodes page waited that long for the
+// node's metrics on every refresh.
+func TestPanelKeyfunc_RefusesAtOnceWhileThePanelIsUnreachable(t *testing.T) {
+	panel := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "down", http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(panel.Close)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	kf, err := newPanelKeyfunc(ctx, panel.URL, 10*time.Second)
+	require.NoError(t, err)
+
+	_, private, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, jwt.MapClaims{"sub": "panel"})
+	token.Header[jwkset.HeaderKID] = keyID
+	signed, err := token.SignedString(private)
+	require.NoError(t, err)
+
+	for i := 0; i < 3; i++ {
+		start := time.Now()
+		_, err = jwt.Parse(signed, kf.Keyfunc)
+		require.Error(t, err, "no key to check the token with")
+		assert.Less(t, time.Since(start), 2*time.Second, "request %d waited for the next retry", i)
+	}
+}
