@@ -103,6 +103,8 @@ CONFIG_DIR="$DEFAULT_CONFIG_DIR"
 LOG_DIR="$DEFAULT_LOG_DIR"
 WEB_DIR="$DEFAULT_WEB_DIR"
 STATE_FILE="$CONFIG_DIR/installer.conf"
+# Lo que el panel dio a cambio del código de unión (incluye el secreto del nodo: solo root)
+NODE_FILE="$CONFIG_DIR/node.json"
 CREDENTIALS_FILE="$CONFIG_DIR/credenciales.txt"
 LOCK_FILE="/run/aetherpanel-install.lock"
 
@@ -174,6 +176,11 @@ NON_INTERACTIVE=$(truthy_env "${AETHER_NONINTERACTIVE:-}")
 DRY_RUN=$(truthy_env "${AETHER_DRY_RUN:-}")
 UPDATE_MODE=false
 APPLY_PANEL_URL=false
+# Nodo (solo daemon) con un código de unión: --node --panel URL --join CÓDIGO
+NODE_MODE=false
+NODE_PANEL_URL="${AETHER_NODE_PANEL:-}"
+NODE_JOIN_CODE="${AETHER_NODE_JOIN:-}"
+NODE_ID=""; NODE_NAME=""; NODE_CLIENT_ID=""; NODE_CLIENT_SECRET=""
 REINSTALL_MODE=false
 SKIP_BACKUP=false
 DB_ADMIN_USER="${AETHER_DB_ADMIN_USER:-}"
@@ -1677,12 +1684,18 @@ sync_repository() {
     # Nodo esclavo: panelUpdate.sh re-aplica esta configuración tras el pull; aquí igual
     local slave_token=""
     if [[ "$IS_NODE_ONLY" == "true" ]]; then
-        slave_token=$(sed -n 's/.*SKYPANEL_TOKEN_PUBLIC=\([^ ]*\).*/\1/p' "$INSTALL_DIR/docker-compose.yml" | head -n1)
+        # solo una línea activa: la comentada del repositorio es un ejemplo (http://<MASTER-IP>:8080/...)
+        # y activarla dejaría al nodo sin la clave del panel (la variable gana a config.json)
+        slave_token=$(sed -n 's/^[[:space:]]*- SKYPANEL_TOKEN_PUBLIC=\([^ ]*\).*/\1/p' "$INSTALL_DIR/docker-compose.yml" | head -n1)
+        if [[ "$slave_token" == *"<"* ]]; then slave_token=""; fi
     fi
 
     # Cambios locales en archivos del repositorio (salvo .env): se guardan antes de descartarlos
     local changes
-    changes=$(git_in diff -- . ':(exclude).env' 2>/dev/null || true)
+    # En un nodo, la línea SKYPANEL_PANEL_ENABLE=false de docker-compose.yml es la esperada (se vuelve a poner abajo)
+    local -a not_local=(':(exclude).env')
+    if [[ "$IS_NODE_ONLY" == "true" ]]; then not_local+=(':(exclude)docker-compose.yml'); fi
+    changes=$(git_in diff -- . "${not_local[@]}" 2>/dev/null || true)
     if [[ -n "$changes" ]]; then
         local patch
         patch="$CONFIG_DIR/backups/cambios-locales-$(date +%Y%m%d-%H%M%S).patch"
@@ -1889,11 +1902,14 @@ configure_compose_override() {
         need_mysql=true
     fi
     if [[ "$DB_MODE" == "$DB_MODE_EXTERNAL" ]]; then need_external=true; fi
+    # Un nodo solo ejecuta el daemon: sin MariaDB ni Adminer (el panel apagado no usa base de datos)
+    local need_node=false
+    if [[ "$IS_NODE_ONLY" == "true" ]]; then need_node=true; need_mysql=false; need_external=false; fi
 
     local ours=false
     if [[ -f "$file" ]] && grep -qF "$OVERRIDE_MARKER" "$file"; then ours=true; fi
 
-    if [[ "$need_ports$need_mysql$need_external" == "falsefalsefalse" ]]; then
+    if [[ "$need_ports$need_mysql$need_external$need_node" == "falsefalsefalsefalse" ]]; then
         if [[ "$ours" == "true" ]]; then
             run rm -f "$file"
             log_info "Ya no hace falta docker-compose.override.yml (valores por defecto); eliminado"
@@ -1905,7 +1921,7 @@ configure_compose_override() {
 
     print_step "Configurando puertos y conexión (docker-compose.override.yml)"
 
-    if [[ "$need_ports" == "true" || "$need_mysql" == "true" ]] && [[ "$DRY_RUN" != "true" ]] \
+    if [[ "$need_ports" == "true" || "$need_mysql" == "true" || "$need_node" == "true" ]] && [[ "$DRY_RUN" != "true" ]] \
         && { [[ -z "$COMPOSE_VERSION" ]] || ! version_ge "$COMPOSE_VERSION" "$MIN_COMPOSE_FOR_OVERRIDE"; }; then
         die "Cambiar puertos necesita Docker Compose >= $MIN_COMPOSE_FOR_OVERRIDE (tienes ${COMPOSE_VERSION:-?}). Actualiza Docker o usa los puertos por defecto"
     fi
@@ -1925,8 +1941,14 @@ configure_compose_override() {
         echo "# Docker Compose lo combina con docker-compose.yml. Se regenera al volver a"
         echo "# ejecutar el instalador (usa --port / --sftp-port / --bind para cambiarlo)."
         echo "services:"
-        if [[ "$need_ports" == "true" || "$need_external" == "true" ]]; then
+        if [[ "$need_ports" == "true" || "$need_external" == "true" || "$need_node" == "true" ]]; then
             echo "  skypanel:"
+        fi
+        if [[ "$need_node" == "true" ]]; then
+            echo "    depends_on: !reset {}"
+            # sin panel web "/" da 404: la comprobación usa el estado del daemon
+            echo "    healthcheck:"
+            echo "      test: !override [\"CMD\", \"wget\", \"--quiet\", \"--tries=1\", \"--spider\", \"http://localhost:$PANEL_INTERNAL_PORT/daemon\"]"
         fi
         if [[ "$need_ports" == "true" ]]; then
             echo "    ports: !override"
@@ -1940,6 +1962,13 @@ configure_compose_override() {
             echo '      SKYPANEL_PANEL_DATABASE_URL: "${DB_USER}:${DB_PASSWORD}@tcp(${DB_HOST}:${DB_PORT})/${DB_DATABASE}?charset=utf8&parseTime=true"'
             echo "    extra_hosts:"
             echo "      - \"host.docker.internal:host-gateway\""
+        fi
+        if [[ "$need_node" == "true" ]]; then
+            # En un perfil que nadie activa: docker compose up (también el de panelUpdate.sh) no los arranca
+            echo "  mysql:"
+            echo "    profiles: [\"panel-database\"]"
+            echo "  adminer:"
+            echo "    profiles: [\"panel-database\"]"
         fi
         if [[ "$need_mysql" == "true" ]]; then
             echo "  mysql:"
@@ -3821,6 +3850,12 @@ Opciones de Desinstalación:
       --uninstall-data       Desinstalar + eliminar datos (requiere -y sin terminal)
       --uninstall-all        Desinstalar + eliminar todo (requiere -y sin terminal)
 
+Nodo (otra máquina que ejecuta servidores para un panel; solo daemon):
+      --node                 Instalar esta máquina como nodo del panel (sin panel web ni base de datos)
+      --panel URL            Dirección del panel, como https://panel.ejemplo.com
+      --join CÓDIGO          Código de un solo uso (dura una hora) de Nodos → nodo → Desplegar nodo.
+                             El panel da el comando completo; repetirlo tras un fallo no necesita otro código.
+
 Opciones de Cuenta:
       --create-admin         Crear cuenta administrador (solo)
 
@@ -3973,6 +4008,9 @@ parse_args() {
             --db-admin-user) need_value "$opt" "$has_eq" "$eqval" "${2:-}"; DB_ADMIN_USER="$REPLY"; HAS_INSTALL_ARGS=true ;;
             --db-admin-pass) need_value "$opt" "$has_eq" "$eqval" "${2:-}"; DB_ADMIN_PASSWORD="$REPLY"; HAS_INSTALL_ARGS=true ;;
             --apply-panel-url) APPLY_PANEL_URL=true; HAS_INSTALL_ARGS=true; NON_INTERACTIVE=true ;;
+            --node) NODE_MODE=true; HAS_INSTALL_ARGS=true ;;
+            --panel) need_value "$opt" "$has_eq" "$eqval" "${2:-}"; NODE_PANEL_URL="$REPLY"; HAS_INSTALL_ARGS=true ;;
+            --join) need_value "$opt" "$has_eq" "$eqval" "${2:-}"; NODE_JOIN_CODE="$REPLY"; HAS_INSTALL_ARGS=true ;;
             -b|--branch) need_value "$opt" "$has_eq" "$eqval" "${2:-}"; GIT_BRANCH="$REPLY" ;;
             --debug) DEBUG=true ;;
             -V|--version) echo "$SCRIPT_VERSION ($SCRIPT_BUILD)"; exit 0 ;;
@@ -3998,6 +4036,146 @@ parse_args() {
         log_warning "Has pasado contraseñas como argumentos: quedan en el historial y en 'ps'."
         log_warning "Mejor usa AETHER_ADMIN_PASSWORD / AETHER_DB_PASSWORD / AETHER_DB_ROOT_PASSWORD."
     fi
+}
+
+# =============================================================================
+# NODO (SOLO DAEMON) CON UN CÓDIGO DE UNIÓN
+#   El panel da el comando en Nodos → nodo → Desplegar nodo:
+#     curl -fsSL .../install.sh | sudo bash -s -- --node --panel https://panel --join CÓDIGO
+#   El código (un solo uso, dura una hora) se cambia en el panel por el ID y el secreto
+#   del nodo y sus puertos. Se guardan en $NODE_FILE (solo root): repetir el comando
+#   tras un fallo (red, compilación) no necesita otro código.
+#   La configuración del daemon va al config.json del nodo, que sobrevive a las
+#   actualizaciones; docker-compose.yml solo lleva SKYPANEL_PANEL_ENABLE=false, que
+#   panelUpdate.sh conserva.
+# =============================================================================
+
+node_join() {
+    print_step "Uniendo esta máquina al panel"
+    NODE_PANEL_URL="${NODE_PANEL_URL%/}"
+    if [[ ! "$NODE_PANEL_URL" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$ ]]; then
+        die "--panel debe ser la dirección del panel, como https://panel.ejemplo.com (recibido: '${NODE_PANEL_URL}')"
+    fi
+    if [[ "$NODE_PANEL_URL" == http://* ]]; then # NOSONAR: se avisa de que http no cifra
+        log_warning "El panel va por http: el secreto del nodo viaja sin cifrar. Usa https cuando puedas."
+    fi
+
+    local data=""
+    if [[ -r "$NODE_FILE" ]] && [[ "$(jq -r '.panel // empty' "$NODE_FILE" 2>/dev/null)" == "$NODE_PANEL_URL" ]]; then
+        data=$(cat "$NODE_FILE")
+        log_info "Se usan los datos del nodo obtenidos antes ($NODE_FILE): el código no hace falta"
+    elif [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[dry-run] Se canjearía el código en $NODE_PANEL_URL/api/node-join"
+        data='{"nodeId":0,"name":"(dry-run)","clientId":".node_0","clientSecret":"x","port":8080,"sftpPort":5657}'
+    else
+        [[ -n "$NODE_JOIN_CODE" ]] || die "Falta el código: --join CÓDIGO (en el panel: Nodos → nodo → Desplegar nodo)"
+        local out status
+        out=$(mktemp)
+        TMP_FILES+=("$out")
+        status=$(jq -n --arg c "$NODE_JOIN_CODE" '{code: $c}' \
+            | curl -sS --max-time 20 -o "$out" -w '%{http_code}' -H 'Content-Type: application/json' \
+                --data-binary @- "$NODE_PANEL_URL/api/node-join" 2>/dev/null) || status="000"
+        case "$status" in
+            200) ;;
+            404) die "El panel no reconoce el código: ya se usó o caducó (dura una hora). Genera otro en Nodos → nodo → Desplegar nodo" ;;
+            429) die "Demasiados intentos desde esta IP: espera 15 minutos y vuelve a probar" ;;
+            000) die "No se pudo conectar con el panel en $NODE_PANEL_URL: comprueba la dirección y que esta máquina llegue a él" ;;
+            *) die "El panel respondió $status al canjear el código: $(head -c 300 "$out")" ;;
+        esac
+        data=$(jq -c --arg p "$NODE_PANEL_URL" '. + {panel: $p}' "$out" 2>/dev/null) || die "El panel dio una respuesta que no se entiende"
+        printf '%s\n' "$data" | write_file "$NODE_FILE" 600
+        run chmod 700 "$CONFIG_DIR"
+        log_success "Código aceptado por el panel"
+    fi
+
+    NODE_ID=$(jq -r '.nodeId // empty' <<<"$data")
+    NODE_NAME=$(jq -r '.name // empty' <<<"$data")
+    NODE_CLIENT_ID=$(jq -r '.clientId // empty' <<<"$data")
+    NODE_CLIENT_SECRET=$(jq -r '.clientSecret // empty' <<<"$data")
+    PANEL_PORT=$(jq -r '.port // empty' <<<"$data")
+    SFTP_PORT=$(jq -r '.sftpPort // empty' <<<"$data")
+    if [[ -z "$NODE_CLIENT_ID" || -z "$NODE_CLIENT_SECRET" ]] || ! validate_port "$PANEL_PORT" || ! validate_port "$SFTP_PORT"; then
+        die "Faltan datos del nodo en la respuesta del panel; borra $NODE_FILE y genera otro código"
+    fi
+    PANEL_BIND="$BIND_ALL_ADDRESS"
+    log_success "Nodo «$NODE_NAME»: daemon en el puerto $PANEL_PORT, SFTP en el $SFTP_PORT"
+}
+
+# La configuración del daemon: dónde está el panel y con qué credenciales le habla
+queue_node_config() {
+    CFG_KEYS=(); CFG_TYPES=(); CFG_VALS=(); CFG_SECRET=()
+    cfg_set panel.enable bool false
+    cfg_set panel.settings.masterurl string "$NODE_PANEL_URL"
+    cfg_set token.public string "$NODE_PANEL_URL/auth/publickey"
+    cfg_set daemon.auth.url string "$NODE_PANEL_URL/oauth2/token"
+    cfg_set daemon.auth.clientid string "$NODE_CLIENT_ID"
+    cfg_set daemon.auth.clientsecret string "$NODE_CLIENT_SECRET" secret
+    cfg_set daemon.sftp.host string "$BIND_ALL_ADDRESS:$SFTP_PORT"
+}
+
+# El docker-compose.yml del repositorio trae la línea comentada; panelUpdate.sh la conserva
+enable_node_compose() {
+    local file="$INSTALL_DIR/docker-compose.yml"
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[dry-run] Se activaría SKYPANEL_PANEL_ENABLE=false en $file"
+        return 0
+    fi
+    run sed -i 's|^[[:space:]]*# - SKYPANEL_PANEL_ENABLE=false|      - SKYPANEL_PANEL_ENABLE=false|' "$file"
+    grep -qE '^[[:space:]]*- SKYPANEL_PANEL_ENABLE=false' "$file" \
+        || die "No se pudo activar el modo nodo en $file"
+    log_success "docker-compose.yml en modo nodo (solo daemon)"
+}
+
+print_node_summary() {
+    echo ""
+    echo "$BANNER_LINE"
+    printf '  %s✓ Nodo «%s» (ID %s) instalado%s\n' "$GREEN" "$NODE_NAME" "$NODE_ID" "$NC"
+    echo "$BANNER_LINE"
+    echo ""
+    echo "📍 Daemon en el puerto $PANEL_PORT y SFTP en el $SFTP_PORT de esta máquina"
+    echo "🔗 Conectado al panel $NODE_PANEL_URL"
+    if [[ "$PANEL_NOT_READY" == "true" ]]; then
+        printf '   %s⚠  El daemon aún no responde: revisa docker logs %s%s\n' "$YELLOW" "$PANEL_CONTAINER" "$NC"
+    fi
+    echo ""
+    echo "  Comprueba en el panel: Nodos → $NODE_NAME (CPU, memoria y discos en vivo)."
+    echo "  Si el panel no llega al nodo, revisa que su host y el puerto $PANEL_PORT sean"
+    echo "  los de esta máquina y que un firewall externo (el del proveedor) los deje pasar."
+    echo "  Se actualiza junto con el panel (Ajustes → Actualizaciones)."
+    echo ""
+}
+
+install_node() {
+    require_root
+    acquire_lock
+    detect_os
+    load_state
+    detect_existing_installation
+    if [[ "$EXISTING_INSTALL" == "true" && "$IS_NODE_ONLY" != "true" ]]; then
+        die "Esta máquina ya tiene el panel instalado en $INSTALL_DIR: un nodo va en otra máquina"
+    fi
+    IS_NODE_ONLY=true
+    CREATE_ADMIN=false
+    SKIP_NGINX=true
+    AUTO_MODE=true
+    AUTO_CONFIRMED=true
+    DB_MODE=local
+
+    check_resources
+    resolve_branch
+    install_dependencies
+    node_join
+    ensure_docker_running
+    check_ports
+    sync_repository
+    enable_node_compose
+    configure_compose_override
+    build_images
+    configure_firewall
+    queue_node_config
+    start_stack
+    save_state
+    print_node_summary
 }
 
 # =============================================================================
@@ -4052,6 +4230,12 @@ main() {
 
     # Banner inicial
     print_banner
+
+    # Nodo con código de unión: un flujo propio, sin panel web, base de datos ni Nginx
+    if [[ "$NODE_MODE" == "true" ]]; then
+        install_node
+        exit 0
+    fi
 
     # Menú principal interactivo (solo si no se pasó ningún argumento)
     if [[ "$HAS_INSTALL_ARGS" == "false" ]] && interactive_manual; then

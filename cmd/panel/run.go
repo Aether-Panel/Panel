@@ -158,9 +158,7 @@ func startDaemon() bool {
 func warnPanelDisabled() {
 	logging.Info.Printf("Panel web routes are disabled. Only Daemon API is active.")
 	if config.TokenPublicURL.Value() == "" {
-		logging.Error.Printf("WARNING: Panel is disabled but token.public (TokenPublicURL) is empty!")
-		logging.Error.Printf("This node will not be able to authenticate requests from the Master Panel.")
-		logging.Error.Printf("Please configure it in config.json or set SKYPANEL_TOKEN_PUBLIC in docker-compose.")
+		logging.Info.Printf("token.public is not set: the panel's public key is read at %s (from daemon.auth.url)", services.PanelPublicKeyURL())
 	}
 }
 

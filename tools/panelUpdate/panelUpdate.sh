@@ -58,7 +58,10 @@ IS_SLAVE=false
 SLAVE_TOKEN_PUBLIC=""
 if grep -qE '^[[:space:]]*- SKYPANEL_PANEL_ENABLE=false' docker-compose.yml 2>/dev/null; then
     IS_SLAVE=true
-    SLAVE_TOKEN_PUBLIC=$(grep -oE 'SKYPANEL_TOKEN_PUBLIC=[^ ]+' docker-compose.yml 2>/dev/null | head -1 | cut -d= -f2-)
+    # Solo una línea activa: la comentada del repositorio es un ejemplo (http://<MASTER-IP>:8080/...),
+    # y activarla dejaría al nodo sin la clave del panel (la variable gana a config.json)
+    SLAVE_TOKEN_PUBLIC=$(grep -E '^[[:space:]]*- SKYPANEL_TOKEN_PUBLIC=' docker-compose.yml 2>/dev/null | head -1 | sed 's/.*SKYPANEL_TOKEN_PUBLIC=//; s/[[:space:]].*//')
+    case "$SLAVE_TOKEN_PUBLIC" in *"<"*) SLAVE_TOKEN_PUBLIC="" ;; esac
     echo "[INFO] Nodo esclavo detectado: se preservará la configuración de daemon en el yml."
 fi
 

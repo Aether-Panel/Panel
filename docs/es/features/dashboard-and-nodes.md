@@ -19,7 +19,7 @@ El panel de inicio (en la barra lateral, **Inicio**) es la primera página tras 
 
 - Lista de nodos con ubicación y número de servidores; acciones **Ver detalles**, **Editar**, **Desplegar** y **Eliminar**.
 - Detalle del nodo: total de servidores (en línea/fuera de línea), **Uso de memoria**, **Uso de CPU** (núcleos/hilos), tiempo encendido, información del sistema (nombre de host, plataforma, SO, arquitectura, modelo de CPU, memoria), **Discos** y **Servidores en este nodo**.
-- Diálogo **Desplegar nodo** con los pasos para instalar un nodo solo daemon.
+- Diálogo **Desplegar nodo**: el comando de un solo paso que instala el nodo en otra máquina, o los pasos a mano.
 
 ## Cómo funciona
 
@@ -87,7 +87,7 @@ En los nodos con Docker, el daemon descarga las imágenes de `docker.prefetchIma
 
 - **Inicio**: abra el panel de inicio y elija **1 h**, **6 h** o **24 h** en **Red histórica**. Un aviso de poco disco enlaza con el nodo.
 - **Nodos → Añadir nodo**: indique nombre, host público, puerto público y puerto SFTP; marque la opción de host privado distinto si el panel llega al nodo por otra dirección.
-- **Nodos → nodo → Desplegar nodo**: muestra el `docker-compose.yml` y los comandos para un nodo solo daemon (`SKYPANEL_PANEL_ENABLE=false`). Requiere `nodes.deploy` porque revela el secreto del nodo.
+- **Nodos → nodo → Desplegar nodo**: **Generar comando** da una línea para pegar como `root` en la máquina nueva, que la instala como nodo y la conecta (el código vale una vez y una hora; véase [Instalación → nodo secundario](../setup/01-installation.md#método-3-nodo-secundario-solo-daemon)). **Ver la instalación manual** muestra el `docker-compose.yml` con las credenciales reales del nodo. Requiere `nodes.deploy` porque revela el secreto del nodo.
 - **Editar nodo / Borrar nodo** en la página del nodo. El nodo local no se puede editar («No se puede editar»); el host que muestra sale de la URL maestra del panel en la configuración.
 
 ### Mediante la API
@@ -102,6 +102,8 @@ En los nodos con Docker, el daemon descarga las imágenes de `docker.prefetchIma
 | `GET` | `/api/nodes/network-history?range=1h\|6h\|24h` | `nodes.view` | Tráfico de todos los nodos sumado |
 | `POST` | `/api/nodes/:id/ports/check` | `server.create` | Qué puertos están ocupados, por qué y una alternativa libre |
 | `GET` | `/api/nodes/:id/deployment` | `nodes.deploy` | ID de cliente y secreto para un daemon remoto |
+| `POST` | `/api/nodes/:id/join` | `nodes.deploy` | Código de unión de un solo uso (una hora) y el comando que instala el nodo |
+| `POST` | `/api/node-join` | Público (el código) | El instalador cambia el código por las credenciales y los puertos del nodo |
 | `GET` | `/daemon/system`, `/daemon/ports`, `/daemon/network/history` | JWT del panel | Fuentes del lado del nodo que usa el panel |
 
 Ejemplo de comprobación de puertos:

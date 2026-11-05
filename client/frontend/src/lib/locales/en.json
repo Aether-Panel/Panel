@@ -2954,7 +2954,7 @@
     },
     "deployDialog": {
       "title": "Deploy Node: {{name}}",
-      "description": "This node will be used as a slave: it adds capacity to run servers on another machine while the master panel centralizes management. The server will only run the Daemon (<code>SKYPANEL_PANEL_ENABLE=false</code>) and connect to this Panel.",
+      "description": "A node adds another machine that runs servers; this panel still manages them. That machine only runs the daemon, with no web panel or database.",
       "step1": "Step 1: Install Docker on the new server.",
       "step1Description": "Install Docker Engine and the Docker Compose plugin on the machine that will become the slave node. Since AetherPanel runs in Docker, you do not need to configure an additional Panel, only the Daemon.",
       "step2": "Step 2: Create the deploy folder.",
@@ -2963,8 +2963,19 @@
       "step3Description": "Create a <code>docker-compose.yml</code> file in that folder with the following content. With <code>SKYPANEL_PANEL_ENABLE=false</code> the local Panel is disabled and the Daemon points to the master (adjust the master IP if it differs from this URL):",
       "step4": "Step 4: Start the container.",
       "step4Description": "Run the following command so the Daemon starts inside Docker and securely connects to the Master Panel:",
-      "successMessage": "Your new slave node is configured and connected. You can now assign servers to it from the Master Panel!",
-      "close": "Close"
+      "successMessage": "Connected! The node answers this panel: you can now create servers on it.",
+      "close": "Close",
+      "oneCommandTitle": "With one command (recommended)",
+      "oneCommandDescription": "Generate the command and paste it as <code>root</code> on the new machine. It installs Docker, sets the node up with its credentials, opens its ports and connects it to this panel. The code works once and for an hour.",
+      "generate": "Generate command",
+      "regenerate": "Generate another command",
+      "codeExpires": "Works once, until {{time}}. Generating another one cancels this one.",
+      "requirements": "Needs Linux (Ubuntu, Debian, Rocky, Alma, Fedora, Arch or openSUSE) with 2 GB of RAM and Internet access. The first time takes 5 to 15 minutes because it builds the image. If it fails halfway, run the same command again: no new code is needed.",
+      "showManual": "Show the manual setup",
+      "hideManual": "Hide the manual setup",
+      "loadingSecret": "Loading the node's credentials…",
+      "manualFailed": "Could not load the node's credentials",
+      "waitingMessage": "Waiting for the node to connect… When the command finishes on the new machine it shows up here (it can take 5 to 15 minutes)."
     },
     "detail": {
       "totalServers": "Total Servers",
@@ -3792,7 +3803,10 @@
     "ErrGitHubBadName": "That repository or branch name is not valid.",
     "ErrGitHubBadClient": "GitHub does not know that Client ID, or its OAuth App has Device Flow off. Check it in Settings → GitHub.",
     "ErrClientScopes": "A client can only be limited to server permissions you hold.",
-    "ErrPluginsNotMinecraft": "Plugins and mods are only for Minecraft: Java Edition servers."
+    "ErrPluginsNotMinecraft": "Plugins and mods are only for Minecraft: Java Edition servers.",
+    "ErrNodeJoinCode": "That join code does not exist, was already used or has expired: generate a new one in the panel.",
+    "ErrNodeJoinLocal": "The panel's own node is installed with the panel: it is not deployed on another machine.",
+    "ErrNodeJoinURL": "First set the panel's base URL in Settings → General (for example https://panel.yourdomain.com): the new node reaches the panel there."
   },
   "apiErrorValues": {
     "ErrDiscordTestFailed": {

@@ -19,7 +19,7 @@ The dashboard (sidebar **Home**) is the first page after signing in. Operators g
 
 - List of nodes with location and server count; actions **View Details**, **Edit**, **Deploy**, **Delete**.
 - Node detail: total servers (online/offline), **Memory Usage**, **CPU Usage** (cores/threads), uptime, system information (hostname, platform, OS, architecture, CPU model, memory), **Disks** and **Servers on this Node**.
-- **Deploy Node** dialog with the steps to install a daemon-only node.
+- **Deploy Node** dialog: the one-step command that installs the node on another machine, or the steps by hand.
 
 ## How it works
 
@@ -87,7 +87,7 @@ On Docker nodes the daemon downloads the images in `docker.prefetchImages` 2 min
 
 - **Home**: open the dashboard; choose **1 h**, **6 h** or **24 h** on **Network history**. A low-disk alert links to the node.
 - **Nodes → Add Node**: enter name, public host, public port and SFTP port; tick the option for a different private host/port if the panel reaches the node through another address.
-- **Nodes → node → Deploy Node**: shows the `docker-compose.yml` and commands for a daemon-only node (`SKYPANEL_PANEL_ENABLE=false`). Needs `nodes.deploy` because it reveals the node's secret.
+- **Nodes → node → Deploy Node**: **Generate command** gives a line to paste as `root` on the new machine, which installs it as the node and connects it (the code works once and for an hour; see [Installation → secondary node](../setup/01-installation.md#method-3-secondary-node-daemon-only)). **Show the manual setup** shows the `docker-compose.yml` with the node's real credentials. Needs `nodes.deploy` because it reveals the node's secret.
 - **Edit Node / Delete Node** on the node page. The local node cannot be edited ("Cannot be edited"); its displayed host comes from the panel's master URL in Settings.
 
 ### Via the API
@@ -102,6 +102,8 @@ On Docker nodes the daemon downloads the images in `docker.prefetchImages` 2 min
 | `GET` | `/api/nodes/network-history?range=1h\|6h\|24h` | `nodes.view` | Traffic of all nodes added up |
 | `POST` | `/api/nodes/:id/ports/check` | `server.create` | Which ports are taken, why, and a free alternative |
 | `GET` | `/api/nodes/:id/deployment` | `nodes.deploy` | Client ID and secret for a remote daemon |
+| `POST` | `/api/nodes/:id/join` | `nodes.deploy` | One-time join code (one hour) and the command that installs the node |
+| `POST` | `/api/node-join` | Public (the code) | The installer trades the code for the node's credentials and ports |
 | `GET` | `/daemon/system`, `/daemon/ports`, `/daemon/network/history` | panel JWT | Node-side sources used by the panel |
 
 Example port check:

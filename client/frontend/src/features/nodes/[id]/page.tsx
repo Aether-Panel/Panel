@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CheckCircle2, Clock, Cpu, HardDrive, Info, MemoryStick, Server as ServerIcon, SearchX, Trash2, Rocket, Copy, Loader2, ChevronLeft, ChevronRight } from '@/components/icons';
+import { Clock, Cpu, HardDrive, Info, MemoryStick, Server as ServerIcon, SearchX, Trash2, Rocket, Loader2, ChevronLeft, ChevronRight } from '@/components/icons';
 import type { AppIcon } from '@/components/icons';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,7 @@ import { useTranslations } from '@/contexts/translations-context';
 import { EmptyState } from '@/components/empty-state';
 import { keyedByContent } from '@/lib/keyed';
 import { NodeDiskAlert } from '../node-disk-alert';
+import { DeployNodeDialog } from '../deploy-node-dialog';
 
 function findNode(realNodes: any[], idParam: string) {
   return realNodes.find((n: any) =>
@@ -40,7 +41,6 @@ function formatUptime(s: number | undefined) {
 
 const GB = 1024 * 1024 * 1024;
 
-const richText = '[&_code]:rounded [&_code]:bg-secondary [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_code]:text-foreground';
 
 /** Usage tone shared by every meter on the page. */
 const usageTone = (percent: number) => {
@@ -93,29 +93,6 @@ function InfoSection({ title, children }: Readonly<{ title: string; children: Re
       <h3 className="mb-2 text-sm font-semibold">{title}</h3>
       <dl className="grid gap-x-10 xl:grid-cols-2">{children}</dl>
     </section>
-  );
-}
-
-function CopyableCode({ command }: Readonly<{ command: string }>) {
-  const { t } = useTranslations();
-  const handleCopy = () => {
-    void navigator.clipboard.writeText(command);
-    sileo.success({ title: t('common.copied') });
-  };
-
-  return (
-    <div className="relative rounded-lg border border-border/60 bg-background/50">
-      <pre className="custom-scrollbar overflow-x-auto p-3 pr-12 font-mono text-xs leading-relaxed text-foreground"><code>{command}</code></pre>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute right-1 top-1 h-9 w-9 text-muted-foreground hover:text-foreground"
-        onClick={handleCopy}
-        aria-label={t('common.copy')}
-      >
-        <Copy aria-hidden="true" />
-      </Button>
-    </div>
   );
 }
 
@@ -300,84 +277,7 @@ function ServersCard({ serversOnNode }: Readonly<{ serversOnNode: any[] }>) {
   );
 }
 
-/** The part of a node id the daemon's OAuth client is named after ("node-3" → "3"). */
-function nodeClientSuffix(id: unknown) {
-  const raw = String(id);
-  return raw.includes('-') ? raw.split('-')[1] : id;
-}
 
-function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node }: any) {
-  const { t } = useTranslations();
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://192.168.0.12:8080';
-  const clientId = node ? `.node_${nodeClientSuffix(node.id)}` : '';
-  const deployCompose = node ? [
-    'services:',
-    '  skypanel:',
-    '    image: ghcr.io/aether-panel/panel',
-    '    container_name: skypanel',
-    '    restart: unless-stopped',
-    '    ports:',
-    '      - "8080:8080"',
-    `      - "${node.sftpPort}:${node.sftpPort}"`,
-    '    volumes:',
-    '      - ./storage/skypanel-data:/var/lib/SkyPanel',
-    '      - ./storage/skypanel-logs:/var/log/SkyPanel',
-    '      - //var/run/docker.sock:/var/run/docker.sock',
-    '    environment:',
-    '      - GIN_MODE=release',
-    '      - SKYPANEL_PLATFORM=docker',
-    '      - SKYPANEL_WEB_HOST=0.0.0.0:8080',
-    '      - SKYPANEL_PANEL_ENABLE=false',
-    `      - SKYPANEL_PANEL_SETTINGS_MASTERURL=${origin}`,
-    `      - SKYPANEL_TOKEN_PUBLIC=${origin}/auth/publickey`,
-    `      - SKYPANEL_DAEMON_AUTH_URL=${origin}/oauth2/token`,
-    `      - SKYPANEL_DAEMON_AUTH_CLIENTID=${clientId}`,
-    '      - SKYPANEL_DAEMON_AUTH_CLIENTSECRET=7bdb03bbfbd44aeda8e2a4fc52035c38',
-    `      - SKYPANEL_DAEMON_SFTP_HOST=0.0.0.0:${node.sftpPort}`,
-    '    user: "0:0"'
-  ].join('\n') : '';
-
-  return (
-    <Dialog open={isDeployDialogOpen} onOpenChange={setIsDeployDialogOpen}>
-      <DialogContent className="flex max-h-[min(90svh,56rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
-        <DialogHeader className="border-b border-border/60 p-6 pb-5 text-left">
-          <DialogTitle className="text-xl font-semibold tracking-[-0.02em]">{t('nodes.deployDialog.title', { name: node?.name || '' })}</DialogTitle>
-          <DialogDescription className={richText} dangerouslySetInnerHTML={{ __html: t('nodes.deployDialog.description') }} />
-        </DialogHeader>
-        <div className="custom-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
-          <ol className="space-y-6">
-            <li className="space-y-1.5">
-              <h3 className="text-sm font-semibold">{t('nodes.deployDialog.step1')}</h3>
-              <p className="text-sm text-muted-foreground">{t('nodes.deployDialog.step1Description')}</p>
-            </li>
-            <li className="space-y-1.5">
-              <h3 className="text-sm font-semibold">{t('nodes.deployDialog.step2')}</h3>
-              <p className={cn('text-sm text-muted-foreground', richText)} dangerouslySetInnerHTML={{ __html: t('nodes.deployDialog.step2Description') }} />
-              <div className="pt-1.5"><CopyableCode command="mkdir -p /opt/AetherPanel && cd /opt/AetherPanel" /></div>
-            </li>
-            <li className="space-y-1.5">
-              <h3 className="text-sm font-semibold">{t('nodes.deployDialog.step3')}</h3>
-              <p className={cn('text-sm text-muted-foreground', richText)} dangerouslySetInnerHTML={{ __html: t('nodes.deployDialog.step3Description') }} />
-              <div className="pt-1.5"><CopyableCode command={deployCompose} /></div>
-            </li>
-            <li className="space-y-1.5">
-              <h3 className="text-sm font-semibold">{t('nodes.deployDialog.step4')}</h3>
-              <p className="text-sm text-muted-foreground">{t('nodes.deployDialog.step4Description')}</p>
-              <div className="pt-1.5"><CopyableCode command="docker compose up -d" /></div>
-            </li>
-          </ol>
-          <div className="flex items-start gap-2.5 rounded-xl border border-success/25 bg-success/10 px-4 py-3 text-sm text-success">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            <p>{t('nodes.deployDialog.successMessage')}</p>
-          </div>
-        </div>
-        <DialogFooter className="border-t border-border/60 px-6 py-4">
-          <Button variant="outline" onClick={() => setIsDeployDialogOpen(false)}>{t('nodes.deployDialog.close')}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function EditNodeCard({ node }: Readonly<{ node: any }>) {
   const { t } = useTranslations();
@@ -723,7 +623,7 @@ export default function NodeDetailPage({ params }: Readonly<{ params: { id: stri
         </div>
       </div>
 
-      <DeployDialog isDeployDialogOpen={isDeployDialogOpen} setIsDeployDialogOpen={setIsDeployDialogOpen} node={node} />
+      <DeployNodeDialog node={isDeployDialogOpen ? node : null} onClose={() => setIsDeployDialogOpen(false)} />
     </div>
   );
 }
