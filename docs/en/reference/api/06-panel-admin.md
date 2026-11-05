@@ -153,7 +153,7 @@ Editable keys:
 | Group | Keys |
 |-------|------|
 | Branding | `panel.settings.companyName`, `panel.settings.defaultTheme`, `panel.settings.themeSettings` |
-| Addresses | `panel.settings.masterUrl`, `panel.settings.nodeIp`, `panel.settings.masterNodeIp` |
+| Addresses | `panel.settings.masterUrl` (saved without a trailing slash and with `https://` in front when only the host name arrives, `panel.example.com`), `panel.settings.nodeIp`, `panel.settings.masterNodeIp` |
 | Sign-up and anti-bot | `panel.registrationEnabled`, `panel.registrationApproval`, `panel.turnstile.enabled`, `panel.turnstile.siteKey`, `panel.turnstile.secretKey`, `panel.captcha.builtin` |
 | Email | `panel.email.provider`, `panel.email.from`, `panel.email.host`, `panel.email.username`, `panel.email.password`, `panel.email.domain`, `panel.email.key` |
 | Notifications | `panel.settings.notificationLanguage` (`es` or `en`, default `es`: the language of Discord, Telegram and webhook alerts, the panel's Discord reports and extension events), `panel.notifications.discordWebhook`, `panel.notifications.discordWebhookSystem`, `panel.notifications.discordWebhookNode`, `panel.notifications.discordWebhookExTransfer` |

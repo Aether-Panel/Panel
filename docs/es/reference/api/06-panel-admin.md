@@ -153,7 +153,7 @@ Claves editables:
 | Grupo | Claves |
 |-------|--------|
 | Marca | `panel.settings.companyName`, `panel.settings.defaultTheme`, `panel.settings.themeSettings` |
-| Direcciones | `panel.settings.masterUrl`, `panel.settings.nodeIp`, `panel.settings.masterNodeIp` |
+| Direcciones | `panel.settings.masterUrl` (se guarda sin barra final y con `https://` delante si llega solo el nombre, `panel.ejemplo.com`), `panel.settings.nodeIp`, `panel.settings.masterNodeIp` |
 | Registro y antibots | `panel.registrationEnabled`, `panel.registrationApproval`, `panel.turnstile.enabled`, `panel.turnstile.siteKey`, `panel.turnstile.secretKey`, `panel.captcha.builtin` |
 | Correo | `panel.email.provider`, `panel.email.from`, `panel.email.host`, `panel.email.username`, `panel.email.password`, `panel.email.domain`, `panel.email.key` |
 | Notificaciones | `panel.settings.notificationLanguage` (`es` o `en`, por defecto `es`: el idioma de los avisos de Discord, Telegram y webhooks, de los informes de Discord del panel y de los eventos de las extensiones), `panel.notifications.discordWebhook`, `panel.notifications.discordWebhookSystem`, `panel.notifications.discordWebhookNode`, `panel.notifications.discordWebhookExTransfer` |

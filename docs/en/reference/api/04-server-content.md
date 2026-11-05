@@ -106,7 +106,7 @@ When a file is overwritten through the panel, its previous text is kept. Details
 
 ## Plugins
 
-Plugins and mods come from Modrinth. Details: [Modpacks and plugins](../../features/modpacks-and-plugins.md).
+Plugins and mods come from Modrinth and only exist on Minecraft: Java Edition servers (`type` `minecraft-java`): on any other, the four routes answer `400 ErrPluginsNotMinecraft` and the panel does not show the Plugins tab. Details: [Modpacks and plugins](../../features/modpacks-and-plugins.md).
 
 The node works out the server's platform the same way as for the [world map](#world-map) (the modpack's loader, the `modlauncher` variable, then the install steps): `paper`, `fabric`, `forge`, `neoforge`, or unknown (vanilla, proxies, other games, unknown launchers). The folder follows it: **`mods/`** on Fabric, Forge and NeoForge, **`plugins/`** otherwise. Listing, installing and removing all use that folder.
 

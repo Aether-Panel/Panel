@@ -173,7 +173,7 @@ El botón **Enviar prueba** de Configuración manda un evento `test` firmado (so
 
 La clave de firma prueba que quien envía tiene esa clave, no de qué panel viene: el administrador de cualquier panel ve la suya. Un servicio que recibe eventos de muchos paneles (por ejemplo, una extensión que instalan empresas de hosting para sus clientes) necesita saber cuál de ellos envía, y para eso cada evento lleva además:
 
-- `panel` en el cuerpo: la dirección del panel (`panel.settings.masterUrl`, sin barra final).
+- `panel` en el cuerpo: la dirección del panel (`panel.settings.masterUrl`, sin barra final y con `https://` delante si se escribió solo el nombre).
 - La cabecera `X-Aether-Panel-Signature: ed25519=<base64>`: la firma Ed25519 del cuerpo tal cual llega, hecha con la **clave de identidad del panel**. Es la misma clave con la que firma las transferencias entre paneles; se crea una vez y se guarda en `panel.exTransferKey`.
 
 El panel publica su clave pública en su propia dirección, sin sesión:

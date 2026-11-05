@@ -3791,7 +3791,8 @@
     "ErrGitHubNotFound": "GitHub no encuentra ese repositorio o rama, o tu cuenta no tiene acceso.",
     "ErrGitHubBadName": "Ese nombre de repositorio o rama no es válido.",
     "ErrGitHubBadClient": "GitHub no reconoce ese Client ID o su OAuth App no tiene activado Device Flow. Revísalo en Configuración → GitHub.",
-    "ErrClientScopes": "Un cliente solo puede limitarse a permisos de servidor que tengas."
+    "ErrClientScopes": "Un cliente solo puede limitarse a permisos de servidor que tengas.",
+    "ErrPluginsNotMinecraft": "Los plugins y mods solo existen en servidores de Minecraft: Java Edition."
   },
   "apiErrorValues": {
     "ErrDiscordTestFailed": {
