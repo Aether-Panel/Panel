@@ -1516,8 +1516,25 @@ type PluginSearchResult struct {
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
 // @Router /daemon/server/{id}/plugins [get]
-func getPlugins(c *gin.Context) {
+// errPluginsNotMinecraft: plugins and mods come from Modrinth and only run on Minecraft: Java
+// Edition, so any other server (Arma, Node.js…) has none to list or install
+var errPluginsNotMinecraft = skypanel.CreateError("plugins and mods are only for Minecraft: Java Edition servers", "ErrPluginsNotMinecraft")
+
+// pluginServer is the request's server when it can have plugins; otherwise it answers 400
+func pluginServer(c *gin.Context) (*servers.Server, bool) {
 	server := getServerFromGin(c)
+	if server.Type.Type != "minecraft-java" {
+		c.AbortWithStatusJSON(http.StatusBadRequest, &skypanel.ErrorResponse{Error: errPluginsNotMinecraft})
+		return nil, false
+	}
+	return server, true
+}
+
+func getPlugins(c *gin.Context) {
+	server, ok := pluginServer(c)
+	if !ok {
+		return
+	}
 
 	pluginsDir := pluginFolder(server.PluginPlatform())
 	_, err := server.GetFileServer().Stat(pluginsDir)
@@ -1621,7 +1638,10 @@ func pluginSearchFacets(platform string) string {
 // @Tags Daemon Server
 // @Router /daemon/server/{id}/plugins/search [get]
 func searchPlugins(c *gin.Context) {
-	server := getServerFromGin(c)
+	server, ok := pluginServer(c)
+	if !ok {
+		return
+	}
 
 	queryParam := c.Query("q")
 	if queryParam == "" {
@@ -1718,7 +1738,10 @@ var errBadPluginFileName = skypanel.CreateError("the file Modrinth offers for th
 // @Tags Daemon Server
 // @Router /daemon/server/{id}/plugins/{pluginId} [post]
 func installPlugin(c *gin.Context) {
-	server := getServerFromGin(c)
+	server, ok := pluginServer(c)
+	if !ok {
+		return
+	}
 
 	projectID := c.Param("pluginId")
 	if projectID == "" {
@@ -1912,7 +1935,10 @@ func fetchLatestModrinthFile(c *gin.Context, projectID string, loaders, gameVers
 // @Tags Daemon Server
 // @Router /daemon/server/{id}/plugins [delete]
 func deletePlugin(c *gin.Context) {
-	server := getServerFromGin(c)
+	server, ok := pluginServer(c)
+	if !ok {
+		return
+	}
 
 	pluginName := c.Query("name")
 

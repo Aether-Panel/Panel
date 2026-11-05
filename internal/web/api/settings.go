@@ -185,7 +185,12 @@ func saveMasterNodeIP(db *gorm.DB, value interface{}) error {
 // applyEditableSetting writes the value to the editable config entry with
 // the given key, converted to that entry's type. Unknown keys are ignored.
 func applyEditableSetting(key string, value interface{}) error {
-	if err := setMatchingEntries(editableStringEntries, key, strings.TrimSpace(cast.ToString(value))); err != nil {
+	text := strings.TrimSpace(cast.ToString(value))
+	if key == config.MasterURL.Key() {
+		// links in emails, password resets and the panel's identity need a full address
+		text = services.NormalizePanelURL(text)
+	}
+	if err := setMatchingEntries(editableStringEntries, key, text); err != nil {
 		return err
 	}
 	if err := setMatchingEntries(editableBoolEntries, key, cast.ToBool(value)); err != nil {

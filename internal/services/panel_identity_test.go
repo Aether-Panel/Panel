@@ -51,3 +51,17 @@ func TestPanelIdentityKey_SurvivesARestart(t *testing.T) {
 	assert.True(t, first.Equal(PanelPublicKey()), "receivers that pinned the key must still verify the panel")
 	assert.Len(t, first, ed25519.PublicKeySize)
 }
+
+func TestNormalizePanelURL_IsAlwaysAFullAddress(t *testing.T) {
+	cases := [][2]string{
+		{"test.aetherpanel.es", "https://test.aetherpanel.es"},
+		{"https://panel.example.com/", "https://panel.example.com"},
+		{"http://10.0.0.5:8080", "http://10.0.0.5:8080"},
+		{"panel.example.com:8443/", "https://panel.example.com:8443"},
+		{"", ""},
+	}
+	for _, c := range cases {
+		assert.Equal(t, c[1], NormalizePanelURL(c[0]), c[0])
+	}
+	assert.Equal(t, "https://panel.example.com", NormalizePanelURL("  panel.example.com/  "), "spaces around it are dropped")
+}

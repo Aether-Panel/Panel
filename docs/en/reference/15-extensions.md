@@ -173,7 +173,7 @@ The **Send test** button in Settings posts a signed `test` event (`event`, `exte
 
 The signing key proves the sender holds that key, not which panel it is: any panel's administrator sees their own. A service that receives events from many panels (for example, an extension hosting companies install for their customers) needs to know which one sends, so every event also carries:
 
-- `panel` in the body: the panel's address (`panel.settings.masterUrl`, without a trailing slash).
+- `panel` in the body: the panel's address (`panel.settings.masterUrl`, without a trailing slash and with `https://` in front when only the host name was written).
 - The `X-Aether-Panel-Signature: ed25519=<base64>` header: the Ed25519 signature of the body as received, made with the **panel's identity key**. It is the key the panel signs transfers between panels with; it is created once and kept in `panel.exTransferKey`.
 
 The panel publishes its public key at its own address, without a session:

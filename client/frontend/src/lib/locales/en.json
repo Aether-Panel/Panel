@@ -3791,7 +3791,8 @@
     "ErrGitHubNotFound": "GitHub cannot find that repository or branch, or your account has no access to it.",
     "ErrGitHubBadName": "That repository or branch name is not valid.",
     "ErrGitHubBadClient": "GitHub does not know that Client ID, or its OAuth App has Device Flow off. Check it in Settings → GitHub.",
-    "ErrClientScopes": "A client can only be limited to server permissions you hold."
+    "ErrClientScopes": "A client can only be limited to server permissions you hold.",
+    "ErrPluginsNotMinecraft": "Plugins and mods are only for Minecraft: Java Edition servers."
   },
   "apiErrorValues": {
     "ErrDiscordTestFailed": {

@@ -106,7 +106,7 @@ Cuando se sobrescribe un archivo desde el panel, se conserva su texto anterior. 
 
 ## Plugins
 
-Los plugins y los mods proceden de Modrinth. Detalles: [Modpacks y plugins](../../features/modpacks-and-plugins.md).
+Los plugins y los mods proceden de Modrinth y solo existen en servidores de Minecraft: Java Edition (`type` `minecraft-java`): en cualquier otro, las cuatro rutas responden `400 ErrPluginsNotMinecraft` y el panel no muestra la pestaña Plugins. Detalles: [Modpacks y plugins](../../features/modpacks-and-plugins.md).
 
 El nodo deduce la plataforma del servidor igual que para el [mapa del mundo](#mapa-del-mundo) (el cargador del modpack, la variable `modlauncher` y, por último, los pasos de instalación): `paper`, `fabric`, `forge`, `neoforge` o desconocida (vanilla, proxies, otros juegos, lanzadores desconocidos). La carpeta depende de ella: **`mods/`** en Fabric, Forge y NeoForge, **`plugins/`** en los demás casos. Listar, instalar y quitar usan esa carpeta.
 

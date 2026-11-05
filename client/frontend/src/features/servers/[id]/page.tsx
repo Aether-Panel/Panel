@@ -577,7 +577,8 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
     ...tabsIf(can('server.data.edit.admin'), { value: 'extransfer', label: t('servers.detail.tabs.extransfer'), icon: ArrowRightLeft }),
     // splitting takes resources out of the plan: the owner's (or an administrator's) call
     ...tabsIf(isOwner || can('server.data.edit.admin'), { value: 'splitter', label: t('servers.detail.tabs.splitter'), icon: GitBranch }),
-    ...tabsIf(pluginsTabEnabled && can('server.files.edit'), { value: 'plugins', label: t('servers.detail.tabs.plugins'), icon: Puzzle }),
+    // plugins and mods come from Modrinth: only Minecraft: Java Edition runs them
+    ...tabsIf(isMinecraftJava && pluginsTabEnabled && can('server.files.edit'), { value: 'plugins', label: t('servers.detail.tabs.plugins'), icon: Puzzle }),
     ...tabsIf(isMinecraftJava,
       { value: 'modpacks', label: t('servers.detail.tabs.modpacks'), icon: Package },
       { value: 'map', label: t('servers.detail.tabs.map'), icon: MapIcon },

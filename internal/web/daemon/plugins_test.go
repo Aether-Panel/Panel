@@ -348,3 +348,24 @@ func jsonString(s string) string {
 	encoded, _ := json.Marshal(s)
 	return string(encoded)
 }
+
+func TestPlugins_OnlyForMinecraftJava(t *testing.T) {
+	server, _ := newPluginTestServer(t, "")
+	server.Type.Type = "armareforger"
+
+	for _, call := range []struct {
+		handler gin.HandlerFunc
+		method  string
+		target  string
+		params  gin.Params
+	}{
+		{getPlugins, http.MethodGet, "/plugins", nil},
+		{searchPlugins, http.MethodGet, "/plugins/search?q=essentials", nil},
+		{installPlugin, http.MethodPost, "/plugins/essentialsx", gin.Params{{Key: "pluginId", Value: "essentialsx"}}},
+		{deletePlugin, http.MethodDelete, "/plugins?name=a.jar", nil},
+	} {
+		w := runPluginHandler(call.handler, server, call.method, call.target, call.params)
+		assert.Equal(t, http.StatusBadRequest, w.Code, call.target)
+		assert.Contains(t, w.Body.String(), "ErrPluginsNotMinecraft", call.target)
+	}
+}

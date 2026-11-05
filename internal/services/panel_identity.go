@@ -49,10 +49,21 @@ func PanelPublicKey() ed25519.PublicKey {
 	return PanelIdentityKey().Public().(ed25519.PublicKey)
 }
 
-// PanelURL is the panel's address as set in Settings (panel.settings.masterUrl), without a
-// trailing slash
+// PanelURL is the panel's address as set in Settings (panel.settings.masterUrl), as a full
+// address: NormalizePanelURL of it
 func PanelURL() string {
-	return strings.TrimRight(strings.TrimSpace(config.MasterURL.Value()), "/")
+	return NormalizePanelURL(config.MasterURL.Value())
+}
+
+// NormalizePanelURL makes the panel's address a full one: without a trailing slash, and with
+// https:// when it was written as a bare host (test.example.com), which is how people type it
+// into Settings and which nothing outside the panel could use as an address
+func NormalizePanelURL(raw string) string {
+	address := strings.TrimRight(strings.TrimSpace(raw), "/")
+	if address != "" && !strings.Contains(address, "://") {
+		address = "https://" + address
+	}
+	return address
 }
 
 // PanelSignature is the header value that signs body with the panel's identity:
