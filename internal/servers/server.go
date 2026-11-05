@@ -1709,7 +1709,8 @@ func (p *Server) beginBackup(prefix string) (fileName, file string, err error) {
 	return fileName, path.Join(backupDirectory, fileName), nil
 }
 
-// finishBackup writes the archive, copies it off-site when that is on, and reports the result
+// finishBackup writes the archive and reports the result. It never uploads: a backup made by
+// hand stays on the node, and a scheduled one is copied off-site by its caller when due.
 func (p *Server) finishBackup(file string) bool {
 	err := p.writeArchive(file)
 	if err != nil {
@@ -1721,12 +1722,7 @@ func (p *Server) finishBackup(file string) bool {
 			p.markBackupFailed(file)
 		}
 	}
-	// the backup is done once the local archive exists; the off-site copy (up to two hours)
-	// runs after, so it no longer keeps the server from starting or being restarted
 	p.endBackup(err == nil)
-	if err == nil {
-		go p.uploadOffsite(file)
-	}
 	return err == nil
 }
 
@@ -1775,25 +1771,6 @@ func (p *Server) writeArchive(file string) error {
 // offsiteTimeout bounds one transfer to or from the bucket
 const offsiteTimeout = 2 * time.Hour
 
-// uploadOffsite copies a finished backup to the bucket when off-site backups are on. The
-// local copy stays: the bucket is for when the node's disk is gone. A failed upload is
-// reported but does not fail the backup, which exists locally.
-func (p *Server) uploadOffsite(file string) {
-	cfg, ok := offsite.FromSettings()
-	if !ok {
-		return
-	}
-	p.RunningEnvironment.DisplayToConsole(true, "Uploading backup to off-site storage")
-	ctx, cancel := context.WithTimeout(context.Background(), offsiteTimeout)
-	defer cancel()
-	if err := offsite.Upload(ctx, cfg, p.ID(), filepath.Base(file), file); err != nil {
-		p.Log(logging.Error, "Error uploading backup off-site: %s", err)
-		p.RunningEnvironment.DisplayToConsole(true, "Off-site upload failed: %s", err)
-		return
-	}
-	p.RunningEnvironment.DisplayToConsole(true, "Backup uploaded to off-site storage")
-}
-
 func (p *Server) endBackup(success bool) {
 	p.backupState.Store(backupIdle)
 
@@ -1812,8 +1789,20 @@ func (p *Server) endBackup(success bool) {
 	}
 }
 
-// ListBackups returns the finished backups in the server's backup folder, newest first
+// ListBackups returns the server's finished backups, on the node and in the bucket, newest
+// first
 func (p *Server) ListBackups() ([]skypanel.BackupFile, error) {
+	result, err := p.listLocalBackups()
+	if err != nil {
+		return nil, err
+	}
+	result = p.mergeOffsite(result)
+	sortNewestFirst(result)
+	return result, nil
+}
+
+// listLocalBackups returns the finished backups in the server's backup folder, in no order
+func (p *Server) listLocalBackups() ([]skypanel.BackupFile, error) {
 	entries, err := os.ReadDir(p.GetBackupDirectory())
 	if os.IsNotExist(err) {
 		return []skypanel.BackupFile{}, nil
@@ -1834,21 +1823,22 @@ func (p *Server) ListBackups() ([]skypanel.BackupFile, error) {
 		}
 		result = append(result, skypanel.BackupFile{FileName: name, Size: info.Size(), ModTime: info.ModTime(), Location: "local"})
 	}
-	result = p.mergeOffsite(result)
-	sort.Slice(result, func(i, j int) bool { return result[i].ModTime.After(result[j].ModTime) })
 	return result, nil
+}
+
+func sortNewestFirst(backups []skypanel.BackupFile) {
+	sort.Slice(backups, func(i, j int) bool { return backups[i].ModTime.After(backups[j].ModTime) })
 }
 
 // mergeOffsite adds the backups only the bucket still has and marks the ones in both places.
 // If the bucket cannot be listed the local list is returned as it is.
 func (p *Server) mergeOffsite(local []skypanel.BackupFile) []skypanel.BackupFile {
-	cfg, ok := offsite.FromSettings()
-	if !ok {
+	if !bucket.Configured() {
 		return local
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	remote, err := offsite.List(ctx, cfg, p.ID())
+	remote, err := bucket.List(ctx, p.ID())
 	if err != nil {
 		p.Log(logging.Error, "Error listing off-site backups: %s", err)
 		return local
@@ -1867,15 +1857,18 @@ func (p *Server) mergeOffsite(local []skypanel.BackupFile) []skypanel.BackupFile
 	return local
 }
 
-// pruneAutoBackups deletes the oldest automatic backups beyond the newest keep
+// pruneAutoBackups deletes the oldest automatic backups on the node beyond the newest keep.
+// The bucket keeps its own history, pruned on its own count, so only local copies are counted
+// and deleted here.
 func (p *Server) pruneAutoBackups(keep int) error {
 	if keep < 1 {
 		return nil
 	}
-	backups, err := p.ListBackups()
+	backups, err := p.listLocalBackups()
 	if err != nil {
 		return err
 	}
+	sortNewestFirst(backups)
 	kept := 0
 	for _, b := range backups {
 		if !strings.HasPrefix(b.FileName, AutoBackupPrefix) {
@@ -1883,7 +1876,7 @@ func (p *Server) pruneAutoBackups(keep int) error {
 		}
 		kept++
 		if kept > keep {
-			if err := p.DeleteBackup(b.FileName); err != nil {
+			if err := p.deleteLocalBackup(b.FileName); err != nil {
 				return err
 			}
 		}
@@ -1891,7 +1884,25 @@ func (p *Server) pruneAutoBackups(keep int) error {
 	return nil
 }
 
+// DeleteBackup removes a backup everywhere it is, on the node and in the bucket, as a user
+// asks from the panel
 func (p *Server) DeleteBackup(fileName string) error {
+	if err := p.deleteLocalBackup(fileName); err != nil {
+		return err
+	}
+	if bucket.Configured() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		if err := bucket.Delete(ctx, p.ID(), fileName); err != nil {
+			p.Log(logging.Error, "Error deleting off-site backup %s: %s", fileName, err)
+		}
+	}
+	return nil
+}
+
+// deleteLocalBackup removes the backup's file on the node, and its failed mark, leaving any
+// copy in the bucket alone
+func (p *Server) deleteLocalBackup(fileName string) error {
 	if !filepath.IsLocal(fileName) {
 		return fmt.Errorf("invalid backup file name: %s", fileName)
 	}
@@ -1911,15 +1922,6 @@ func (p *Server) DeleteBackup(fileName string) error {
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
-
-	if cfg, ok := offsite.FromSettings(); ok {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-		defer cancel()
-		if err := offsite.Delete(ctx, cfg, p.ID(), fileName); err != nil {
-			p.Log(logging.Error, "Error deleting off-site backup %s: %s", fileName, err)
-		}
-	}
-
 	return nil
 }
 
@@ -1933,16 +1935,33 @@ func (p *Server) locateBackup(fileName string) (backupFile string, fetchOffsite 
 			return "", false, err
 		}
 		// the local copy is gone (a new disk, say): the bucket may still have it
-		cfg, ok := offsite.FromSettings()
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		exists := ok && offsite.Exists(ctx, cfg, p.ID(), fileName)
-		cancel()
-		if !exists {
+		if !p.inBucket(path.Base(fileName)) {
 			return "", false, skypanel.ErrFileNotFound
 		}
 		return backupFile, true, nil
 	}
 	return backupFile, false, nil
+}
+
+// inBucket tells whether the bucket holds the backup; a bucket that is off or cannot be listed
+// does not
+func (p *Server) inBucket(fileName string) bool {
+	if !bucket.Configured() {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	objects, err := bucket.List(ctx, p.ID())
+	if err != nil {
+		p.Log(logging.Error, "Error listing off-site backups: %s", err)
+		return false
+	}
+	for _, o := range objects {
+		if o.FileName == fileName {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Server) StartRestore(fileName string) error {
