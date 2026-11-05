@@ -271,6 +271,8 @@ log_debug() {
     return 0
 }
 die() { log_error "$*"; exit 1; }
+# El usuario canceló: sale sin error y sin cambiar nada
+cancel_exit() { echo "Cancelado."; exit 0; }
 
 print_banner() {
     # Solo se limpia la pantalla en una sesión interactiva real (clear falla sin TERM)
@@ -1154,7 +1156,7 @@ existing_installation_menu() {
         2) log_info "Iniciando reconfiguración..." ;;
         3) REINSTALL_MODE=true; reinstall_prepare ;;
         4) UNINSTALL_MODE=""; uninstall; exit 0 ;;
-        *) echo "Cancelado."; exit 0 ;;
+        *) cancel_exit ;;
     esac
 }
 
@@ -3528,7 +3530,7 @@ uninstall() {
             1) UNINSTALL_MODE="basic" ;;
             2) UNINSTALL_MODE="data" ;;
             3) UNINSTALL_MODE="full" ;;
-            *) echo "Cancelado."; exit 0 ;;
+            *) cancel_exit ;;
         esac
         if [[ "$UNINSTALL_MODE" != "basic" ]]; then
             db_settings
@@ -3538,7 +3540,7 @@ uninstall() {
                 "$([[ "$DBS_MODE" == "$DB_MODE_EXTERNAL" ]] && echo " local (la externa $DBS_HOST no se toca)")" "$NC"
             local confirm
             prompt_read confirm "Escribe BORRAR para confirmar" ""
-            [[ "$confirm" == "BORRAR" ]] || { echo "Cancelado."; exit 0; }
+            [[ "$confirm" == "BORRAR" ]] || cancel_exit
         fi
     else
         if [[ -z "$UNINSTALL_MODE" ]]; then UNINSTALL_MODE="basic"; fi
@@ -3801,7 +3803,7 @@ reinstall_prepare() {
         [[ "$ans" == "yes" ]] || backup=false
         local confirm
         prompt_read confirm "Escribe REINSTALAR para borrar y reinstalar" ""
-        [[ "$confirm" == "REINSTALAR" ]] || { echo "Cancelado."; exit 0; }
+        [[ "$confirm" == "REINSTALAR" ]] || cancel_exit
     else
         [[ "$AUTO_CONFIRMED" == "true" ]] || die "Reinstalar sin terminal borra datos: confirma con --yes"
         [[ "$SKIP_BACKUP" == "true" ]] && backup=false
@@ -4112,9 +4114,9 @@ saved_node_panel() {
 # parse_join_command "TEXTO": saca --panel y --join del comando que da el panel
 # (curl … | sudo bash -s -- --node --panel URL --join CÓDIGO), pegado tal cual
 parse_join_command() {
+    local text=$1 i word value
     local -a words=()
-    local i word value
-    read -r -a words <<<"$1"
+    read -r -a words <<<"$text"
     for ((i = 0; i < ${#words[@]}; i++)); do
         word=${words[i]}
         value=""
@@ -4434,7 +4436,7 @@ menu_reinstall() {
             AUTO_CONFIRMED=true
             ;;
         2) REINSTALL_MODE=true ;;
-        *) echo "Cancelado."; exit 0 ;;
+        *) cancel_exit ;;
     esac
     # un nodo extra se reinstala con su propio flujo (y, desde cero, con un código nuevo)
     if [[ "$IS_NODE_ONLY" == "true" ]]; then NODE_MODE=true; fi
