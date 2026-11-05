@@ -224,3 +224,10 @@ Instalaciones reales en contenedores con systemd:
 # install.sh 4.2.1 → 4.2.2
 
 - **Base de datos externa en el propio servidor.** Con `--db-mode external` y el host `localhost` (el valor por defecto de la pregunta), el `.env` recibía `host.docker.internal`, pero la comprobación de la conexión rechazaba `localhost`/`127.*` y paraba la instalación. Ahora las dos usan la misma regla: `localhost`, `127.*` y `::1` pasan a `host.docker.internal`, y la comprobación (y la copia de seguridad de `--update`) se conectan a ese nombre desde un contenedor con `host-gateway`, como el panel. MySQL tiene que escuchar en la IP del puente Docker (`bind-address`), y el instalador lo recuerda.
+
+
+# install.sh 4.2.2 → 4.2.3
+
+- **Nodo con un solo comando.** `--node --panel URL --join CÓDIGO` (el comando que da el panel en Nodos → nodo → Desplegar nodo) canjea el código por el ID, el secreto y los puertos del nodo, los guarda en `/etc/SkyPanel/node.json` (repetir el comando no necesita otro código) y deja la configuración del daemon en `config.json`. El nodo arranca sin MariaDB.
+- **La dirección de la clave del panel sale de `--panel`.** Una línea `SKYPANEL_TOKEN_PUBLIC` activa en `docker-compose.yml` (de un nodo montado a mano) ganaba a `config.json`: con una dirección vieja del panel (por ejemplo `http://IP:8080`, cerrada), el nodo no leía su clave y rechazaba todas las peticiones del panel, y el panel no mostraba sus métricas. Al unir el nodo con el comando, esa línea se vuelve a comentar.
+- Al leer la línea `SKYPANEL_TOKEN_PUBLIC` para conservarla en una actualización, se ignora la de ejemplo (`http://<MASTER-IP>:8080/...`).

@@ -17,44 +17,48 @@ export function useNodes(skip = false) {
     const [nodes, setNodes] = useState<any[]>([]);
     const [loading, setLoading] = useState(!skip);
     const [error, setError] = useState<Error | null>(null);
+    // a poll that is still waiting on a slow node is not stacked with another one
+    const inFlight = useRef(false);
 
     const fetchNodes = async () => {
-        if (skip) return;
+        if (skip || inFlight.current) return;
+        inFlight.current = true;
         try {
             const data = await api.get('/api/nodes');
-            const nodesList = Array.isArray(data) ? data : [];
+            const nodesList: any[] = Array.isArray(data) ? data : [];
 
-            // Try to fetch system info for each node
-            const nodesWithStats = await Promise.all(nodesList.map(async (node: any) => {
-                try {
-                    const systemInfo = await api.get(`/api/nodes/${node.id}/system`).catch(() => null);
-                    return { ...node, systemInfo };
-                } catch {
-                    // Stats are optional: a node whose /system call fails is still listed, just without them.
-                    return node;
-                }
-            }));
-
-            setNodes(nodesWithStats);
+            // the list shows at once, with the metrics it had; it does not wait for the slowest node.
+            // A node not asked yet has undefined metrics (pending), one that did not answer null.
+            setNodes(prev => {
+                const known = new Map(prev.map(n => [n.id, n.systemInfo]));
+                return nodesList.map(node => ({ ...node, systemInfo: known.get(node.id) }));
+            });
             setError(null);
+            setLoading(false);
+
+            // a node whose /system call fails is still listed, without metrics (offline)
+            const infos = await Promise.all(nodesList.map(node =>
+                api.get(`/api/nodes/${node.id}/system`).catch(() => null)));
+            setNodes(nodesList.map((node, i) => ({ ...node, systemInfo: infos[i] })));
         } catch (e: any) {
             setError(e);
             console.error('Failed to fetch nodes:', e);
         } finally {
             setLoading(false);
+            inFlight.current = false;
         }
     };
 
     useEffect(() => {
         if (skip) return;
-        
+
         void fetchNodes();
         const interval = setInterval(() => {
             // a hidden tab does not poll: each /system call keeps the node busy for a second
             if (document.visibilityState === 'hidden') return;
             void fetchNodes();
         }, 5000);
-        
+
         return () => clearInterval(interval);
     }, [skip]);
 

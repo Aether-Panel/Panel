@@ -144,6 +144,12 @@ function NodeFields({
   );
 }
 
+/** online with metrics, pending while its first answer is on the way, offline when it did not answer */
+function nodeStatus(systemInfo: unknown): 'online' | 'pending' | 'offline' {
+  if (systemInfo) return 'online';
+  return systemInfo === undefined ? 'pending' : 'offline';
+}
+
 const STATUS_TONE: Record<string, string> = {
   online: 'bg-success/10 text-success',
   offline: 'bg-destructive/10 text-destructive-bright',
@@ -345,7 +351,7 @@ export default function NodesPage() {
 
   const nodes = realNodes.map((n: any) => ({
     ...n,
-    status: n.systemInfo ? 'online' : 'offline',
+    status: nodeStatus(n.systemInfo),
     location: n.isLocal ? 'Local' : (n.publicHost || t('nodes.unknownLocation'))
   }));
 

@@ -40,7 +40,7 @@ func answerNodeAuthFailure(c *gin.Context, node *models.Node, res *http.Response
 	if node != nil {
 		name = node.Name
 	}
-	logging.Error.Printf("Node %q refused the panel's token (status %d): check that its daemon.auth.clientSecret is the node's secret in the panel and that both clocks are right", name, res.StatusCode)
+	logging.Error.Printf("Node %q refused the panel's token (status %d): check that it reaches the panel's address to read its key (token.public), that its daemon.auth.clientSecret is the node's secret in the panel and that both clocks are right", name, res.StatusCode)
 	c.AbortWithStatusJSON(http.StatusBadGateway, &skypanel.ErrorResponse{Error: skypanel.ErrNodeAuthFailed})
 	return true
 }

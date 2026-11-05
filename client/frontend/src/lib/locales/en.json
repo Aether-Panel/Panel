@@ -3768,7 +3768,7 @@
     "ErrTransferBackupRunning": "A backup or restore of this server is in progress. Transfer it once it's done.",
     "ErrTransferSubServer": "A sub-server stays on its parent's node. Transfer the parent server instead: its sub-servers go with it.",
     "ErrTransferPortsTaken": "Some of this server's ports are already in use on the target node. Free them there or pick another node.",
-    "ErrNodeAuthFailed": "The node refused the panel's credentials. An administrator should check that the node's secret matches the one in the panel and that both machines have the right time.",
+    "ErrNodeAuthFailed": "The node refused the panel's credentials. An administrator should check that the node reaches the panel's address (it reads the panel's key there), that its secret matches the one in the panel and that both machines have the right time.",
     "ErrPortOutOfRange": "Port {{port}} is outside the allowed range (1024-65535).",
     "ErrPortDuplicated": "Port {{port}} is listed more than once.",
     "ErrPortUsedByPanel": "Port {{port}} is used by the panel itself on this node.",

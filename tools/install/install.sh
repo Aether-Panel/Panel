@@ -2,7 +2,7 @@
 
 ###############################################################################
 # Aether Panel - Script de Instalación Automática (Docker)
-# Versión: 4.2.2
+# Versión: 4.2.3
 # Repositorio: https://github.com/Aether-Panel/Panel.git
 # Nota: Aether Panel es el nombre oficial. SkyPanel es el nombre en clave.
 # Soporte: Solo instalación vía Docker. No existe modo nativo.
@@ -29,7 +29,7 @@ umask 022
 # CONFIGURACIÓN Y VARIABLES GLOBALES
 # =============================================================================
 
-readonly SCRIPT_VERSION="4.2.2"
+readonly SCRIPT_VERSION="4.2.3"
 readonly SCRIPT_BUILD="20261026-hardening"
 readonly PROJECT_NAME="Aether Panel"
 readonly PROJECT_CODENAME="SkyPanel"
@@ -4113,7 +4113,10 @@ queue_node_config() {
     cfg_set daemon.sftp.host string "$BIND_ALL_ADDRESS:$SFTP_PORT"
 }
 
-# El docker-compose.yml del repositorio trae la línea comentada; panelUpdate.sh la conserva
+# El docker-compose.yml del repositorio trae la línea comentada; panelUpdate.sh la conserva.
+# Una línea SKYPANEL_TOKEN_PUBLIC activa (de un nodo montado a mano) gana a config.json: con
+# una dirección vieja del panel, el nodo no leía su clave y rechazaba todas sus peticiones.
+# La dirección buena va en config.json (token.public), así que la línea se vuelve a comentar.
 enable_node_compose() {
     local file="$INSTALL_DIR/docker-compose.yml"
     if [[ "$DRY_RUN" == "true" ]]; then
@@ -4121,6 +4124,10 @@ enable_node_compose() {
         return 0
     fi
     run sed -i 's|^[[:space:]]*# - SKYPANEL_PANEL_ENABLE=false|      - SKYPANEL_PANEL_ENABLE=false|' "$file"
+    if grep -qE '^[[:space:]]*- SKYPANEL_TOKEN_PUBLIC=' "$file"; then
+        run sed -i 's|^\([[:space:]]*\)- SKYPANEL_TOKEN_PUBLIC=|\1# - SKYPANEL_TOKEN_PUBLIC=|' "$file"
+        log_info "Quitada la dirección de la clave del panel que fijaba docker-compose.yml: ahora sale de --panel"
+    fi
     grep -qE '^[[:space:]]*- SKYPANEL_PANEL_ENABLE=false' "$file" \
         || die "No se pudo activar el modo nodo en $file"
     log_success "docker-compose.yml en modo nodo (solo daemon)"

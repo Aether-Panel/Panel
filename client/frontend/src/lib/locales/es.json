@@ -3768,7 +3768,7 @@
     "ErrTransferBackupRunning": "Hay una copia de seguridad o una restauración de este servidor en curso. Transfiérelo cuando termine.",
     "ErrTransferSubServer": "Un subservidor se queda en el nodo de su servidor principal. Transfiere el servidor principal: sus subservidores van con él.",
     "ErrTransferPortsTaken": "Algunos puertos de este servidor ya están en uso en el nodo de destino. Libéralos allí o elige otro nodo.",
-    "ErrNodeAuthFailed": "El nodo rechazó las credenciales del panel. Un administrador debe comprobar que el secreto del nodo coincide con el del panel y que la hora de ambas máquinas es correcta.",
+    "ErrNodeAuthFailed": "El nodo rechazó las credenciales del panel. Un administrador debe comprobar que el nodo llega a la dirección del panel (allí lee la clave del panel), que su secreto coincide con el del panel y que la hora de ambas máquinas es correcta.",
     "ErrPortOutOfRange": "El puerto {{port}} está fuera del rango permitido (1024-65535).",
     "ErrPortDuplicated": "El puerto {{port}} está duplicado.",
     "ErrPortUsedByPanel": "El puerto {{port}} lo usa el propio panel en este nodo.",
