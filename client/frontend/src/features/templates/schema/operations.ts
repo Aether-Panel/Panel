@@ -389,14 +389,23 @@ function buildField(spec: OperationSpec, f: FieldSpec): OperationField {
 }
 
 function buildStepSchema(spec: OperationSpec, fields: readonly OperationField[]): z.ZodType {
-  const shape: Record<string, z.ZodType> = { type: z.literal(spec.key), if: conditionSchema.optional() };
+  // null is how Go reads a missing condition
+  const shape: Record<string, z.ZodType> = { type: z.literal(spec.key), if: conditionSchema.nullable().optional() };
   for (const f of fields) {
     // a required argument with another spelling is checked below, as either spelling will do
     shape[f.name] = f.required && !f.aliases?.length ? f.schema : f.schema.optional();
-    for (const alias of f.aliases ?? []) shape[alias] = f.schema.optional();
   }
+  // Older spellings are checked here rather than in the shape, so the JSON Schema (and Monaco's
+  // completion) leaves them out while templates that still use them load and validate.
   return z.looseObject(shape).superRefine((args, ctx) => {
     for (const f of fields) {
+      for (const alias of f.aliases ?? []) {
+        if (args[alias] === undefined) continue;
+        const result = f.schema.safeParse(args[alias]);
+        for (const issue of result.error?.issues ?? []) {
+          ctx.addIssue({ code: 'custom', path: [alias, ...issue.path], message: issue.message });
+        }
+      }
       if (f.required && f.aliases?.length && ![f.name, ...f.aliases].some((n) => isSet(args[n]))) {
         ctx.addIssue({ code: 'custom', path: [f.name], message: msg('required') });
       }

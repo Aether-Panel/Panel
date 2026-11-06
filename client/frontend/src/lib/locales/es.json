@@ -3804,7 +3804,9 @@
         "invalidEnvironment": "Elige un entorno: host o docker.",
         "invalidCommand": "Debe ser un comando o una lista de comandos con condición.",
         "unknownOperation": "El nodo no conoce este tipo de paso.",
-        "versionOrMinecraftVersion": "Indica la versión de Minecraft, la del cargador o ambas."
+        "versionOrMinecraftVersion": "Indica la versión de Minecraft, la del cargador o ambas.",
+        "invalidInteger": "Debe ser un número entero.",
+        "stepNotObject": "Cada paso debe ser un objeto con su «type»."
       }
     }
   },

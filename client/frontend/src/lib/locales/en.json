@@ -3804,7 +3804,9 @@
         "invalidEnvironment": "Pick an environment: host or docker.",
         "invalidCommand": "Must be a command or a list of commands with conditions.",
         "unknownOperation": "The node does not know this step type.",
-        "versionOrMinecraftVersion": "Give the Minecraft version, the loader version or both."
+        "versionOrMinecraftVersion": "Give the Minecraft version, the loader version or both.",
+        "invalidInteger": "Must be a whole number.",
+        "stepNotObject": "Each step must be an object with its \"type\"."
       }
     }
   },

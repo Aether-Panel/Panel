@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { msg, numberOrVariable, stdinSchema, typeError } from './common';
+import { integerSchema, msg, numberOrVariable, stdinSchema, typeError } from './common';
 
 // What a form needs to draw one argument of an operation: the control, its texts (i18n keys),
 // whether it is required, and the zod schema its value is checked with. The registry
@@ -17,12 +17,13 @@ export interface SelectOption {
  * - stringList: an array of strings, one per row
  * - keyValue: an object of string values
  * - number: a whole number; when the field takes variables it may also be a string of digits
- *   or one holding `${variable}`, and a string already there stays a string
+ *   or one holding `${variable}` (or "" when optional), and a string already there stays a string
  * - boolean: true or false
  * - select: one of the options, or any string when allowCustom (a version, `${variable}`); a
- *   field the node casts to a number (javadl's version) also takes a JSON number, per its schema
+ *   field the node casts to a number (javadl's version) also takes a JSON number, per its schema.
+ *   An optional select also takes "", which the node reads as not given (backup's offsite)
  * - stdin: a console configuration object (type, ip, port, password, secure), the same editor
- *   as the run section's
+ *   as the run section's; null is read as none
  */
 export type FieldWidget =
   | { kind: 'text' }
@@ -74,23 +75,20 @@ export function widgetSchema(widget: FieldWidget, required: boolean, variables: 
     case 'keyValue':
       return z.record(z.string(), z.string({ error: typeError() }), { error: typeError() });
     case 'number': {
-      if (variables) return numberOrVariable(widget);
-      let num = z.number({ error: typeError('invalidNumber') }).int({ error: msg('invalidNumber') });
-      if (widget.min !== undefined) num = num.min(widget.min, { error: msg('outOfRange') });
-      if (widget.max !== undefined) num = num.max(widget.max, { error: msg('outOfRange') });
-      return num;
+      return variables ? numberOrVariable({ ...widget, allowEmpty: !required }) : integerSchema(widget);
     }
     case 'boolean':
       return z.boolean({ error: typeError() });
     case 'select': {
       if (!widget.allowCustom) {
-        const values = widget.options.map((o) => o.value) as [string, ...string[]];
-        return z.enum(values, { error: typeError('invalidOption') });
+        const values = widget.options.map((o) => o.value);
+        // the factories read "" as a missing argument, so an optional choice may be left empty
+        return z.enum((required ? values : [...values, '']) as [string, ...string[]], { error: typeError('invalidOption') });
       }
       const s = z.string({ error: typeError() });
       return required ? s.min(1, { error: msg('required') }) : s;
     }
     case 'stdin':
-      return stdinSchema;
+      return stdinSchema.nullable();
   }
 }

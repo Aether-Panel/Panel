@@ -57,10 +57,12 @@ describe('template schema', () => {
   const base = { type: 'game', display: 'Test', data: {}, run: { command: 'run' }, environment: { type: 'host' } };
 
   it('reads a template as the node writes it back', () => {
-    // nil lists are written as null, empty MetadataTypes as { "type": "" }
+    // nil lists are written as null, empty MetadataTypes as { "type": "" }: a template saved
+    // without an environment comes back with { "type": "" }
     const saved = {
       ...base,
       name: 'test',
+      environment: { type: '' },
       install: [{ type: 'mkdir', target: 'plugins' }],
       uninstall: null,
       run: { command: null, stdin: {}, autostart: false, autorecover: false, autorestart: false },
@@ -71,6 +73,29 @@ describe('template schema', () => {
     };
     expect(issues(saved)).toEqual([]);
     expect(templateSchema.parse(saved)).toStrictEqual(saved);
+  });
+
+  it('reads null wherever Go reads it as not given', () => {
+    const nulls = { type: 'game', data: null, run: null, environment: null, requirements: null, stats: null, query: null, keepAlive: null };
+    expect(issues(nulls)).toEqual([]);
+    expect(templateSchema.parse(nulls)).toStrictEqual(nulls);
+    const nested = {
+      ...base,
+      run: {
+        command: [{ if: null, command: 'run', stdin: null }],
+        stdin: null,
+        pre: [{ type: 'mkdir', target: 'logs', if: null }, { type: 'command', commands: ['true'], stdin: null }],
+      },
+    };
+    expect(issues(nested)).toEqual([]);
+    expect(templateSchema.parse(nested)).toStrictEqual(nested);
+  });
+
+  it('takes "" where the node reads it as not given', () => {
+    expect(issues({ ...base, install: [{ type: 'curseforge', projectId: '${projectId}', fileId: '' }] })).toEqual([]);
+    expect(issues({ ...base, install: [{ type: 'backup', offsite: '' }] })).toEqual([]);
+    // but not in a required argument
+    expect(issues({ ...base, install: [{ type: 'spongedl', spongeType: '' }] })).toEqual(['install.0.spongeType: templates.editor.validation.required']);
   });
 
   it('keeps unknown keys at every level', () => {
@@ -88,6 +113,11 @@ describe('template schema', () => {
     expect(issues({ ...base, install: [{ type: 'teleport' }] })).toEqual(['install.0.type: templates.editor.validation.unknownOperation']);
   });
 
+  it('flags a step that is not an object', () => {
+    expect(issues({ ...base, install: [null] })).toEqual(['install.0: templates.editor.validation.stepNotObject']);
+    expect(issues({ ...base, install: ['mkdir'] })).toEqual(['install.0: templates.editor.validation.stepNotObject']);
+  });
+
   it('flags a missing required argument', () => {
     expect(issues({ ...base, run: { command: 'run', pre: [{ type: 'writefile', text: 'x' }] } })).toEqual([
       'run.pre.0.target: templates.editor.validation.required',
@@ -98,6 +128,10 @@ describe('template schema', () => {
   it('accepts the older spelling of an argument and flags when neither is set', () => {
     expect(issues({ ...base, install: [{ type: 'steamgamedl', appID: '730' }] })).toEqual([]);
     expect(issues({ ...base, install: [{ type: 'steamgamedl' }] })).toEqual(['install.0.appId: templates.editor.validation.required']);
+    // the older spelling is still checked like the current one
+    expect(issues({ ...base, install: [{ type: 'curseforge', projectId: 1, fileID: 'abc' }] })).toEqual([
+      'install.0.fileID: templates.editor.validation.invalidNumber',
+    ]);
   });
 
   it('asks forgedl for a version or a Minecraft version', () => {
@@ -124,19 +158,21 @@ describe('template schema', () => {
   });
 
   it('flags JSON types the node cannot decode', () => {
-    expect(issues({ ...base, run: { command: 'run', stopCode: '2' } })).toEqual(['run.stopCode: templates.editor.validation.invalidNumber']);
+    expect(issues({ ...base, run: { command: 'run', stopCode: '2' } })).toEqual(['run.stopCode: templates.editor.validation.invalidInteger']);
     expect(issues({ ...base, run: { command: 'run', environmentVars: { A: 1 } } })).toEqual(['run.environmentVars.A: templates.editor.validation.invalidType']);
     expect(issues({ ...base, run: { command: 'run', stdin: { type: 'rcon', port: 25575 } } })).toEqual(['run.stdin.port: templates.editor.validation.invalidType']);
     expect(issues({ ...base, environment: { type: 'vm' } })).toEqual(['environment.type: templates.editor.validation.invalidEnvironment']);
   });
 
-  it('checks a variable value against its type', () => {
+  it('checks a boolean variable value as the node casts it', () => {
     const data = (value: unknown, type: string) => ({ ...base, data: { v: { type, value } } });
-    expect(issues(data('25565', 'integer'))).toEqual([]);
-    expect(issues(data('', 'integer'))).toEqual([]);
-    expect(issues(data('lots', 'integer'))).toEqual(['data.v.value: templates.editor.validation.invalidNumber']);
     expect(issues(data('true', 'boolean'))).toEqual([]);
+    expect(issues(data(1, 'boolean'))).toEqual([]);
     expect(issues(data('yes', 'boolean'))).toEqual(['data.v.value: templates.editor.validation.invalidBoolean']);
+    // a missing value is read as "", which strconv.ParseBool refuses
+    expect(issues({ ...base, data: { v: { type: 'boolean' } } })).toEqual(['data.v.value: templates.editor.validation.invalidBoolean']);
+    // an integer that does not cast becomes 0 on the node, without an error
+    expect(issues(data('lots', 'integer'))).toEqual([]);
   });
 
   it('checks variable keys', () => {
@@ -158,5 +194,12 @@ describe('JSON Schema for the JSON view', () => {
     expect(schema.properties).toHaveProperty('run');
     // the step types are offered by name
     expect(JSON.stringify(schema)).toContain('"const":"steamgamedl"');
+  });
+
+  it('does not suggest the older argument spellings', () => {
+    const json = JSON.stringify(templateJsonSchema());
+    expect(json).not.toContain('"appID"');
+    expect(json).not.toContain('"fileID"');
+    expect(json).toContain('"appId"');
   });
 });

@@ -7,13 +7,13 @@ import { z } from 'zod';
 export const msg = (code: string) => `templates.editor.validation.${code}`;
 
 /**
- * The message of a type check: "required" when the value is missing altogether (zod reports a
- * missing key as the wrong type), the given code otherwise.
+ * The message of a type check: "required" when the value is missing or empty (zod reports a
+ * missing key as the wrong type, and "" fails a number or a fixed choice), the given code otherwise.
  */
 export const typeError =
   (code = 'invalidType') =>
   (issue: { input?: unknown }) =>
-    issue.input === undefined ? msg('required') : msg(code);
+    issue.input === undefined || issue.input === '' ? msg('required') : msg(code);
 
 /** A `${name}` token, which the node replaces with the variable's value before a step runs. */
 export const VARIABLE_TOKEN = /\$\{[^}]+\}/;
@@ -33,15 +33,25 @@ export const CONDITION_SAFE_VARIABLE_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
 /** A condition in CEL (`env == 'host'`); the node evaluates it, so only its type is checked. */
 export const conditionSchema = z.string({ error: typeError() });
 
+/** A whole number with no variables (stopCode, a group's order): the node decodes it as an int. */
+export function integerSchema(bounds: { min?: number; max?: number } = {}) {
+  let num = z.number({ error: typeError('invalidInteger') }).int({ error: msg('invalidInteger') });
+  if (bounds.min !== undefined) num = num.min(bounds.min, { error: msg('outOfRange') });
+  if (bounds.max !== undefined) num = num.max(bounds.max, { error: msg('outOfRange') });
+  return num;
+}
+
 /**
  * A whole number written as a number or, since the node casts it after replacing tokens, as a
- * string of digits or one holding a `${variable}` (javadl's "${javaversion}").
+ * string of digits or one holding a `${variable}` (javadl's "${javaversion}"). allowEmpty takes
+ * "" too, for an argument the node reads as not given when empty (curseforge's fileId).
  */
-export function numberOrVariable(bounds: { min?: number; max?: number } = {}) {
+export function numberOrVariable(bounds: { min?: number; max?: number; allowEmpty?: boolean } = {}) {
+  const pattern = bounds.allowEmpty ? /^$|^\d+$|\$\{[^}]+\}/ : /^\d+$|\$\{[^}]+\}/;
   let num = z.number({ error: typeError('invalidNumber') }).int({ error: msg('invalidNumber') });
   if (bounds.min !== undefined) num = num.min(bounds.min, { error: msg('outOfRange') });
   if (bounds.max !== undefined) num = num.max(bounds.max, { error: msg('outOfRange') });
-  return z.union([num, z.string().regex(/^\d+$|\$\{[^}]+\}/, { error: msg('invalidNumber') })], {
+  return z.union([num, z.string().regex(pattern, { error: msg('invalidNumber') })], {
     error: typeError('invalidNumber'),
   });
 }

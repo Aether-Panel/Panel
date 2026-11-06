@@ -1,16 +1,17 @@
 import { z } from 'zod';
-import { conditionSchema, msg, stdinSchema, typeError, VARIABLE_KEY } from './common';
+import { conditionSchema, integerSchema, msg, stdinSchema, typeError, VARIABLE_KEY } from './common';
 import { OPERATIONS } from './operations';
 
 // A template as the node reads it (pkg/skypanel: Server, Execution, Variable, MetadataType…).
 // Every object is loose: keys this schema does not name are kept as they are, so parsing a
 // template never drops anything and the editor can save it back unchanged. The checks mirror
 // what makes the node reject a template (a wrong JSON type fails its decoding) or makes a step
-// fail when it runs (an unknown operation, a missing required argument).
+// fail when it runs (an unknown operation, a missing required argument). null is accepted
+// wherever Go decodes it as "not given" (an object, a list, a map, a condition).
 
 const str = () => z.string({ error: typeError() });
 const bool = () => z.boolean({ error: typeError() });
-const int = () => z.number({ error: typeError('invalidNumber') }).int({ error: msg('invalidNumber') });
+const int = () => integerSchema();
 const stringList = () => z.array(str(), { error: typeError() });
 const stringMap = () => z.record(z.string(), str(), { error: typeError() });
 
@@ -18,7 +19,9 @@ const stringMap = () => z.record(z.string(), str(), { error: typeError() });
 export const stepSchema = z.discriminatedUnion(
   'type',
   OPERATIONS.map((o) => o.stepSchema) as unknown as [z.ZodObject, ...z.ZodObject[]],
-  { error: msg('unknownOperation') },
+  // a step that is not an object at all (zod types this map as union-only, but a non-object
+  // input arrives as invalid_type), or one whose type names no operation
+  { error: (issue) => msg((issue.code as string) === 'invalid_type' ? 'stepNotObject' : 'unknownOperation') },
 );
 
 // null is what Go writes for an empty list, and reads back as one
@@ -48,21 +51,18 @@ export const variableSchema = z
     options: z.array(variableOptionSchema, { error: typeError() }).nullable().optional(),
   })
   .superRefine((v, ctx) => {
-    // Variable.UnmarshalJSON casts the value to the type, and the node rejects the template
-    // when that fails
+    // Variable.UnmarshalJSON casts a boolean variable's value with cast.ToBoolE, and the node
+    // rejects the template when that fails; a missing value is read as "", which fails too. An
+    // integer that does not cast is not an error there: it silently becomes 0 (a warning for
+    // the editor to raise, not something this schema can express).
+    if (v.type !== 'boolean') return;
     const value = v.value;
-    if (value === undefined || value === null || value === '') return;
-    if (v.type === 'integer') {
-      const ok = (typeof value === 'number' && Number.isInteger(value)) || (typeof value === 'string' && /^-?\d+$/.test(value.trim()));
-      if (!ok) ctx.addIssue({ code: 'custom', path: ['value'], message: msg('invalidNumber') });
-    } else if (v.type === 'boolean') {
-      const ok = typeof value === 'boolean' || typeof value === 'number' || (typeof value === 'string' && GO_BOOL_STRINGS.includes(value));
-      if (!ok) ctx.addIssue({ code: 'custom', path: ['value'], message: msg('invalidBoolean') });
-    }
+    const ok = typeof value === 'boolean' || typeof value === 'number' || (typeof value === 'string' && GO_BOOL_STRINGS.includes(value));
+    if (!ok) ctx.addIssue({ code: 'custom', path: ['value'], message: msg('invalidBoolean') });
   });
 
 export const groupSchema = z.looseObject({
-  if: conditionSchema.optional(),
+  if: conditionSchema.nullable().optional(),
   display: str().optional(),
   description: str().optional(),
   variables: stringList().nullable().optional(),
@@ -71,9 +71,9 @@ export const groupSchema = z.looseObject({
 
 /** One entry of a conditional run command: the first whose condition holds is used. */
 export const commandEntrySchema = z.looseObject({
-  if: conditionSchema.optional(),
+  if: conditionSchema.nullable().optional(),
   command: str(),
-  stdin: stdinSchema.optional(),
+  stdin: stdinSchema.nullable().optional(),
 });
 
 export const runSchema = z.looseObject({
@@ -85,7 +85,7 @@ export const runSchema = z.looseObject({
   post: stepListSchema.optional(),
   environmentVars: stringMap().nullable().optional(),
   workingDirectory: str().optional(),
-  stdin: stdinSchema.optional(),
+  stdin: stdinSchema.nullable().optional(),
   autostart: bool().optional(),
   autorecover: bool().optional(),
   autorestart: bool().optional(),
@@ -95,9 +95,13 @@ export const runSchema = z.looseObject({
 /** Environment types the node can create servers in (internal/servers/env_loader.go). */
 export const ENVIRONMENT_TYPES = ['host', 'docker', 'tty', 'standard'] as const;
 
-/** Where the server runs; the docker keys follow internal/servers/docker.Docker. */
+/**
+ * Where the server runs; the docker keys follow internal/servers/docker.Docker. The type may be
+ * "": MetadataType.MarshalJSON always writes it, so a template saved without an environment
+ * comes back as { "type": "" }. Choosing one is a warning for the editor, not an error here.
+ */
 export const environmentSchema = z.looseObject({
-  type: z.enum(ENVIRONMENT_TYPES, { error: typeError('invalidEnvironment') }),
+  type: z.enum(['', ...ENVIRONMENT_TYPES] as const, { error: typeError('invalidEnvironment') }).optional(),
   image: str().optional(),
   portBindings: stringList().nullable().optional(),
   bindings: stringMap().nullable().optional(),
@@ -136,13 +140,13 @@ export const templateSchema = z.looseObject({
   groups: z.array(groupSchema, { error: typeError() }).nullable().optional(),
   install: stepListSchema.optional(),
   uninstall: stepListSchema.optional(),
-  run: runSchema.optional(),
-  environment: environmentSchema.optional(),
+  run: runSchema.nullable().optional(),
+  environment: environmentSchema.nullable().optional(),
   supportedEnvironments: z.array(environmentSchema, { error: typeError() }).nullable().optional(),
-  requirements: requirementsSchema.optional(),
-  stats: typedSchema.optional(),
-  query: typedSchema.optional(),
-  keepAlive: keepAliveSchema.optional(),
+  requirements: requirementsSchema.nullable().optional(),
+  stats: typedSchema.nullable().optional(),
+  query: typedSchema.nullable().optional(),
+  keepAlive: keepAliveSchema.nullable().optional(),
 });
 
 export type Template = z.infer<typeof templateSchema>;
