@@ -11,16 +11,16 @@ import (
 	"github.com/spf13/viper"
 )
 
-// NodeSetting is a config entry the panel edits but every node's daemon uses. It is one of
+// Keyer is a config entry the panel edits but every node's daemon uses. It is one of
 // StringEntry, BoolEntry or IntEntry; the type decides how its value is read and checked.
-type NodeSetting interface {
+type Keyer interface {
 	Key() string
 }
 
 // SyncedNodeSettings are the settings the panel hands to every remote node, so a node needs
 // none of them in its own config.json. The panel reads and packs this list and a node accepts
 // nothing else from it: a new daemon setting edited in the panel only has to be added here.
-var SyncedNodeSettings = []NodeSetting{
+var SyncedNodeSettings = []Keyer{
 	BackupsS3Enabled,
 	BackupsS3Endpoint,
 	BackupsS3Region,
@@ -40,7 +40,7 @@ func IsSyncedNodeSetting(key string) bool {
 	return syncedNodeSetting(key) != nil
 }
 
-func syncedNodeSetting(key string) NodeSetting {
+func syncedNodeSetting(key string) Keyer {
 	for _, setting := range SyncedNodeSettings {
 		if setting.Key() == key {
 			return setting
@@ -141,7 +141,7 @@ func ParseNodeSettings(raw map[string]interface{}) (values map[string]interface{
 	return values, ignored, nil
 }
 
-func parseNodeSetting(setting NodeSetting, value interface{}) (interface{}, string) {
+func parseNodeSetting(setting Keyer, value interface{}) (interface{}, string) {
 	switch setting.(type) {
 	case StringEntry:
 		if text, ok := value.(string); ok {
