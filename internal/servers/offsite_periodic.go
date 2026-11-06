@@ -25,11 +25,26 @@ const (
 	// periodicMaxBackoff caps the wait after failures: a bucket down for days still gets
 	// tried once a day
 	periodicMaxBackoff = 24 * time.Hour
-	// periodicTaskMargin leaves a server alone while one of its tasks is due this soon: the
-	// copy could still be running then, and the task's start, restart or backup would have to
-	// wait for it
+	// periodicTaskMargin leaves a server alone while one of its tasks that starts, stops or
+	// backs it up is due this soon: the copy could still be running then, and the task would
+	// have to wait for it
 	periodicTaskMargin = 60 * time.Minute
 )
+
+// powerSteps are the task steps that act on the server as a whole, which a backup in progress
+// holds up or which would cut a copy short; a console command or a wait does neither
+var powerSteps = map[string]bool{"start": true, "stop": true, "restart": true, "backup": true}
+
+// touchesServer says whether the task has a step that starts, stops, restarts or backs up the
+// server, so a frequent announcement task never keeps the periodic copy from being made
+func touchesServer(task skypanel.Task) bool {
+	for _, op := range task.Operations {
+		if powerSteps[op.Type] {
+			return true
+		}
+	}
+	return false
+}
 
 // periodicState is what the node remembers of one server's periodic off-site copies. It is
 // kept in memory only: after a restart it is read again from the bucket.
@@ -288,13 +303,13 @@ func (p *Server) periodicPlan() (hours, keep int, ok bool) {
 }
 
 // busyForPeriodic says whether the server must be left alone this pass: being moved to
-// another node, installed, backed up or restored, or with a task due soon. A running game is
-// no reason; the copy is taken hot, as one made by hand.
+// another node, installed, backed up or restored, or with a task that acts on it due soon. A
+// running game is no reason; the copy is taken hot, as one made by hand.
 func (p *Server) busyForPeriodic() bool {
 	if p.Scheduler != nil && p.Scheduler.IsPaused() {
 		return true
 	}
-	if p.Scheduler.TaskDueWithin(periodicTaskMargin) {
+	if p.Scheduler.TaskDueWithin(periodicTaskMargin, touchesServer) {
 		return true
 	}
 	if p.GetEnvironment().IsInstalling() {

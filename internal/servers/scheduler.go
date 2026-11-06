@@ -177,14 +177,18 @@ func (s *Scheduler) Location() *time.Location {
 	return location
 }
 
-// TaskDueWithin says whether one of the tasks is next due to run within d from now. Tasks
-// only run by hand, and a scheduler not running, have none due.
-func (s *Scheduler) TaskDueWithin(d time.Duration) bool {
+// TaskDueWithin says whether one of the tasks that counts (as the caller decides) is next due
+// to run within d from now. Tasks only run by hand, and a scheduler not running, have none due.
+func (s *Scheduler) TaskDueWithin(d time.Duration, counts func(skypanel.Task) bool) bool {
 	if s == nil || s.scheduler == nil {
 		return false
 	}
 	limit := time.Now().Add(d)
 	for _, job := range s.scheduler.Jobs() {
+		task, ok := s.GetTask(job.Name())
+		if !ok || !counts(task) {
+			continue
+		}
 		next, err := job.NextRun()
 		if err == nil && !next.IsZero() && next.Before(limit) {
 			return true

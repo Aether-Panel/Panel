@@ -16,6 +16,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -581,4 +582,25 @@ func TestPeriodic_SkipsAServerWithATaskDueSoon(t *testing.T) {
 
 	require.NoError(t, s.SetTask("restart", restartTask(dailyAt(time.Now().Add(3*time.Hour)))))
 	assert.True(t, p.runPeriodic(at(periodicNow)), "a task three hours away leaves time for the copy")
+}
+
+func TestPeriodic_OnlyTasksThatTouchTheServerHoldItBack(t *testing.T) {
+	fake := useFakeBucket(t)
+	p := newPeriodicTestServer(t)
+	s := newTestScheduler(t)
+	s.Start()
+	p.Scheduler = s
+	soon := dailyAt(time.Now().Add(10 * time.Minute))
+	announce := skypanel.Task{Name: "Announcement", CronSchedule: soon, Operations: []skypanel.ConditionalMetadataType{
+		{MetadataType: skypanel.MetadataType{Type: "stdin", Metadata: map[string]interface{}{"command": "say hi"}}},
+		{MetadataType: skypanel.MetadataType{Type: "sleep", Metadata: map[string]interface{}{"duration": "1m"}}},
+	}}
+	require.NoError(t, s.SetTask("announce", announce))
+
+	assert.True(t, p.runPeriodic(at(periodicNow)), "a task that only talks to the console does not wait for the copy")
+	assert.Equal(t, 1, fake.uploadCount())
+
+	require.NoError(t, s.SetTask("restart", restartTask(soon)))
+	assert.False(t, p.runPeriodic(at(periodicNow.Add(25*time.Hour))), "a restart in 10 minutes would find the copy under way")
+	assert.Equal(t, 1, fake.uploadCount())
 }
