@@ -212,7 +212,7 @@ Un registro de copia tiene esta forma: `{"id": 12, "name": "antes de actualizar"
 
 | Clave | Valor por defecto | Variable de entorno | Descripción |
 |-------|-------------------|---------------------|-------------|
-| `panel.backups.maxPerServer` | `10` | `SKYPANEL_PANEL_BACKUPS_MAXPERSERVER` | Copias que pueden conservar los usuarios de un servidor; los administradores no tienen límite; `0` = sin límite. No se puede editar desde la página de Configuración |
+| `panel.backups.maxPerServer` | `10` | `SKYPANEL_PANEL_BACKUPS_MAXPERSERVER` | Copias que pueden tener en el nodo los usuarios de un servidor (las que solo están en el bucket no cuentan); los administradores no tienen límite; `0` = sin límite. No se puede editar desde la página de Configuración |
 | `daemon.data.backups.folder` | `backups` | `SKYPANEL_DAEMON_DATA_BACKUPS_FOLDER` | Carpeta de copias; las rutas relativas se resuelven bajo `daemon.data.root` |
 | `daemon.backups.s3.enabled` | `false` | `SKYPANEL_DAEMON_BACKUPS_S3_ENABLED` | Activar el bucket: la copia periódica y las copias de las tareas a las que les toca subir |
 | `daemon.backups.s3.endpoint` | `""` | `SKYPANEL_DAEMON_BACKUPS_S3_ENDPOINT` | `host`, `host:puerto` o una URL completa (su esquema decide http/https) |

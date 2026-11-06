@@ -441,6 +441,27 @@ func TestScheduler_InjectsTaskID(t *testing.T) {
 	assert.Equal(t, "otra", saved.Operations[0].Metadata["taskId"], "the stored task is left as it was")
 }
 
+func TestScheduler_TaskDueWithinWhileItStops(t *testing.T) {
+	s := newTestScheduler(t)
+	s.Start()
+	assert.NoError(t, s.SetTask("restart", restartTask("0 5 * * *")))
+	everyTask := func(skypanel.Task) bool { return true }
+
+	// the periodic worker asks while Delete stops the scheduler; -race catches an unguarded read
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 200; i++ {
+			s.TaskDueWithin(time.Hour, everyTask)
+		}
+	}()
+	s.Stop()
+	<-done
+
+	assert.False(t, s.IsRunning())
+	assert.False(t, s.TaskDueWithin(24*time.Hour, everyTask), "a stopped scheduler has nothing due")
+}
+
 func TestScheduler_LocationFollowsTheTimezone(t *testing.T) {
 	s := NewDefaultScheduler("tz")
 	assert.Equal(t, time.Local, s.Location(), "the default Local")

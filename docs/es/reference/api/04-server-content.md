@@ -206,7 +206,7 @@ Inicia una copia de seguridad; el archivo se escribe en segundo plano y la conso
 | Error | Cuándo |
 |-------|--------|
 | `400 ErrFieldRequired` | Falta `name` |
-| `409 ErrBackupLimit` | El servidor ya tiene `panel.backups.maxPerServer` copias (por defecto 10; `0` desactiva el límite), sin contar las periódicas. Los administradores no tienen límite |
+| `409 ErrBackupLimit` | El servidor ya tiene `panel.backups.maxPerServer` copias en el nodo (por defecto 10; `0` desactiva el límite). Las que solo están en el bucket no cuentan (las periódicas una vez subidas y las de tareas que la retención ya borró del nodo); una periódica que aún está en el nodo sí. Los administradores no tienen límite |
 | El error del nodo | Por ejemplo, otra copia o restauración en curso |
 
 Las copias guardan la carpeta del servidor: los archivos se abren por debajo de ella, los enlaces simbólicos se guardan como enlaces y nunca se siguen, y las tuberías (pipes) se omiten.

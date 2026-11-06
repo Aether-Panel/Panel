@@ -206,7 +206,7 @@ Starts a backup; the archive is written in the background and the console report
 | Error | When |
 |-------|------|
 | `400 ErrFieldRequired` | No `name` |
-| `409 ErrBackupLimit` | The server already has `panel.backups.maxPerServer` backups (default 10; `0` disables the cap), periodic copies not counted. Administrators are not capped |
+| `409 ErrBackupLimit` | The server already has `panel.backups.maxPerServer` backups on the node (default 10; `0` disables the cap). Copies kept only in the bucket do not count (periodic copies once uploaded, and task copies the retention already deleted from the node); a periodic copy still on the node does. Administrators are not capped |
 | The node's error | For example another backup or restore running |
 
 Backups store the server folder: files are opened beneath it, symbolic links are stored as links and never followed, and pipes are left out.

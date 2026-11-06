@@ -44,8 +44,8 @@ func (e *powerEnvironment) IsRunningImpl(*skypanel.Environment) (bool, error) {
 	return e.running.Load(), nil
 }
 
-// newPowerTestServer is a server whose game is running, stopped with a signal. What its stops
-// and starts log is left out of the test's output.
+// newPowerTestServer is a server the node runs, whose game is running, stopped with a signal.
+// What its stops and starts log is left out of the test's output.
 func newPowerTestServer(t *testing.T) (*Server, *powerEnvironment) {
 	p := newCrashTestServer(t)
 	previous := logging.Info.Writer()
@@ -56,6 +56,7 @@ func newPowerTestServer(t *testing.T) (*Server, *powerEnvironment) {
 	p.RunningEnvironment.Implementation = env
 	p.Execution.StopCode = 15
 	p.Execution.Command = "game"
+	useLoadedServers(t, p)
 	return p, env
 }
 
@@ -133,6 +134,7 @@ func TestStartTask_WaitsForABackupInProgress(t *testing.T) {
 
 func TestBackupTask_WaitsForABackupInProgress(t *testing.T) {
 	p := newCrashTestServer(t)
+	useLoadedServers(t, p)
 	useBackupWait(t, 5*time.Millisecond, time.Minute)
 	p.backupState.Store(backupRunning)
 
@@ -143,4 +145,34 @@ func TestBackupTask_WaitsForABackupInProgress(t *testing.T) {
 	p.backupState.Store(backupIdle)
 	require.NoError(t, waitForStep(t, done))
 	assert.Len(t, backupNames(t, p), 1)
+}
+
+func TestStartTask_AServerDeletedWhileWaitingIsNotStarted(t *testing.T) {
+	p, env := newPowerTestServer(t)
+	env.running.Store(false)
+	useBackupWait(t, 5*time.Millisecond, time.Minute)
+	p.backupState.Store(backupRunning)
+
+	done := runOperationInBackground(p, "start", nil)
+	require.Eventually(t, func() bool { return strings.Contains(consoleText(p), "Waiting for a backup") }, 15*time.Second, 5*time.Millisecond)
+	useLoadedServers(t) // deleted while the step waits
+	p.backupState.Store(backupIdle)
+
+	assert.ErrorIs(t, waitForStep(t, done), errServerDeleted)
+	assert.Equal(t, int32(0), env.starts.Load(), "a deleted server is never started")
+}
+
+func TestBackupTask_AServerDeletedWhileWaitingMakesNoBackup(t *testing.T) {
+	p := newCrashTestServer(t)
+	useLoadedServers(t, p)
+	useBackupWait(t, 5*time.Millisecond, time.Minute)
+	p.backupState.Store(backupRunning)
+
+	done := runOperationInBackground(p, "backup", map[string]interface{}{"keep": 5})
+	require.Eventually(t, func() bool { return strings.Contains(consoleText(p), "Waiting for a backup") }, 15*time.Second, 5*time.Millisecond)
+	useLoadedServers(t)
+	p.backupState.Store(backupIdle)
+
+	assert.ErrorIs(t, waitForStep(t, done), errServerDeleted)
+	assert.NoDirExists(t, p.GetBackupDirectory(), "the deleted server's backup folder is not made again")
 }

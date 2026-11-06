@@ -37,6 +37,9 @@ var (
 
 var errNotAServer = errors.New("this operation can only run on a server")
 
+// errServerDeleted ends a task step whose server was deleted while the step waited
+var errServerDeleted = errors.New("the server was deleted")
+
 func serverFromArgs(args skypanel.RunOperatorArgs) (*Server, error) {
 	p, ok := args.Server.(*Server)
 	if !ok || p == nil {
@@ -60,7 +63,8 @@ func (p *Server) Restart() error {
 // copy, which the owner did not schedule), telling the console once. A server cannot start
 // meanwhile, so a restart would stop it and fail to start it again, and a stop, backup, start
 // task would fail at its backup and leave the server stopped. It gives up with
-// ErrBackupInProgress after backupWaitLimit.
+// ErrBackupInProgress after backupWaitLimit, and with errServerDeleted when the server was
+// deleted meanwhile, so the step neither starts it nor makes its backup folder again.
 func (p *Server) waitForBackup() error {
 	busy := func() bool { return p.IsBackingUp() || p.IsRestoring() }
 	if !busy() {
@@ -73,6 +77,9 @@ func (p *Server) waitForBackup() error {
 			return skypanel.ErrBackupInProgress
 		}
 		time.Sleep(backupWaitPoll)
+	}
+	if !p.loaded() {
+		return errServerDeleted
 	}
 	return nil
 }

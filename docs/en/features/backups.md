@@ -212,7 +212,7 @@ A backup record looks like `{"id": 12, "name": "before update", "fileName": "…
 
 | Key | Default | Environment variable | Description |
 |-----|---------|----------------------|-------------|
-| `panel.backups.maxPerServer` | `10` | `SKYPANEL_PANEL_BACKUPS_MAXPERSERVER` | Backups a server's users may keep; administrators are not capped; `0` = no limit. Not editable from the Settings page |
+| `panel.backups.maxPerServer` | `10` | `SKYPANEL_PANEL_BACKUPS_MAXPERSERVER` | Backups a server's users may keep on the node (those only in the bucket do not count); administrators are not capped; `0` = no limit. Not editable from the Settings page |
 | `daemon.data.backups.folder` | `backups` | `SKYPANEL_DAEMON_DATA_BACKUPS_FOLDER` | Backup folder; relative paths are resolved under `daemon.data.root` |
 | `daemon.backups.s3.enabled` | `false` | `SKYPANEL_DAEMON_BACKUPS_S3_ENABLED` | Turn the bucket on: the periodic copy and the backups of the tasks whose turn it is to upload |
 | `daemon.backups.s3.endpoint` | `""` | `SKYPANEL_DAEMON_BACKUPS_S3_ENDPOINT` | `host`, `host:port` or a full URL (its scheme decides http/https) |

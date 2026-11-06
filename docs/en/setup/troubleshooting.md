@@ -190,7 +190,7 @@ In Docker, with the panel running as root (as `docker-compose.yml` does), instal
 
 ### Another backup cannot be created: "this server already has as many backups as it may keep"
 
-`ErrBackupLimit` (HTTP 409): the server already has `panel.backups.maxPerServer` backups (10 by default). Backups do not count against the server's disk, so without a cap one customer could fill the node's backup disk. Delete an old backup. Administrators are not capped, and `0` turns the cap off for everyone.
+`ErrBackupLimit` (HTTP 409): the server already has `panel.backups.maxPerServer` backups on the node (10 by default; those kept only in the S3 bucket do not count). Backups do not count against the server's disk, so without a cap one customer could fill the node's backup disk. Delete an old backup. Administrators are not capped, and `0` turns the cap off for everyone.
 
 ### Restoring a backup fails: "cannot backup server, is running"
 
