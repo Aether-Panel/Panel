@@ -82,6 +82,19 @@ config_token_public() {
     fi
 }
 
+# token_url_answers URL: 0 si la dirección devuelve la clave del panel (JSON con un array
+# "keys"), 1 si no responde o responde otra cosa, 2 si no hay curl para comprobarlo.
+token_url_answers() {
+    local body
+    command -v curl &>/dev/null || return 2
+    body=$(curl -fsS --max-time 10 "$1" 2>/dev/null) || return 1
+    if command -v jq &>/dev/null; then
+        jq -e '.keys | type == "array"' <<<"$body" &>/dev/null || return 1
+    else
+        grep -qE '"keys"[[:space:]]*:[[:space:]]*\[' <<<"$body" || return 1
+    fi
+}
+
 # Conservar los archivos propios de este servidor (contraseñas en .env) para que
 # ni el git checkout ni el git pull los reviertan o borren.
 readonly LOCAL_FILES=(.env)
@@ -120,10 +133,30 @@ if [[ "$IS_SLAVE" = "true" ]]; then
     sed -i 's|^[[:space:]]*# - SKYPANEL_PANEL_ENABLE=false|      - SKYPANEL_PANEL_ENABLE=false|' docker-compose.yml
     # La variable gana a config.json: si config.json ya tiene la dirección de la clave del panel
     # (nodo unido con install.sh --join), una línea vieja dejaría al nodo rechazando al panel.
-    # Igual que enable_node_compose en install.sh: la línea se queda comentada.
-    if [[ -n "$SLAVE_TOKEN_PUBLIC" && -n "$(config_token_public)" ]]; then
+    # Igual que enable_node_compose en install.sh, la línea se queda comentada, pero solo si es
+    # la misma dirección o si la de config.json responde: en un nodo montado a mano la buena
+    # puede ser la de la línea y la de config.json una vieja.
+    KEEP_TOKEN_OVERRIDE=true
+    if [[ -n "$SLAVE_TOKEN_PUBLIC" ]]; then
+        CONFIG_TOKEN_PUBLIC=$(config_token_public)
+        if [[ -n "$CONFIG_TOKEN_PUBLIC" ]]; then
+            if [[ "$CONFIG_TOKEN_PUBLIC" == "$SLAVE_TOKEN_PUBLIC" ]]; then
+                KEEP_TOKEN_OVERRIDE=false
+                echo "[INFO] No se re-aplica SKYPANEL_TOKEN_PUBLIC: config.json (token.public) ya tiene la misma dirección."
+            else
+                TOKEN_CHECK=0
+                token_url_answers "$CONFIG_TOKEN_PUBLIC" || TOKEN_CHECK=$?
+                case "$TOKEN_CHECK" in
+                    0) KEEP_TOKEN_OVERRIDE=false
+                       echo "[INFO] No se re-aplica SKYPANEL_TOKEN_PUBLIC: la dirección de la clave del panel sale de config.json (token.public), que responde." ;;
+                    2) echo "[AVISO] Se re-aplica SKYPANEL_TOKEN_PUBLIC: no hay curl para comprobar la dirección de config.json (token.public)." ;;
+                    *) echo "[AVISO] Se re-aplica SKYPANEL_TOKEN_PUBLIC: la dirección de config.json (token.public) no devuelve la clave del panel." ;;
+                esac
+            fi
+        fi
+    fi
+    if [[ -n "$SLAVE_TOKEN_PUBLIC" && "$KEEP_TOKEN_OVERRIDE" == "false" ]]; then
         sed -i 's|^\([[:space:]]*\)- SKYPANEL_TOKEN_PUBLIC=|\1# - SKYPANEL_TOKEN_PUBLIC=|' docker-compose.yml
-        echo "[INFO] No se re-aplica SKYPANEL_TOKEN_PUBLIC: la dirección de la clave del panel sale de config.json (token.public)."
     elif [[ -n "$SLAVE_TOKEN_PUBLIC" ]]; then
         sed -i "s|^[[:space:]]*# - SKYPANEL_TOKEN_PUBLIC=.*|      - SKYPANEL_TOKEN_PUBLIC=${SLAVE_TOKEN_PUBLIC}|" docker-compose.yml
     fi
