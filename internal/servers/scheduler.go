@@ -389,7 +389,7 @@ func withTaskID(id string, ops []skypanel.ConditionalMetadataType) []skypanel.Co
 		if op.Type != "backup" {
 			continue
 		}
-		metadata := make(map[string]interface{}, len(op.Metadata)+1)
+		metadata := make(map[string]interface{}, len(op.Metadata))
 		for k, v := range op.Metadata {
 			metadata[k] = v
 		}
