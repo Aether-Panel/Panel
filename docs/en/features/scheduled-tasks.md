@@ -15,10 +15,10 @@ For the internal structure of the scheduler (the `Scheduler` type and its file),
 |---|---|---|---|
 | `stdin` | Send command | `command` | Sends one line to the server console, as if typed. |
 | `sleep` | Wait | `duration` (for example `5m`) | Pauses the task. |
-| `start` | Start | — | Starts the server if it is not already running. |
+| `start` | Start | — | Starts the server if it is not already running. If a backup or restore is running, waits for it to finish (up to 60 minutes). |
 | `stop` | Stop | — | Stops the server and waits up to 5 minutes for it to exit. |
-| `restart` | Restart | — | Stops and starts the server, **only if it is running**. A server its owner switched off is not brought back. |
-| `backup` | Backup | `keep` (1–50, default 5), `offsite` (`never`, `always`, `weekend`, `weekly`, `biweekly`, `monthly`; `weekly` on a new step, `always` when missing), `offsiteKeep` (1–50, default 4) | Makes an automatic backup and deletes from the node the oldest automatic backups beyond `keep`. Backups made by hand are never deleted. Depending on `offsite` (**Upload to S3**), also uploads the backup to the bucket and keeps the task's newest `offsiteKeep` there; see [Backups](backups.md#uploading-task-backups). |
+| `restart` | Restart | — | Stops and starts the server, **only if it is running**. A server its owner switched off is not brought back. If a backup or restore is running, waits for it to finish (up to 60 minutes) before stopping the server, since it could not start it again meanwhile. |
+| `backup` | Backup | `keep` (1–50, default 5), `offsite` (`never`, `always`, `weekend`, `weekly`, `biweekly`, `monthly`; `weekly` on a new step, `always` when missing), `offsiteKeep` (1–50, default 4; the larger of `keep` and 4 on a step saved without `offsite` or `offsiteKeep`) | If another backup or restore is running, waits for it to finish (up to 60 minutes). Makes an automatic backup and deletes from the node the oldest automatic backups beyond `keep`. Backups made by hand are never deleted. Depending on `offsite` (**Upload to S3**), also uploads the backup to the bucket and keeps the task's newest `offsiteKeep` there; see [Backups](backups.md#uploading-task-backups). |
 
 - Administrators (holders of the `admin` scope) may also use any operation from the [operations engine](../backend/06-operations.md) (shell commands, downloads, file writes...) and `if` conditions. Other users cannot, because a task runs unattended on the node.
 
@@ -107,7 +107,7 @@ Saving, deleting and running a task are recorded in the server's [activity log](
 - 50 tasks per server; 10 steps per task for non-administrators.
 - Non-administrators cannot schedule more often than once a minute.
 - `stop` and `restart` give the game 5 minutes to exit; past that, the step fails and the rest of the task is skipped.
-- Only one backup per server can run at a time. A `backup` step that starts while another backup is running fails.
+- Only one backup per server can run at a time. The `backup`, `start` and `restart` steps wait up to 60 minutes for a backup or restore in progress to finish (console: `Waiting for a backup in progress to finish`); if it is still running after that, the step fails. `restart` waits before stopping the server, so it never leaves it stopped for that reason.
 - The **Next** run is only computed in the browser for daily, weekly and hourly schedules in the viewer's time zone. Custom cron expressions are only evaluated by the node.
 - Runs that were due while the node was offline, or while the tasks were paused for a node transfer, are not caught up later.
 - A node transfer copies the tasks but not the time zone or concurrency settings of the `.cron` file; the new node uses its defaults.
@@ -130,7 +130,7 @@ Saving, deleting and running a task are recorded in the server's [activity log](
 | `invalid off-site frequency "…"` / `off-site keep must be between 1 and 50` | Use one of `never`, `always`, `weekend`, `weekly`, `biweekly` or `monthly` for `offsite`, and a number from 1 to 50 for `offsiteKeep`. |
 | Console: `Off-site copy skipped: …` | The bucket could not be listed to decide whether the backup uploads. The backup is on the node and the task goes on; see [Backups](backups.md#uploading-task-backups). |
 | `the task is too large` (413) | The request body exceeds 64 KiB. |
-| Console: `Failed to setup tasks` + `backup in progress` | Another backup was running. Schedule backups apart from each other. |
+| Console: `Failed to setup tasks` + `backup in progress` | Another backup or restore was still running after the 60 minutes the step waits. Schedule backups apart from each other. |
 | Console: `Server is not running, skipping the restart` | Expected: `restart` does not start a stopped server. Use `start` if that is what you want. |
 | The tab says "You do not have permission to see this server's tasks." | The user lacks `server.tasks.view` on this server. |
 

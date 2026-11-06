@@ -25,7 +25,7 @@ Backups are made and stored by the daemon of the node that hosts the server, out
 
 With the Docker installation (`daemon.data.root` = `/var/lib/SkyPanel`, folder `backups`) this is `/var/lib/SkyPanel/backups/<server-id>/` inside the container, which `docker-compose.yml` maps to `./storage/skypanel-data/backups/<server-id>/` on the host.
 
-Backups **do not count against the server's disk limit**. That is why the number of backups a server's users may keep is capped (see [Requirements and configuration](#requirements-and-configuration)).
+Backups **do not count against the server's disk limit**. That is why the number of backups a server's users may keep on the node is capped (see [Requirements and configuration](#requirements-and-configuration)).
 
 The panel database keeps one record per backup (name, file name, size, location, date). The file itself only exists on the node (and in the bucket).
 
@@ -44,7 +44,7 @@ Retention of automatic backups only ever removes `auto-` files from the node, ea
 
 ### Creating
 
-1. The panel checks the per-server cap (`panel.backups.maxPerServer`) unless the caller is an administrator (`admin` scope). Periodic copies do not count toward that cap.
+1. The panel checks the per-server cap (`panel.backups.maxPerServer`) unless the caller is an administrator (`admin` scope). Only copies that take space on the node count; those kept only in the bucket (periodic copies once uploaded, and task copies the retention already deleted from the node) do not.
 2. The node refuses if another backup or restore of that server is already running (`backup in progress`): only one runs at a time per server.
 3. The node answers straight away with the file name and writes the archive in the background. The panel stores the record at that moment.
 4. The archive is written under a hidden name (`.partial-<name>`) and renamed when complete, so a half-written backup is never listed, downloaded or restored. Files are listed and opened beneath the server root, so a symlink swapped in while the backup runs cannot pull host files into the archive. Every entry is stored under a folder named after the server ID.
@@ -88,9 +88,9 @@ A scheduled task can include a **Backup** step with these values:
 |-------|--------------------|-------|---------|---------|
 | `keep` | **Keep the last** | 1-50 | 5 | Automatic backups kept on the node |
 | `offsite` | **Upload to S3** | `never`, `always`, `weekend`, `weekly`, `biweekly`, `monthly` | `weekly` on a new step; `always` on one saved before the option existed | Which runs also upload their backup to the bucket ([Uploading task backups](#uploading-task-backups)) |
-| `offsiteKeep` | **Keep in S3** (hidden with **Never**) | 1-50 | 4 | Copies of that task kept in the bucket |
+| `offsiteKeep` | **Keep in S3** (hidden with **Never**) | 1-50 | 4; on a step saved before `offsite` and `offsiteKeep` existed, the larger of `keep` and 4 | Copies of that task kept in the bucket |
 
-The step waits until the archive is finished, so the task's next step sees it, and then deletes from the node the oldest `auto-` backups beyond `keep` (every task backup of the server counts together). That pruning only deletes the file on the node: the copies the task uploaded to the bucket stay there, with a retention of their own. The **Daily backup** preset backs up every day at 04:00, keeps the last 7 on the node and uploads one every week (keeping 4 in the bucket). Creating a task with a backup step requires the `server.backup.create` scope. Tasks are described in [Scheduled tasks](./scheduled-tasks.md).
+The step waits until the archive is finished, so the task's next step sees it, and then deletes from the node the oldest `auto-` backups beyond `keep` (every task backup of the server counts together). That pruning only deletes the file on the node: the copies the task uploaded to the bucket stay there, with a retention of their own. The **Daily backup** preset backs up every day at 04:00, keeps the last 7 on the node and uploads one every week (keeping 4 in the bucket). Creating a task with a backup step requires the `server.backup.create` scope. If another backup or restore is running when the step comes (the periodic copy, for example), the step waits for it to finish, up to 60 minutes; the **Start** and **Restart** steps wait the same way, and **Restart** does so before it stops the server. Tasks are described in [Scheduled tasks](./scheduled-tasks.md).
 
 Each time the backup list is opened, the panel compares its records with the files on the node and in the bucket: automatic backups, periodic copies and restore points made by the node are added, those removed by retention and the manual backups the node marks as failed are dropped (and the node is told to remove the mark), and sizes and locations are updated. A task backup that retention deleted from the node but is still in the bucket stays in the list as **Off-site only**.
 
@@ -98,7 +98,7 @@ Each time the backup list is opened, the panel compares its records with the fil
 
 - **Deleting a server** also deletes its backups on the node (the folder `<daemon.data.backups.folder>/<server-id>/`), its periodic copy setting (`<id>.offsite`) and its records in the panel. Off-site copies in the bucket are **not** deleted, periodic ones included.
 - **Deleting a task** does not delete its backups: those on the node stay until another task's retention or a person deletes them, and those in the bucket stay there and remain in the list (badge **Off-site** or **Off-site only**), where they can be deleted by hand.
-- **Transferring a server to another node** ([Server transfers](./server-transfers.md)) copies the backups kept on the old node (location `local` or `both`, restore points included) to the new node through the panel, with their names and dates, and then deletes them from the old node with the server. The records follow the server. Off-site copies stay where they are: the bucket is the same for every node. If the transfer fails, the copies it made on the new node are removed and the old node keeps its own.
+- **Transferring a server to another node** ([Server transfers](./server-transfers.md)) copies the backups kept on the old node (location `local` or `both`, restore points included) to the new node through the panel, with their names and dates, and then deletes them from the old node with the server. The records follow the server. Off-site copies stay where they are: the bucket is the same for every node. Periodic copies (`offsite-`) are not copied either: their place is the bucket, and one still on the old node is being uploaded. If the transfer fails, the copies it made on the new node are removed and the old node keeps its own.
 - The transfer also copies the server's own periodic copy setting (`GET` and `PUT /daemon/server/:id/offsite`), just as it copies its tasks. When the server follows the default there is nothing to copy. An old node that does not know the route (answers `404`) counts as "no setting of its own"; any other failure reading it or saving it on the new node fails the transfer, which is undone. While the transfer runs, that server's periodic copy is not made on either node.
 
 ### Off-site copies
@@ -127,7 +127,7 @@ Each **Backup** step decides with `offsite` (**Upload to S3**) which runs upload
 | `biweekly` | Every 15 days | The task's newest copy in the bucket is 15 days minus 2 hours old or older (or there is none). The 2 hours of slack keep a daily task at a fixed time from skipping a day because the previous upload finished a few minutes later. |
 | `monthly` | Every month | The task has no copy in the bucket since 00:00 on the 1st of this month. |
 
-- A step saved before this option existed, without `offsite`, counts as **Always**, so no task stops uploading without anyone asking. A new step created from the panel starts with **Every week**.
+- A step saved before this option existed, without `offsite`, counts as **Always**, so no task stops uploading without anyone asking. If it has no `offsiteKeep` either, it keeps the larger of `keep` and 4 copies in the bucket: it used to keep `keep`, so the upgrade deletes none of them. A new step created from the panel starts with **Every week**.
 - The other runs keep their backup on the node only.
 - The upload runs in the background (console: `Uploading backup to off-site storage`, then `Backup uploaded to off-site storage` or `Off-site upload failed: …`), so the task goes on with its steps without waiting for it. A failed upload does not fail the task: the backup is already on the node, and the next run decides again.
 - While the same task's previous upload has not finished, the next run does not upload (it would not see it in the bucket yet and would upload twice); its backup stays on the node.
@@ -142,12 +142,12 @@ Each server can get a full copy that goes straight to the bucket every so often,
 - **Per-server setting**: each server can use the default, turn its copy off, or pick another interval and another number of copies. It is stored on the node, in `<daemon.data.servers>/<id>.offsite` (JSON, `0600` permissions): `{"periodicHours": null, "periodicKeep": null}`, where `null` means "default". Without the file, the server follows the defaults. A file edited by hand with an interval that is not on the list turns the copy off, and a number of copies outside 1-50 uses 4.
 - **One worker per node**: every 10 minutes it goes through the servers one at a time, so they never all back up at once. The first pass starts 5 minutes after the node starts.
 - **When it backs a server up**: off-site backups are on and complete on that node, the effective interval is above 0, and that server's last periodic copy in the bucket is older than the interval. The interval counts from when the previous copy finished uploading, and since the worker passes every 10 minutes (and waits for each copy before moving to the next server), it is a minimum, not an exact time.
-- **When it leaves it for another pass**: the server is being installed or moved to another node, or another backup or restore of it is running. A running game is no reason: the copy is taken hot, like a manual one, and never stops the server.
+- **When it leaves it for another pass**: the server is being installed or moved to another node, another backup or restore of it is running, or one of its scheduled tasks is due within the next hour (the copy could still be running when it starts). A running game is no reason: the copy is taken hot, like a manual one, and never stops the server.
 - **The copy and its upload**: before writing anything, the node checks that the bucket answers. It then writes `offsite-<uuid>.tar.gz` in the backup folder, uploads it, deletes from the bucket the periodic copies of that server beyond the ones kept (oldest first) and deletes the file on the node. The local file is also deleted when the upload fails, so retries do not fill the disk. On start, the node deletes any `offsite-` files left in the backup folders (for instance, one a restart left half uploaded): the periodic copies that count are those in the bucket.
 - **Alerts**: a periodic copy that works is silent (only the console shows `Backing up server`, `Backup complete` and the upload). If the backup or the upload fails, or the bucket does not answer, the server's owner ([Server notifications](./server-notifications.md)) and the global Discord backup alert are told as for a failed backup, and the console shows why (for example `Periodic off-site backup skipped, the bucket is not available: …`).
 - **Retries**: after a failure, that server waits 1 h, 2 h, 4 h… up to 24 h before trying again; a copy that uploads resets the wait. That way a bucket down for a whole day does not produce copies that are then thrown away.
 - **The last copy** is read from the bucket the first time the worker reaches the server after the node starts, and the node then remembers it in memory. The server's **Copy to S3** card shows that date.
-- The backup list shows periodic copies as **Periodic backup (S3)**, with the **Periodic** and **Off-site only** badges. They are downloaded, restored and deleted like any other backup, and they do not count toward `panel.backups.maxPerServer`.
+- The backup list shows periodic copies as **Periodic backup (S3)**, with the **Periodic** and **Off-site only** badges. They are downloaded, restored and deleted like any other backup and, being only in the bucket, they do not count toward `panel.backups.maxPerServer`.
 
 #### Retention in the bucket
 
@@ -232,7 +232,7 @@ Off-site backups are only active when `enabled` is true **and** endpoint, bucket
 ## Limits
 
 - One backup or restore at a time per server.
-- The cap counts the server's backup records: manual backups, automatic backups (also those left only in the bucket) and restore points. Periodic copies do not count: the administrator imposes them and, if they counted, a high `periodicKeep` could keep users from making backups by hand.
+- The cap counts the server's backups that take space on the node: manual backups, automatic backups and restore points (location `local` or `both`, or one with no location yet because it is being written). Copies kept only in the bucket do not count: periodic copies once uploaded, and task copies the retention already deleted from the node. The cap is there so nobody fills the node's backup disk; besides, if periodic copies counted, a high `periodicKeep` could keep users from making backups by hand.
 - Backup names must be printable ASCII (the record is validated with `printascii`); accented letters or emoji are rejected.
 - Restore always replaces **all** files of the server; there is no partial restore. To recover a single file, download the backup and upload that file with the file manager or SFTP.
 - Restore points: 3 kept, local only.
@@ -248,7 +248,7 @@ Off-site backups are only active when `enabled` is true **and** endpoint, bucket
 
 | Message / symptom | Cause | Fix |
 |-------------------|-------|-----|
-| "This server already has as many backups as it may keep. Delete an old one before making another." (`409`, `ErrBackupLimit`) | `panel.backups.maxPerServer` reached | Delete old backups (including automatic ones or restore points), or raise the cap in the configuration |
+| "This server already has as many backups as it may keep. Delete an old one before making another." (`409`, `ErrBackupLimit`) | `panel.backups.maxPerServer` reached with copies on the node | Delete old backups from the node (including automatic ones or restore points; those only in the bucket do not count), or raise the cap in the configuration |
 | `backup in progress` (`ErrBackupInProgress`) | Another backup, restore or restore point of that server is running | Wait for `Backup complete` / `Restore complete` in the console |
 | `cannot backup server, is running` (`ErrBackupServerRunning`) or `server running` on restore | The server is running or installing | Stop the server and retry the restore |
 | `name is required` on create | Empty name | Give the backup a name |
@@ -266,7 +266,7 @@ Off-site backups are only active when `enabled` is true **and** endpoint, bucket
 | Console: `Periodic off-site backup skipped, the bucket is not available: …` and a failed backup alert | The bucket does not answer or does not exist | Fix the node's S3 settings; the node tries again after 1 h, 2 h, 4 h… (up to 24 h) |
 | Node log: `Error reading the off-site settings, no periodic copy until it is fixed: …` | The server's `<id>.offsite` file is damaged. Meanwhile that server gets no periodic copy, and the **Copy to S3** card cannot read the setting (it only shows the load error), so it cannot be used to fix it | Delete the file `<daemon.data.servers>/<id>.offsite` on the node: the server goes back to the defaults and can be set again from the card. Or send the setting directly with `PUT /api/servers/:serverId/offsite`, which overwrites the file without reading the old one |
 | "This node has no S3 set up." on the **Copy to S3** card | The server's node does not have the `daemon.backups.s3.*` keys complete, or `enabled` is `false` (usual on a remote node) | Set the keys in that node's configuration (see [Remote nodes](#requirements-and-configuration)) |
-| "This server's copy to S3 could not be read: the node did not answer." | The node did not answer, or the server's `<id>.offsite` file is damaged (the node answers with an error; **Retry** does not fix it) | Check the node is online and click **Retry**. If it keeps failing and the node log shows `Error reading the off-site settings`, see the row above |
+| "This server's copy to S3 could not be read: the node did not answer." | The node did not answer, or the server's `<id>.offsite` file is damaged (the node answers with an error; **Retry** does not fix it) | Check the node is online and click **Retry**. If it keeps failing and the node log shows `Error reading the off-site settings`, see the row "Node log: `Error reading the off-site settings…`" |
 | "The periodic off-site copy can only run every 12, 24, 48, 72, 168, 336 or 720 hours, or be turned off (0)." (`400`, `ErrOffsitePeriodicHours`) | An interval not on the list was sent | Use one of those values |
 | "The off-site copies to keep must be between 1 and 50." (`400`, `ErrOffsiteKeep`) | Number of copies outside 1-50 | Use a value from 1 to 50 |
 | The transfer fails with `reading its off-site settings: …` or `copying its off-site settings: …` | The periodic copy setting could not be read on the old node or saved on the new one (for instance, a new node without the `/daemon/server/:id/offsite` route) | Update the node and try again; the transfer was undone |

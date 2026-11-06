@@ -15,10 +15,10 @@ La estructura interna del planificador (el tipo `Scheduler` y su archivo) se des
 |---|---|---|---|
 | `stdin` | Enviar comando | `command` | Envía una línea a la consola del servidor, como si se escribiera. |
 | `sleep` | Esperar | `duration` (por ejemplo `5m`) | Pausa la tarea. |
-| `start` | Iniciar | — | Inicia el servidor si no está ya encendido. |
+| `start` | Iniciar | — | Inicia el servidor si no está ya encendido. Si hay una copia o restauración en curso, espera a que termine (hasta 60 minutos). |
 | `stop` | Detener | — | Detiene el servidor y espera hasta 5 minutos a que termine. |
-| `restart` | Reiniciar | — | Detiene e inicia el servidor, **solo si está encendido**. Un servidor que su propietario apagó no se vuelve a encender. |
-| `backup` | Copia de seguridad | `keep` (1–50, por defecto 5), `offsite` (`never`, `always`, `weekend`, `weekly`, `biweekly`, `monthly`; `weekly` en un paso nuevo, `always` si falta), `offsiteKeep` (1–50, por defecto 4) | Hace una copia automática y borra del nodo las copias automáticas más antiguas que superen `keep`. Las copias hechas a mano nunca se borran. Según `offsite` (**Subir al S3**), sube además la copia al bucket y deja allí las `offsiteKeep` más recientes de la tarea; véase [Copias de seguridad](backups.md#subida-de-las-copias-de-tareas). |
+| `restart` | Reiniciar | — | Detiene e inicia el servidor, **solo si está encendido**. Un servidor que su propietario apagó no se vuelve a encender. Si hay una copia o restauración en curso, espera a que termine (hasta 60 minutos) antes de detenerlo, porque mientras dura no podría volver a iniciarlo. |
+| `backup` | Copia de seguridad | `keep` (1–50, por defecto 5), `offsite` (`never`, `always`, `weekend`, `weekly`, `biweekly`, `monthly`; `weekly` en un paso nuevo, `always` si falta), `offsiteKeep` (1–50, por defecto 4; el mayor entre `keep` y 4 en un paso guardado sin `offsite` ni `offsiteKeep`) | Si hay otra copia o restauración en curso, espera a que termine (hasta 60 minutos). Hace una copia automática y borra del nodo las copias automáticas más antiguas que superen `keep`. Las copias hechas a mano nunca se borran. Según `offsite` (**Subir al S3**), sube además la copia al bucket y deja allí las `offsiteKeep` más recientes de la tarea; véase [Copias de seguridad](backups.md#subida-de-las-copias-de-tareas). |
 
 - Los administradores (quienes tienen el permiso `admin`) también pueden usar cualquier operación del [motor de operaciones](../backend/06-operations.md) (comandos de shell, descargas, escritura de archivos...) y condiciones `if`. El resto de usuarios no, porque una tarea se ejecuta en el nodo sin supervisión.
 
@@ -107,7 +107,7 @@ Guardar, eliminar y ejecutar una tarea queda anotado en el [registro de activida
 - 50 tareas por servidor; 10 pasos por tarea para quienes no son administradores.
 - Quienes no son administradores no pueden programar con una frecuencia mayor que una vez por minuto.
 - `stop` y `restart` dan al juego 5 minutos para terminar; pasado ese tiempo, el paso falla y se omite el resto de la tarea.
-- Solo puede hacerse una copia de seguridad por servidor a la vez. Un paso `backup` que empieza mientras se hace otra copia falla.
+- Solo puede hacerse una copia de seguridad por servidor a la vez. Los pasos `backup`, `start` y `restart` esperan hasta 60 minutos a que termine la copia o restauración en curso (consola: `Waiting for a backup in progress to finish`); si sigue en curso pasado ese tiempo, el paso falla. `restart` espera antes de detener el servidor, así que nunca lo deja apagado por esa causa.
 - La **Próxima** ejecución solo la calcula el navegador para programaciones diarias, semanales y por horas en la zona horaria de quien la ve. Las expresiones cron personalizadas solo las evalúa el nodo.
 - Las ejecuciones que tocaban mientras el nodo estaba apagado, o mientras las tareas estaban pausadas por una transferencia entre nodos, no se recuperan después.
 - Una transferencia entre nodos copia las tareas, pero no la zona horaria ni los ajustes de concurrencia del archivo `.cron`; el nodo nuevo usa sus valores por defecto.
@@ -130,7 +130,7 @@ Guardar, eliminar y ejecutar una tarea queda anotado en el [registro de activida
 | `invalid off-site frequency "…"` / `off-site keep must be between 1 and 50` | Use para `offsite` uno de `never`, `always`, `weekend`, `weekly`, `biweekly` o `monthly`, y para `offsiteKeep` un número de 1 a 50. |
 | Consola: `Off-site copy skipped: …` | No se pudo listar el bucket para decidir si la copia sube. La copia está en el nodo y la tarea sigue; véase [Copias de seguridad](backups.md#subida-de-las-copias-de-tareas). |
 | `the task is too large` (413) | El cuerpo de la petición supera 64 KiB. |
-| Consola: `Failed to setup tasks` + `backup in progress` | Había otra copia en curso. Separe en el tiempo las tareas de copia. |
+| Consola: `Failed to setup tasks` + `backup in progress` | Otra copia o restauración siguió en curso durante los 60 minutos que espera el paso. Separe en el tiempo las tareas de copia. |
 | Consola: `Server is not running, skipping the restart` | Es lo esperado: `restart` no enciende un servidor detenido. Use `start` si es lo que se busca. |
 | La pestaña indica "No tienes permiso para ver las tareas de este servidor." | El usuario no tiene `server.tasks.view` en este servidor. |
 

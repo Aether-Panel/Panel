@@ -276,7 +276,7 @@ La columna **Propietario** dice si está en el conjunto del propietario.
 | `server.files.edit` | Subir, editar, borrar, comprimir y extraer archivos; restaurar versiones; instalar o quitar plugins y el mapa. | sí |
 | `server.sftp` | Entrar por SFTP, con la contraseña o con una clave SSH, en cualquier nodo. | sí |
 | `server.backup.view` | Ver y descargar copias. | sí |
-| `server.backup.create` | Crear copias. Sin `admin`, hasta `panel.backups.maxPerServer` por servidor (10 por defecto; `0` quita el límite); después, `409 ErrBackupLimit`. | sí |
+| `server.backup.create` | Crear copias. Sin `admin`, hasta `panel.backups.maxPerServer` copias en el nodo por servidor (10 por defecto; `0` quita el límite; las que solo están en el bucket no cuentan); después, `409 ErrBackupLimit`. | sí |
 | `server.backup.restore` | Restaurar copias. | sí |
 | `server.backup.delete` | Borrar copias. | sí |
 

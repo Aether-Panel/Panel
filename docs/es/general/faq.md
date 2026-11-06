@@ -112,7 +112,7 @@ Sí. Un administrador lo mueve entre nodos del mismo panel desde la pestaña **A
 
 ### ¿Hay límite de copias de seguridad?
 
-Los usuarios de cada servidor pueden guardar hasta `panel.backups.maxPerServer` copias (10 por defecto; los administradores no tienen límite). Para hacer otra hay que borrar una antigua. Ver [Copias de seguridad](../features/backups.md).
+Los usuarios de cada servidor pueden tener hasta `panel.backups.maxPerServer` copias en el nodo (10 por defecto; los administradores no tienen límite). Las que solo están en el bucket S3 (las copias periódicas y las de tareas que ya se borraron del nodo) no cuentan. Para hacer otra hay que borrar una antigua. Ver [Copias de seguridad](../features/backups.md).
 
 ## Privacidad e integraciones
 
