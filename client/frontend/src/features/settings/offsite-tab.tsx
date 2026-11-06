@@ -1,8 +1,10 @@
 'use client';
 import { useState } from 'react';
-import { CheckCircle2, CloudUpload, Loader2, PlugZap, XCircle } from '@/components/icons';
+import { CheckCircle2, CloudUpload, Info, Loader2, PlugZap, XCircle } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PERIODIC_HOURS, clampKeep, periodicHoursLabel } from '@/features/servers/[id]/offsite-card';
 import { ApiError, api } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { SecretInput, SettingRow, SettingRows, SettingsCard, SettingsCardHeader, SettingsField, SettingsSection } from './general-tab';
@@ -17,6 +19,15 @@ const KEYS = {
   prefix: 'daemon.backups.s3.prefix',
   insecure: 'daemon.backups.s3.insecure',
 } as const;
+
+/** The periodic copy's settings: numbers, not part of the bucket's connection test. */
+const PERIODIC_KEYS = {
+  hours: 'daemon.backups.s3.periodicHours',
+  keep: 'daemon.backups.s3.periodicKeep',
+} as const;
+/** What the node uses while the panel has no value yet: off, and 4 copies. */
+const DEFAULT_PERIODIC_HOURS = 0;
+const DEFAULT_PERIODIC_KEEP = 4;
 
 /** Well-known providers, to fill the endpoint in one click. */
 const PROVIDERS = [
@@ -33,15 +44,17 @@ type OffsiteTabProps = {
 };
 
 /**
- * Off-site backups: every finished backup is also copied to an S3-compatible bucket, so a
- * dead disk does not take the backups with it. The test checks the values on screen, saved
- * or not.
+ * Off-site backups: an S3-compatible bucket that holds each server's periodic copy and the
+ * copies of task backup steps that ask for it, so a dead disk does not take every backup with
+ * it. Manual backups stay on the node. The test checks the values on screen, saved or not.
  */
 export function OffsiteTab({ localSettings, handleUpdate, t }: Readonly<OffsiteTabProps>) {
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   const value = (key: string) => (localSettings[key] ?? '') as string;
   const enabled = Boolean(localSettings[KEYS.enabled]);
+  const periodicHours = Number(localSettings[PERIODIC_KEYS.hours] ?? DEFAULT_PERIODIC_HOURS);
+  const periodicKeep = Number(localSettings[PERIODIC_KEYS.keep] ?? DEFAULT_PERIODIC_KEEP);
 
   const runTest = async () => {
     setTesting(true);
@@ -96,6 +109,45 @@ export function OffsiteTab({ localSettings, handleUpdate, t }: Readonly<OffsiteT
             <CloudUpload className="h-3.5 w-3.5" aria-hidden="true" />
             {enabled ? t('settings.offsite.onHint') : t('settings.offsite.offHint')}
           </p>
+        </SettingsSection>
+
+        <SettingsSection
+          title={t('settings.offsite.periodicTitle')}
+          description={t('settings.offsite.periodicDescription')}
+        >
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <SettingsField id="offsite-periodic-hours" label={t('settings.offsite.periodicHours')} hint={t('settings.offsite.periodicHoursHint')}>
+                <Select value={String(periodicHours)} onValueChange={(v) => handleUpdate(PERIODIC_KEYS.hours, Number(v))}>
+                  <SelectTrigger id="offsite-periodic-hours">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PERIODIC_HOURS.map((hours) => (
+                      <SelectItem key={hours} value={String(hours)}>{periodicHoursLabel(hours, t)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </SettingsField>
+              <SettingsField id="offsite-periodic-keep" label={t('settings.offsite.periodicKeep')} hint={t('settings.offsite.periodicKeepHint')}>
+                <Input
+                  id="offsite-periodic-keep"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={50}
+                  // always a whole number in range: the whole form is saved at once, and the API refuses anything else
+                  value={String(periodicKeep)}
+                  onChange={(e) => handleUpdate(PERIODIC_KEYS.keep, clampKeep(e.target.value))}
+                  className="w-24 tabular-nums"
+                />
+              </SettingsField>
+            </div>
+            <p className="flex items-start gap-2 text-pretty text-xs text-muted-foreground">
+              <Info className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              {t('settings.offsite.remoteNodes')}
+            </p>
+          </div>
         </SettingsSection>
 
         <SettingsSection title={t('settings.offsite.bucketTitle')} description={t('settings.offsite.bucketDescription')}>

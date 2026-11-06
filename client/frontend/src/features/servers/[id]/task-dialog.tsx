@@ -9,9 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslations } from '@/contexts/translations-context';
 import { cn } from '@/lib/utils';
+import { clampKeep } from './offsite-card';
 import { INTERVAL_HOURS, fromCron, localTimeZone, toCron, weekdayLabels, type Schedule, type ScheduleKind } from './task-schedule';
 
 export type TaskStep = { type: string; [key: string]: unknown };
+
+type Translate = ReturnType<typeof useTranslations>['t'];
 
 export type Task = {
   name: string;
@@ -36,6 +39,18 @@ export const SLEEP_MINUTES = [1, 5, 10, 15, 30, 60];
 export const DEFAULT_BACKUP_KEEP = 5;
 const MAX_BACKUP_KEEP = 50;
 
+/** How often a backup step's copy also goes to S3; the other runs keep it on the server only. */
+export const OFFSITE_FREQUENCIES = ['never', 'always', 'weekend', 'weekly', 'biweekly', 'monthly'] as const;
+type OffsiteFrequency = (typeof OFFSITE_FREQUENCIES)[number];
+/** What a new backup step starts with. */
+const DEFAULT_OFFSITE: OffsiteFrequency = 'weekly';
+const DEFAULT_OFFSITE_KEEP = 4;
+
+/** A step saved before the frequency existed uploaded every copy, so that is what it still does. */
+function offsiteFrequency(step: TaskStep): OffsiteFrequency {
+  return (OFFSITE_FREQUENCIES as readonly string[]).includes(String(step.offsite)) ? (step.offsite as OffsiteFrequency) : 'always';
+}
+
 export function sleepMinutes(step: TaskStep): number | null {
   const match = /^(\d+)m$/.exec(typeof step.duration === 'string' ? step.duration : '');
   return match ? Number(match[1]) : null;
@@ -48,7 +63,7 @@ export function newStep(type: string): TaskStep {
     case 'sleep':
       return { type, duration: '5m' };
     case 'backup':
-      return { type, keep: DEFAULT_BACKUP_KEEP };
+      return { type, keep: DEFAULT_BACKUP_KEEP, offsite: DEFAULT_OFFSITE, offsiteKeep: DEFAULT_OFFSITE_KEEP };
     default:
       return { type };
   }
@@ -345,27 +360,7 @@ export default function TaskDialog({ open, onOpenChange, initial, isEditing, all
                           )}
 
                           {step.type === 'backup' && (
-                            <div className="space-y-1.5">
-                              <div className="flex items-center gap-2">
-                                <Label htmlFor={`${ids}-keep-${index}`} className="text-xs font-normal text-muted-foreground">
-                                  {t('servers.tasks.steps.keep')}
-                                </Label>
-                                <Input
-                                  id={`${ids}-keep-${index}`}
-                                  type="number"
-                                  inputMode="numeric"
-                                  min={1}
-                                  max={MAX_BACKUP_KEEP}
-                                  className="h-9 w-20 tabular-nums"
-                                  value={String(step.keep ?? DEFAULT_BACKUP_KEEP)}
-                                  onChange={(e) => {
-                                    const value = Math.min(MAX_BACKUP_KEEP, Math.max(1, Number.parseInt(e.target.value, 10) || 1));
-                                    updateStep(index, { keep: value });
-                                  }}
-                                />
-                              </div>
-                              <p className="text-xs text-muted-foreground">{t('servers.tasks.steps.keepHelp')}</p>
-                            </div>
+                            <BackupStepFields step={step} id={`${ids}-${index}`} t={t} onChange={(patch) => updateStep(index, patch)} />
                           )}
 
                           {step.type === 'restart' && (
@@ -418,5 +413,68 @@ export default function TaskDialog({ open, onOpenChange, initial, isEditing, all
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** A backup step's fields: copies kept on the server, how often one also goes to S3, and how many stay there. */
+function BackupStepFields({ step, id, t, onChange }: Readonly<{ step: TaskStep; id: string; t: Translate; onChange: (patch: Partial<TaskStep>) => void }>) {
+  const frequency = offsiteFrequency(step);
+  return (
+    <div className="space-y-1.5">
+      {/* label and field side by side; on a phone each pair takes its own line */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5">
+        <div className="flex items-center justify-between gap-2 sm:justify-start">
+          <Label htmlFor={`${id}-keep`} className="text-xs font-normal text-muted-foreground">
+            {t('servers.tasks.steps.keep')}
+          </Label>
+          <Input
+            id={`${id}-keep`}
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={MAX_BACKUP_KEEP}
+            className="h-9 w-20 shrink-0 tabular-nums"
+            value={String(step.keep ?? DEFAULT_BACKUP_KEEP)}
+            onChange={(e) => onChange({ keep: clampKeep(e.target.value) })}
+          />
+        </div>
+        <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start">
+          <Label htmlFor={`${id}-offsite`} className="shrink-0 text-xs font-normal text-muted-foreground">
+            {t('servers.tasks.steps.offsite')}
+          </Label>
+          <Select value={frequency} onValueChange={(value) => onChange({ offsite: value })}>
+            <SelectTrigger id={`${id}-offsite`} className="h-9 min-w-0 flex-1 sm:w-44 sm:flex-none">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {OFFSITE_FREQUENCIES.map((option) => (
+                <SelectItem key={option} value={option}>{t(`servers.tasks.steps.offsiteFrequencies.${option}`)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {frequency !== 'never' && (
+          <div className="flex items-center justify-between gap-2 sm:justify-start">
+            <Label htmlFor={`${id}-offsite-keep`} className="text-xs font-normal text-muted-foreground">
+              {t('servers.tasks.steps.offsiteKeep')}
+            </Label>
+            <Input
+              id={`${id}-offsite-keep`}
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={MAX_BACKUP_KEEP}
+              className="h-9 w-20 shrink-0 tabular-nums"
+              value={String(step.offsiteKeep ?? DEFAULT_OFFSITE_KEEP)}
+              onChange={(e) => onChange({ offsiteKeep: clampKeep(e.target.value) })}
+            />
+          </div>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">{t('servers.tasks.steps.keepHelp')}</p>
+      {frequency !== 'never' && frequency !== 'always' && (
+        <p className="text-xs text-muted-foreground">{t('servers.tasks.steps.offsiteHelp')}</p>
+      )}
+    </div>
   );
 }
