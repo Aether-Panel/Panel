@@ -1658,6 +1658,9 @@ const AutoBackupPrefix = "auto-"
 // the entry, which has no file behind it. It is hidden, so it is never listed as a backup.
 const failedBackupPrefix = ".failed-"
 
+// partialBackupPrefix names an archive while it is being written
+const partialBackupPrefix = ".partial-"
+
 // BackupFailedLocation is the Location the backup list gives a backup marked as failed
 const BackupFailedLocation = "failed"
 
@@ -1783,7 +1786,7 @@ func (p *Server) FailedBackups() ([]string, error) {
 // place once it is complete, so a half-written backup is never listed, downloaded or
 // restored. The hidden name keeps the .tar.gz ending because the format is picked from it.
 func (p *Server) writeArchive(file string) error {
-	partial := filepath.Join(filepath.Dir(file), ".partial-"+filepath.Base(file))
+	partial := filepath.Join(filepath.Dir(file), partialBackupPrefix+filepath.Base(file))
 	err := files.CompressServer(p.GetFileServer(), partial)
 	if err == nil {
 		err = os.Rename(partial, file)

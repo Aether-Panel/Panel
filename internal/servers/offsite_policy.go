@@ -10,8 +10,8 @@ import (
 	"github.com/gofrs/uuid/v5"
 )
 
-// OffsiteBackupPrefix names the copies made by hand or by the periodic schedule, so they
-// never get mixed with the ones a task makes
+// OffsiteBackupPrefix names the copies the periodic schedule makes, so they never get mixed
+// with the ones a task makes or with backups made by hand
 const OffsiteBackupPrefix = "offsite-"
 
 // OffsiteFrequency says how often a task run may upload its backup to the bucket

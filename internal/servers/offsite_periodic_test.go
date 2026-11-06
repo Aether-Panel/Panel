@@ -19,14 +19,42 @@ import (
 // periodicNow is the fixed time the periodic tests run at
 var periodicNow = time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC)
 
-// newPeriodicTestServer is a stopped server whose panel-wide periodic copy is every 24 hours,
-// keeping 4. Its periodic state is forgotten afterwards, since other tests reuse its id.
+// at is a clock stopped at now
+func at(now time.Time) func() time.Time {
+	return func() time.Time { return now }
+}
+
+// newPeriodicTestServer is a stopped server, the only one loaded, whose panel-wide periodic
+// copy is every 24 hours, keeping 4. Its periodic state is forgotten afterwards, since other
+// tests reuse its id.
 func newPeriodicTestServer(t *testing.T) *Server {
 	p := newCrashTestServer(t)
 	usePeriodicGlobals(t, 24, 4)
+	useLoadedServers(t, p)
 	forgetPeriodic(p.ID())
 	t.Cleanup(func() { forgetPeriodic(p.ID()) })
 	return p
+}
+
+// useLoadedServers makes these the servers the node runs, for this test
+func useLoadedServers(t *testing.T, servers ...*Server) {
+	allServersLock.Lock()
+	previous := allServers
+	allServers = servers
+	allServersLock.Unlock()
+	t.Cleanup(func() {
+		allServersLock.Lock()
+		allServers = previous
+		allServersLock.Unlock()
+	})
+}
+
+// hasPeriodicState says whether the node keeps any periodic state for the server id
+func hasPeriodicState(serverID string) bool {
+	periodic.Lock()
+	defer periodic.Unlock()
+	_, ok := periodic.states[serverID]
+	return ok
 }
 
 // countBackupEvents counts the backup alerts sent from now on, successful or not
@@ -89,7 +117,7 @@ func TestPeriodic_UploadsWhenDueAndRemovesTheLocalCopy(t *testing.T) {
 	p := newPeriodicTestServer(t)
 	events := countBackupEvents(t)
 
-	assert.True(t, p.runPeriodic(periodicNow), "an empty bucket means the copy is due")
+	assert.True(t, p.runPeriodic(at(periodicNow)), "an empty bucket means the copy is due")
 
 	names := fake.names(p.ID())
 	if assert.Len(t, names, 1) {
@@ -102,7 +130,7 @@ func TestPeriodic_UploadsWhenDueAndRemovesTheLocalCopy(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, periodicNow, last)
 
-	assert.False(t, p.runPeriodic(periodicNow.Add(10*time.Minute)), "the next one waits for the interval")
+	assert.False(t, p.runPeriodic(at(periodicNow.Add(10*time.Minute))), "the next one waits for the interval")
 	assert.Equal(t, 1, fake.uploadCount())
 }
 
@@ -111,13 +139,13 @@ func TestPeriodic_WaitsForTheInterval(t *testing.T) {
 	p := newPeriodicTestServer(t)
 	fake.put(p.ID(), OffsiteBackupPrefix+"old.tar.gz", periodicNow.Add(-23*time.Hour))
 
-	assert.False(t, p.runPeriodic(periodicNow))
+	assert.False(t, p.runPeriodic(at(periodicNow)))
 	assert.Equal(t, 0, fake.uploadCount(), "the last copy in the bucket is only 23 hours old")
 	last, ok := LastPeriodic(p.ID())
 	assert.True(t, ok, "the last copy is read from the bucket the first time")
 	assert.Equal(t, periodicNow.Add(-23*time.Hour), last)
 
-	assert.True(t, p.runPeriodic(periodicNow.Add(time.Hour)))
+	assert.True(t, p.runPeriodic(at(periodicNow.Add(time.Hour))))
 	assert.Equal(t, 1, fake.uploadCount())
 }
 
@@ -127,7 +155,7 @@ func TestPeriodic_SeedsOnlyFromItsOwnSeries(t *testing.T) {
 	fake.put(p.ID(), taskBackupPrefix("t1")+"a.tar.gz", periodicNow.Add(-time.Hour))
 	fake.put(p.ID(), "manual.tar.gz", periodicNow.Add(-time.Hour))
 
-	assert.True(t, p.runPeriodic(periodicNow), "a task's copy or one made by hand is not a periodic copy")
+	assert.True(t, p.runPeriodic(at(periodicNow)), "a task's copy or one made by hand is not a periodic copy")
 }
 
 func TestPeriodic_PerServerOffAndDefaults(t *testing.T) {
@@ -135,11 +163,11 @@ func TestPeriodic_PerServerOffAndDefaults(t *testing.T) {
 	p := newPeriodicTestServer(t)
 
 	require.NoError(t, p.SetOffsiteSettings(OffsiteSettings{PeriodicHours: intPtr(0)}))
-	assert.False(t, p.runPeriodic(periodicNow), "the server turned it off although the panel has 24 hours")
+	assert.False(t, p.runPeriodic(at(periodicNow)), "the server turned it off although the panel has 24 hours")
 	assert.Equal(t, 0, fake.uploadCount())
 
 	require.NoError(t, p.SetOffsiteSettings(OffsiteSettings{}))
-	assert.True(t, p.runPeriodic(periodicNow), "without its own value it follows the panel")
+	assert.True(t, p.runPeriodic(at(periodicNow)), "without its own value it follows the panel")
 }
 
 func TestPeriodic_UnreadableOwnSettingsSkipTheServer(t *testing.T) {
@@ -148,13 +176,13 @@ func TestPeriodic_UnreadableOwnSettingsSkipTheServer(t *testing.T) {
 	logged := captureErrors(t)
 	require.NoError(t, os.WriteFile(filepath.Join(config.ServersFolder.Value(), p.ID()+".offsite"), []byte("{broken"), 0600))
 
-	assert.False(t, p.runPeriodic(periodicNow), "the server may have turned it off; the panel's value is not a safe guess")
-	assert.False(t, p.runPeriodic(periodicNow.Add(10*time.Minute)))
+	assert.False(t, p.runPeriodic(at(periodicNow)), "the server may have turned it off; the panel's value is not a safe guess")
+	assert.False(t, p.runPeriodic(at(periodicNow.Add(10*time.Minute))))
 	assert.Equal(t, 0, fake.uploadCount())
 	assert.Equal(t, 1, strings.Count(logged.String(), "off-site settings"), "the same error is logged once, not on every pass:\n%s", logged.String())
 
 	require.NoError(t, p.SetOffsiteSettings(OffsiteSettings{}))
-	assert.True(t, p.runPeriodic(periodicNow.Add(20*time.Minute)), "readable again, it copies")
+	assert.True(t, p.runPeriodic(at(periodicNow.Add(20*time.Minute))), "readable again, it copies")
 }
 
 func TestPeriodic_SkipsWhenTheBucketIsNotConfigured(t *testing.T) {
@@ -162,7 +190,7 @@ func TestPeriodic_SkipsWhenTheBucketIsNotConfigured(t *testing.T) {
 	fake.disabled.Store(true)
 	p := newPeriodicTestServer(t)
 
-	assert.False(t, p.runPeriodic(periodicNow))
+	assert.False(t, p.runPeriodic(at(periodicNow)))
 	assert.Equal(t, 0, fake.uploadCount())
 	assert.Empty(t, backupFiles(t, p))
 }
@@ -172,17 +200,17 @@ func TestPeriodic_SkipsBusyOrPausedServers(t *testing.T) {
 	p := newPeriodicTestServer(t)
 
 	p.Scheduler = &Scheduler{Paused: true}
-	assert.False(t, p.runPeriodic(periodicNow), "a server being moved")
+	assert.False(t, p.runPeriodic(at(periodicNow)), "a server being moved")
 	p.Scheduler = nil
 
 	p.RunningEnvironment.Installing = true
-	assert.False(t, p.runPeriodic(periodicNow), "a server being installed")
+	assert.False(t, p.runPeriodic(at(periodicNow)), "a server being installed")
 	p.RunningEnvironment.Installing = false
 
 	p.backupState.Store(backupRunning)
-	assert.False(t, p.runPeriodic(periodicNow), "another backup is running")
+	assert.False(t, p.runPeriodic(at(periodicNow)), "another backup is running")
 	p.backupState.Store(restoreRunning)
-	assert.False(t, p.runPeriodic(periodicNow), "a restore is running")
+	assert.False(t, p.runPeriodic(at(periodicNow)), "a restore is running")
 	p.backupState.Store(backupIdle)
 
 	assert.Equal(t, 0, fake.uploadCount())
@@ -194,7 +222,7 @@ func TestPeriodic_RunsWithTheGameRunning(t *testing.T) {
 	p := newPeriodicTestServer(t)
 	p.RunningEnvironment.Implementation.(*fakeEnvironment).running = true
 
-	assert.True(t, p.runPeriodic(periodicNow), "the copy is taken hot, like one made by hand")
+	assert.True(t, p.runPeriodic(at(periodicNow)), "the copy is taken hot, like one made by hand")
 	assert.Equal(t, 1, fake.uploadCount())
 }
 
@@ -210,7 +238,7 @@ func TestPeriodic_KeepsOnlyItsOwnSeries(t *testing.T) {
 	fake.put(p.ID(), taskBackupPrefix("t1")+"y.tar.gz", periodicNow.Add(-80*time.Hour))
 	fake.put(p.ID(), "manual.tar.gz", periodicNow.Add(-100*time.Hour))
 
-	assert.True(t, p.runPeriodic(periodicNow))
+	assert.True(t, p.runPeriodic(at(periodicNow)))
 
 	var periodicCopies, others []string
 	for _, name := range fake.names(p.ID()) {
@@ -234,22 +262,22 @@ func TestPeriodic_UnreachableBucketWritesNothingAndBacksOff(t *testing.T) {
 	captureErrors(t)
 
 	now := periodicNow
-	assert.False(t, p.runPeriodic(now))
+	assert.False(t, p.runPeriodic(at(now)))
 	assert.Empty(t, backupFiles(t, p), "nothing is written while the bucket does not answer")
 	assert.Equal(t, now.Add(time.Hour), periodicOf(p.ID()).retryAt)
 	assert.Equal(t, int32(1), events.Load(), "a failure tells the owner")
 
-	assert.False(t, p.runPeriodic(now.Add(30*time.Minute)), "it waits until retryAt")
+	assert.False(t, p.runPeriodic(at(now.Add(30*time.Minute))), "it waits until retryAt")
 	assert.Equal(t, now.Add(time.Hour), periodicOf(p.ID()).retryAt, "a skipped pass is not another failure")
 	assert.Equal(t, int32(1), events.Load())
 
 	now = now.Add(time.Hour)
-	assert.False(t, p.runPeriodic(now))
+	assert.False(t, p.runPeriodic(at(now)))
 	assert.Equal(t, now.Add(2*time.Hour), periodicOf(p.ID()).retryAt)
 
 	for i := 0; i < 4; i++ {
 		now = periodicOf(p.ID()).retryAt
-		assert.False(t, p.runPeriodic(now))
+		assert.False(t, p.runPeriodic(at(now)))
 	}
 	assert.Equal(t, 6, periodicOf(p.ID()).failures)
 	assert.Equal(t, now.Add(24*time.Hour), periodicOf(p.ID()).retryAt, "the wait never goes beyond a day")
@@ -258,7 +286,7 @@ func TestPeriodic_UnreachableBucketWritesNothingAndBacksOff(t *testing.T) {
 
 	fake.failReach.Store(false)
 	now = periodicOf(p.ID()).retryAt
-	assert.True(t, p.runPeriodic(now))
+	assert.True(t, p.runPeriodic(at(now)))
 	state := periodicOf(p.ID())
 	assert.Equal(t, 0, state.failures, "a good upload resets the wait")
 	assert.True(t, state.retryAt.IsZero())
@@ -270,7 +298,7 @@ func TestPeriodic_AFailedListingCountsAsAFailure(t *testing.T) {
 	p := newPeriodicTestServer(t)
 	captureErrors(t)
 
-	assert.False(t, p.runPeriodic(periodicNow))
+	assert.False(t, p.runPeriodic(at(periodicNow)))
 	assert.Equal(t, 0, fake.uploadCount())
 	assert.Equal(t, periodicNow.Add(time.Hour), periodicOf(p.ID()).retryAt)
 	_, ok := LastPeriodic(p.ID())
@@ -284,7 +312,7 @@ func TestPeriodic_FailedUploadStillRemovesTheLocalCopy(t *testing.T) {
 	events := countBackupEvents(t)
 	captureErrors(t)
 
-	assert.True(t, p.runPeriodic(periodicNow), "the copy was made, only its upload failed")
+	assert.True(t, p.runPeriodic(at(periodicNow)), "the copy was made, only its upload failed")
 
 	assert.Equal(t, 1, fake.uploadCount())
 	assert.Empty(t, fake.names(p.ID()))
@@ -305,7 +333,7 @@ func TestPeriodic_ABackupThatCannotStartIsAnnouncedOnce(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(p.GetBackupDirectory()), 0755))
 	require.NoError(t, os.WriteFile(p.GetBackupDirectory(), nil, 0600))
 
-	assert.False(t, p.runPeriodic(periodicNow))
+	assert.False(t, p.runPeriodic(at(periodicNow)))
 
 	assert.Equal(t, 0, fake.uploadCount())
 	assert.Equal(t, int32(1), events.Load(), "only once, although the backup itself already failed")
@@ -315,28 +343,133 @@ func TestPeriodic_ABackupThatCannotStartIsAnnouncedOnce(t *testing.T) {
 
 func TestPeriodicPass_GoesThroughEveryServer(t *testing.T) {
 	fake := useFakeBucket(t)
-	p := newPeriodicTestServer(t)
-	allServersLock.Lock()
-	previous := allServers
-	allServers = []*Server{p}
-	allServersLock.Unlock()
-	t.Cleanup(func() {
-		allServersLock.Lock()
-		allServers = previous
-		allServersLock.Unlock()
-	})
+	newPeriodicTestServer(t)
 
-	periodicPass(periodicNow)
+	periodicPass(at(periodicNow))
 
 	assert.Equal(t, 1, fake.uploadCount())
 }
 
+func TestPeriodic_SkipsAServerDeletedDuringThePass(t *testing.T) {
+	fake := useFakeBucket(t)
+	p := newPeriodicTestServer(t)
+	events := countBackupEvents(t)
+	// the pass took its list before the server was deleted, as Delete does it: out of the
+	// cache, then its state forgotten
+	useLoadedServers(t)
+	forgetPeriodic(p.ID())
+
+	assert.False(t, p.runPeriodic(at(periodicNow)))
+
+	assert.Equal(t, 0, fake.uploadCount())
+	assert.Equal(t, int32(0), events.Load())
+	assert.NoDirExists(t, p.GetBackupDirectory(), "the deleted server's backup folder is not made again")
+	assert.False(t, hasPeriodicState(p.ID()), "nothing is kept for an id that may be created again")
+}
+
+func TestPeriodic_SkipsAServerReplacedByANewOneWithItsID(t *testing.T) {
+	fake := useFakeBucket(t)
+	p := newPeriodicTestServer(t)
+	again := CreateProgram()
+	again.Identifier = p.ID()
+	useLoadedServers(t, again)
+
+	assert.False(t, p.runPeriodic(at(periodicNow)), "the old server is not the one the node runs")
+	assert.Equal(t, 0, fake.uploadCount())
+	assert.False(t, hasPeriodicState(p.ID()))
+}
+
+func TestPeriodic_AFailureOfADeletedServerIsNotRecorded(t *testing.T) {
+	p := newPeriodicTestServer(t)
+	useLoadedServers(t)
+
+	assert.False(t, p.recordPeriodicFailure(periodicNow))
+	assert.False(t, p.updatePeriodic(func(s *periodicState) { s.last = periodicNow }))
+	assert.False(t, hasPeriodicState(p.ID()))
+}
+
 func TestForgetPeriodic_ClearsTheState(t *testing.T) {
-	updatePeriodic("gone", func(s *periodicState) { s.last = periodicNow; s.failures = 3 })
+	p := newPeriodicTestServer(t)
+	p.updatePeriodic(func(s *periodicState) { s.last = periodicNow; s.failures = 3 })
 
-	forgetPeriodic("gone")
+	forgetPeriodic(p.ID())
 
-	_, ok := LastPeriodic("gone")
+	_, ok := LastPeriodic(p.ID())
 	assert.False(t, ok)
-	assert.Equal(t, periodicState{}, periodicOf("gone"), "a server created again with the id starts afresh")
+	assert.False(t, hasPeriodicState(p.ID()), "a server created again with the id starts afresh")
+}
+
+func TestSweepPeriodicLeftovers_RemovesOnlyPeriodicArchives(t *testing.T) {
+	p := newPeriodicTestServer(t)
+	require.NoError(t, os.MkdirAll(p.GetBackupDirectory(), 0755))
+	for _, name := range []string{
+		OffsiteBackupPrefix + "a.tar.gz", partialBackupPrefix + OffsiteBackupPrefix + "b.tar.gz",
+		taskBackupPrefix("t1") + "x.tar.gz", "manual.tar.gz", partialBackupPrefix + "manual.tar.gz",
+	} {
+		require.NoError(t, os.WriteFile(filepath.Join(p.GetBackupDirectory(), name), []byte("x"), 0600))
+	}
+
+	sweepPeriodicLeftovers()
+
+	assert.ElementsMatch(t, []string{taskBackupPrefix("t1") + "x.tar.gz", "manual.tar.gz", partialBackupPrefix + "manual.tar.gz"},
+		backupFiles(t, p), "a restart mid-upload leaves the periodic archive behind; nothing else is touched")
+}
+
+// startThenLater is a clock at start for its first reading and at later afterwards, as when
+// writing and uploading a copy takes that long
+func startThenLater(start, later time.Time) func() time.Time {
+	var calls atomic.Int32
+	return func() time.Time {
+		if calls.Add(1) == 1 {
+			return start
+		}
+		return later
+	}
+}
+
+func TestPeriodic_WaitsFromWhenTheAttemptEnded(t *testing.T) {
+	fake := useFakeBucket(t)
+	fake.failUpload.Store(true)
+	p := newPeriodicTestServer(t)
+	captureErrors(t)
+	ended := periodicNow.Add(2 * time.Hour)
+
+	assert.True(t, p.runPeriodic(startThenLater(periodicNow, ended)))
+	assert.Equal(t, ended.Add(time.Hour), periodicOf(p.ID()).retryAt, "a long upload must not eat the wait")
+
+	fake.failUpload.Store(false)
+	done := ended.Add(3 * time.Hour)
+	assert.True(t, p.runPeriodic(startThenLater(ended.Add(time.Hour), done)))
+	last, _ := LastPeriodic(p.ID())
+	assert.Equal(t, done, last, "the interval counts from when the copy reached the bucket")
+}
+
+func TestPeriodic_FailuresCountOnlyInARow(t *testing.T) {
+	fake := useFakeBucket(t)
+	fake.failList.Store(true)
+	p := newPeriodicTestServer(t)
+	captureErrors(t)
+	fake.put(p.ID(), OffsiteBackupPrefix+"recent.tar.gz", periodicNow.Add(-time.Hour))
+
+	assert.False(t, p.runPeriodic(at(periodicNow)))
+	assert.Equal(t, 1, periodicOf(p.ID()).failures)
+
+	fake.failList.Store(false)
+	assert.False(t, p.runPeriodic(at(periodicNow.Add(time.Hour))), "the bucket answers, and the last copy is recent")
+	assert.Equal(t, 0, periodicOf(p.ID()).failures, "the run of failures is over")
+
+	fake.failReach.Store(true)
+	later := periodicNow.Add(30 * time.Hour)
+	assert.False(t, p.runPeriodic(at(later)))
+	assert.Equal(t, later.Add(time.Hour), periodicOf(p.ID()).retryAt, "a failure a day later waits 1 hour, not 2")
+}
+
+func TestPeriodic_ATaskNamedPeriodicIsAnotherSeries(t *testing.T) {
+	fake := useFakeBucket(t)
+	p := newPeriodicTestServer(t)
+	require.True(t, startSeries(p.ID(), "periodic"), "a task with the id periodic is uploading")
+	defer endSeries(p.ID(), "periodic")
+
+	assert.True(t, p.runPeriodic(at(periodicNow)))
+	assert.Equal(t, 1, fake.uploadCount())
 }

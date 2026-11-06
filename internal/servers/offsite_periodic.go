@@ -3,6 +3,8 @@ package servers
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -13,8 +15,9 @@ import (
 )
 
 const (
-	// periodicSeries is the upload series of the periodic copies, apart from every task's
-	periodicSeries = "periodic"
+	// periodicSeries is the upload series of the periodic copies. The colon keeps it apart
+	// from every task's, whose ids never have one (taskIDPattern).
+	periodicSeries = ":periodic"
 	// periodicFirstPass lets the node finish starting its servers before the first copies
 	periodicFirstPass = 5 * time.Minute
 	// periodicInterval is how often the worker looks for servers whose copy is due
@@ -66,16 +69,29 @@ func periodicOf(serverID string) periodicState {
 	return periodicState{}
 }
 
-// updatePeriodic changes the server's state, creating it when needed
-func updatePeriodic(serverID string, change func(*periodicState)) {
+// updatePeriodic changes the server's state, creating it when needed. It does nothing, and
+// reports false, once the server is no longer loaded: Delete drops it from the cache before
+// forgetting its state, and checking under the state's lock keeps a pass that is still on the
+// server from bringing the state back for an id that may be created again.
+func (p *Server) updatePeriodic(change func(*periodicState)) bool {
 	periodic.Lock()
 	defer periodic.Unlock()
-	s := periodic.states[serverID]
+	if !p.loaded() {
+		return false
+	}
+	s := periodic.states[p.ID()]
 	if s == nil {
 		s = &periodicState{}
-		periodic.states[serverID] = s
+		periodic.states[p.ID()] = s
 	}
 	change(s)
+	return true
+}
+
+// loaded says whether the node still runs this server: not deleted, nor replaced by one
+// created again with its id
+func (p *Server) loaded() bool {
+	return GetFromCache(p.ID()) == p
 }
 
 // forgetPeriodic drops the state of a deleted server, so one created again with its id
@@ -90,20 +106,48 @@ func forgetPeriodic(serverID string) {
 // goes through the servers one at a time, so they never all back up at once.
 func StartOffsitePeriodic() {
 	go func() {
+		sweepPeriodicLeftovers()
 		time.Sleep(periodicFirstPass)
-		periodicPass(time.Now())
+		periodicPass(time.Now)
 		ticker := time.NewTicker(periodicInterval)
 		defer ticker.Stop()
 		for range ticker.C {
-			periodicPass(time.Now())
+			periodicPass(time.Now)
 		}
 	}()
 }
 
-// periodicPass makes the periodic copy of every server that is due, in order
-func periodicPass(now time.Time) {
+// sweepPeriodicLeftovers removes the periodic archives a restart left on the node: one stopped
+// while uploading never got to delete its archive, and the panel would list it as a backup
+// forever. The copies that count are in the bucket.
+func sweepPeriodicLeftovers() {
 	for _, p := range GetAll() {
-		p.runPeriodic(now)
+		entries, err := os.ReadDir(p.GetBackupDirectory())
+		if err != nil {
+			continue // no backups yet, or nothing this sweep can fix
+		}
+		for _, entry := range entries {
+			name := entry.Name()
+			if entry.IsDir() || !isPeriodicArchive(name) {
+				continue
+			}
+			if err := os.Remove(filepath.Join(p.GetBackupDirectory(), name)); err != nil {
+				p.Log(logging.Error, "Error removing the leftover periodic backup %s: %s", name, err)
+			}
+		}
+	}
+}
+
+// isPeriodicArchive says whether the file is a periodic archive, finished or half written
+func isPeriodicArchive(name string) bool {
+	return strings.HasPrefix(strings.TrimPrefix(name, partialBackupPrefix), OffsiteBackupPrefix)
+}
+
+// periodicPass makes the periodic copy of every server that is due, in order. A pass can take
+// hours, so each server reads the clock again rather than using the time the pass began.
+func periodicPass(clock func() time.Time) {
+	for _, p := range GetAll() {
+		p.runPeriodic(clock)
 	}
 }
 
@@ -111,14 +155,16 @@ func periodicPass(now time.Time) {
 // bucket, leaving nothing on the node. It reports whether a copy was made, whatever happened
 // to its upload. Only failures are announced; after one the server waits 1, 2, 4... up to 24
 // hours before trying again.
-func (p *Server) runPeriodic(now time.Time) bool {
-	if !bucket.Configured() {
+func (p *Server) runPeriodic(clock func() time.Time) bool {
+	// the pass walks a list taken when it began, and the server may have been deleted since
+	if !p.loaded() || !bucket.Configured() {
 		return false
 	}
 	hours, keep, ok := p.periodicPlan()
 	if !ok || hours == 0 {
 		return false
 	}
+	now := clock()
 	state := periodicOf(p.ID())
 	if now.Before(state.retryAt) || p.busyForPeriodic() {
 		return false
@@ -126,16 +172,20 @@ func (p *Server) runPeriodic(now time.Time) bool {
 	if !state.seeded {
 		last, err := p.lastPeriodicInBucket()
 		if err != nil {
-			p.periodicUnavailable(now, err)
+			p.periodicUnavailable(clock(), err)
 			return false
 		}
-		updatePeriodic(p.ID(), func(s *periodicState) {
+		p.updatePeriodic(func(s *periodicState) {
 			s.last = last
 			s.seeded = true
 		})
 		state.last = last
 	}
 	if now.Sub(state.last) < time.Duration(hours)*time.Hour {
+		if state.failures > 0 {
+			// the bucket answered and nothing is due: the run of failures is over
+			p.updatePeriodic(func(s *periodicState) { s.failures = 0 })
+		}
 		return false
 	}
 	// a quick check first, so a bucket that is down does not cost a whole archive
@@ -143,20 +193,25 @@ func (p *Server) runPeriodic(now time.Time) bool {
 	err := bucket.Reachable(ctx)
 	cancel()
 	if err != nil {
-		p.periodicUnavailable(now, err)
+		p.periodicUnavailable(clock(), err)
 		return false
 	}
-	return p.makePeriodicCopy(now, keep)
+	return p.makePeriodicCopy(clock, keep)
 }
 
 // makePeriodicCopy writes the archive, uploads it while the periodic series is claimed and
 // removes it from the node, whether the upload worked or not, so retries never fill the disk
-func (p *Server) makePeriodicCopy(now time.Time, keep int) bool {
+func (p *Server) makePeriodicCopy(clock func() time.Time, keep int) bool {
 	if !startSeries(p.ID(), periodicSeries) {
 		return false
 	}
 	defer endSeries(p.ID(), periodicSeries)
 
+	// checked again just before writing: the bucket checks take time, and a backup of a
+	// deleted server would make its folder again
+	if !p.loaded() {
+		return false
+	}
 	fileName, file, err := p.beginBackup(OffsiteBackupPrefix)
 	if errors.Is(err, skypanel.ErrBackupInProgress) {
 		// someone started a backup since the check; the next pass tries again
@@ -165,7 +220,7 @@ func (p *Server) makePeriodicCopy(now time.Time, keep int) bool {
 	if err != nil {
 		// beginBackup has already announced the failure
 		p.Log(logging.Error, "Error starting the periodic backup: %s", err)
-		recordPeriodicFailure(p.ID(), now)
+		p.recordPeriodicFailure(clock())
 		return false
 	}
 	defer func() {
@@ -178,18 +233,21 @@ func (p *Server) makePeriodicCopy(now time.Time, keep int) bool {
 		p.Log(logging.Error, "Error creating backup file: %s", err)
 		p.RunningEnvironment.DisplayToConsole(true, "Failed to create backup file")
 		p.endBackupQuiet(false)
-		recordPeriodicFailure(p.ID(), now)
+		p.recordPeriodicFailure(clock())
 		return false
 	}
 	p.endBackupQuiet(true)
 
 	if p.uploadOffsite(fileName, file) != nil {
-		p.alertBackup(false)
-		recordPeriodicFailure(p.ID(), now)
+		if p.recordPeriodicFailure(clock()) {
+			p.alertBackup(false)
+		}
 		return true
 	}
-	updatePeriodic(p.ID(), func(s *periodicState) {
-		s.last = now
+	// the interval counts from when the copy reached the bucket, as its date there says
+	ended := clock()
+	p.updatePeriodic(func(s *periodicState) {
+		s.last = ended
 		s.failures = 0
 		s.retryAt = time.Time{}
 	})
@@ -206,17 +264,11 @@ func (p *Server) periodicPlan() (hours, keep int, ok bool) {
 	if err != nil {
 		message = err.Error()
 	}
-	periodic.Lock()
-	s := periodic.states[p.ID()]
-	changed := (s == nil && message != "") || (s != nil && s.settingsError != message)
-	if changed {
-		if s == nil {
-			s = &periodicState{}
-			periodic.states[p.ID()] = s
-		}
+	changed := false
+	p.updatePeriodic(func(s *periodicState) {
+		changed = s.settingsError != message
 		s.settingsError = message
-	}
-	periodic.Unlock()
+	})
 	if err != nil {
 		if changed {
 			p.Log(logging.Error, "Error reading the off-site settings, no periodic copy until it is fixed: %s", err)
@@ -259,15 +311,18 @@ func (p *Server) lastPeriodicInBucket() (time.Time, error) {
 
 // periodicUnavailable records and announces a bucket that could not be reached or listed
 func (p *Server) periodicUnavailable(now time.Time, err error) {
+	if !p.recordPeriodicFailure(now) {
+		return // deleted meanwhile; nobody is waiting for this copy
+	}
 	p.Log(logging.Error, "Periodic off-site backup skipped, the bucket is not available: %s", err)
 	p.RunningEnvironment.DisplayToConsole(true, "Periodic off-site backup skipped, the bucket is not available: %s", err)
 	p.alertBackup(false)
-	recordPeriodicFailure(p.ID(), now)
 }
 
-// recordPeriodicFailure doubles the wait before the server's next try, up to a day
-func recordPeriodicFailure(serverID string, now time.Time) {
-	updatePeriodic(serverID, func(s *periodicState) {
+// recordPeriodicFailure doubles the wait before the server's next try, up to a day, counting
+// from now, when the try ended. It reports false when the server is no longer loaded.
+func (p *Server) recordPeriodicFailure(now time.Time) bool {
+	return p.updatePeriodic(func(s *periodicState) {
 		s.failures++
 		// 2^5 hours is already past the cap, and a larger shift would overflow
 		backoff := min(time.Hour<<min(s.failures-1, 5), periodicMaxBackoff)

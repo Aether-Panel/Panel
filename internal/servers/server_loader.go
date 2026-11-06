@@ -276,7 +276,6 @@ func Delete(id string) (err error) {
 	}
 	// the server's tasks, crash reports, notification and off-site settings go with it
 	forgetMetrics(safeID)
-	forgetPeriodic(safeID)
 	for _, ext := range []string{".cron", ".crashes", ".notify", ".offsite", ".metrics", ".worldmap"} {
 		if err := os.Remove(filepath.Join(config.ServersFolder.Value(), safeID+ext)); err != nil && !os.IsNotExist(err) {
 			logging.Error.Printf("Error removing %s for server %s: %s", ext, safeID, err)
@@ -288,6 +287,8 @@ func Delete(id string) (err error) {
 		logging.Error.Printf("Error removing the file history of server %s: %s", safeID, err)
 	}
 	removeFromCache(id)
+	// after leaving the cache, so a periodic pass still on the server cannot bring it back
+	forgetPeriodic(safeID)
 	return
 }
 
