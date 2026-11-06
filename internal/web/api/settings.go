@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -197,7 +196,7 @@ func applyEditableSetting(key string, value interface{}) error {
 	if err := setMatchingEntries(editableBoolEntries, key, cast.ToBool(value)); err != nil {
 		return err
 	}
-	number, _ := settingInt(value)
+	number, _ := config.WholeNumber(value)
 	return setMatchingEntries(editableIntEntries, key, number)
 }
 
@@ -618,50 +617,11 @@ var discordWebhookEntries = []config.StringEntry{
 
 // validateSetting checks a setting's value before anything is saved
 func validateSetting(key string, value interface{}) error {
-	if err := validateIntSetting(key, value); err != nil {
+	// the periodic off-site values follow the same rules a node applies to them
+	if err := servers.ValidateOffsiteSetting(key, value); err != nil {
 		return err
 	}
 	return validateStringSetting(key, cast.ToString(value))
-}
-
-// validateIntSetting checks the number settings: only the periodic off-site intervals the
-// panel offers, and 1-50 copies to keep. Anything that is not a whole number is refused too,
-// so a typo does not turn into 0, which would switch the periodic copy off.
-func validateIntSetting(key string, value interface{}) error {
-	var refusal error
-	var valid func(int) bool
-	switch key {
-	case config.BackupsS3PeriodicHours.Key():
-		refusal, valid = skypanel.ErrOffsitePeriodicHours, servers.ValidPeriodicHours
-	case config.BackupsS3PeriodicKeep.Key():
-		refusal = skypanel.ErrOffsiteKeep
-		valid = func(n int) bool {
-			_, err := servers.OffsiteKeep(n)
-			return err == nil
-		}
-	default:
-		return nil
-	}
-	if n, ok := settingInt(value); !ok || !valid(n) {
-		return refusal
-	}
-	return nil
-}
-
-// settingInt reads a number setting as JSON sends it (a number, or the text of one); false
-// when it is not a whole number. Text is read in base 10, so "010" is 10 and not octal.
-func settingInt(value interface{}) (int, bool) {
-	switch v := value.(type) {
-	case int:
-		return v, true
-	case float64:
-		n := int(v)
-		return n, float64(n) == v
-	case string:
-		n, err := strconv.Atoi(strings.TrimSpace(v))
-		return n, err == nil
-	}
-	return 0, false
 }
 
 func validateStringSetting(key, value string) error {

@@ -178,6 +178,13 @@ var ErrNotificationLanguage = CreateError("the notification language must be es 
 var ErrOffsitePeriodicHours = CreateError("the periodic off-site copy must be every 0 (never), 12, 24, 48, 72, 168, 336 or 720 hours", "ErrOffsitePeriodicHours")
 var ErrOffsiteKeep = CreateError("the off-site copies to keep must be between 1 and 50", "ErrOffsiteKeep")
 
+// ErrNodeSettingInvalid refuses the settings the panel hands a node: a key the node does not
+// take, one missing, or a value of the wrong type. It names the key, never the value, which
+// may be a secret.
+var ErrNodeSettingInvalid = func(key, problem string) *Error {
+	return CreateError("node setting ${key} ${problem}", "ErrNodeSettingInvalid").Metadata(map[string]interface{}{"key": key, "problem": problem})
+}
+
 var ErrFieldRequired = func(fieldName string) *Error {
 	return CreateError("${field} is required", "ErrFieldRequired").Metadata(map[string]interface{}{"field": fieldName})
 }

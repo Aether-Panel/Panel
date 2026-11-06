@@ -57,6 +57,13 @@ type DaemonRunning struct {
 	Message string `json:"message"`
 } // @name DaemonRunning
 
+// NodeSettingsState is what a node answers on GET /daemon/settings: the hash of the settings
+// the panel hands it (config.NodeSettingsHash of config.NodeSettingsValues), never the values,
+// which include secrets. The panel compares it with the hash of its own values.
+type NodeSettingsState struct {
+	Hash string `json:"hash"`
+} // @name NodeSettingsState
+
 type ServerTasks struct {
 	Tasks map[string]ServerTask `json:"tasks"`
 } // @name ServerTasks
