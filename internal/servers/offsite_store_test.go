@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,39 +14,83 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// fakeBucket is an in-memory bucket. Set the switches before the code under test runs; read
-// what happened through its methods, which lock, since uploads run in the background.
+// fakeBucket is an in-memory bucket. Uploads run in the background, so its switches and what
+// it records are only touched through methods that lock or atomics.
 type fakeBucket struct {
 	mu      sync.Mutex
 	objects map[string]map[string]offsite.Object // server -> file name -> object
 	uploads int                                  // Upload calls, failed ones included
-
-	// disabled makes Configured report false, as when the S3 settings are off
-	disabled bool
-	// failUpload makes every Upload fail without storing anything
-	failUpload bool
-	// failReach makes Reachable fail, as when the bucket is down
-	failReach bool
 	// hold, when set, keeps every Upload waiting until it is closed (or its context ends),
 	// so a test can look at an upload while it is in progress
 	hold chan struct{}
+	// clock dates what Upload stores, so a test with a fixed time sees its uploads at that time
+	clock func() time.Time
+
+	// disabled makes Configured report false, as when the S3 settings are off
+	disabled atomic.Bool
+	// failUpload makes every Upload fail without storing anything
+	failUpload atomic.Bool
+	// failReach makes Reachable fail, as when the bucket is down
+	failReach atomic.Bool
+	// failList makes List fail
+	failList atomic.Bool
 }
 
-// useFakeBucket swaps the real bucket for an empty, configured fake one for this test
+// useFakeBucket swaps the real bucket for an empty, configured fake one for this test. The
+// real one comes back only once no upload is running, so a background upload never sees the
+// swap; an upload still held is let go first.
 func useFakeBucket(t *testing.T) *fakeBucket {
-	fake := &fakeBucket{objects: map[string]map[string]offsite.Object{}}
+	fake := &fakeBucket{objects: map[string]map[string]offsite.Object{}, clock: time.Now}
 	previous := bucket
 	bucket = fake
-	t.Cleanup(func() { bucket = previous })
+	t.Cleanup(func() {
+		fake.release()
+		waitForUploads(t)
+		bucket = previous
+	})
 	return fake
 }
 
+// waitForUploads waits until no off-site upload of any server is in progress
+func waitForUploads(t *testing.T) {
+	t.Helper()
+	assert.Eventually(t, func() bool {
+		uploading.Lock()
+		defer uploading.Unlock()
+		return len(uploading.series) == 0
+	}, 15*time.Second, 5*time.Millisecond, "an off-site upload never finished")
+}
+
+// holdUploads keeps every Upload from now on waiting until release is called
+func (f *fakeBucket) holdUploads() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.hold = make(chan struct{})
+}
+
+// release lets the held uploads finish; it does nothing when none are held
+func (f *fakeBucket) release() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.hold != nil {
+		close(f.hold)
+		f.hold = nil
+	}
+}
+
+// setClock makes the uploads from now on be stored as made at now()
+func (f *fakeBucket) setClock(now func() time.Time) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.clock = now
+}
+
 func (f *fakeBucket) Configured() bool {
-	return !f.disabled
+	return !f.disabled.Load()
 }
 
 func (f *fakeBucket) Reachable(context.Context) error {
-	if f.failReach {
+	if f.failReach.Load() {
 		return errors.New("fake bucket unreachable")
 	}
 	return nil
@@ -54,15 +99,16 @@ func (f *fakeBucket) Reachable(context.Context) error {
 func (f *fakeBucket) Upload(ctx context.Context, serverID, name, path string) error {
 	f.mu.Lock()
 	f.uploads++
+	hold := f.hold
 	f.mu.Unlock()
-	if f.hold != nil {
+	if hold != nil {
 		select {
-		case <-f.hold:
+		case <-hold:
 		case <-ctx.Done():
 			return ctx.Err()
 		}
 	}
-	if f.failUpload {
+	if f.failUpload.Load() {
 		return errors.New("fake upload failed")
 	}
 	info, err := os.Stat(path)
@@ -71,11 +117,14 @@ func (f *fakeBucket) Upload(ctx context.Context, serverID, name, path string) er
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.store(serverID, offsite.Object{FileName: name, Size: info.Size(), ModTime: time.Now()})
+	f.store(serverID, offsite.Object{FileName: name, Size: info.Size(), ModTime: f.clock()})
 	return nil
 }
 
 func (f *fakeBucket) List(_ context.Context, serverID string) ([]offsite.Object, error) {
+	if f.failList.Load() {
+		return nil, errors.New("fake listing failed")
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	result := make([]offsite.Object, 0, len(f.objects[serverID]))

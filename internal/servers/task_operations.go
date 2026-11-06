@@ -1,10 +1,13 @@
 package servers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/offsite"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/spf13/cast"
 )
@@ -21,6 +24,9 @@ const DefaultAutoBackupKeep = 5
 
 // MaxAutoBackupKeep caps retention so one task cannot fill the node's disk
 const MaxAutoBackupKeep = 50
+
+// offsiteListTimeout bounds listing the bucket, and the deletions of a prune that follow it
+const offsiteListTimeout = time.Minute
 
 var errNotAServer = errors.New("this operation can only run on a server")
 
@@ -96,7 +102,7 @@ func (restartOperation) Run(args skypanel.RunOperatorArgs) skypanel.OperationRes
 }
 
 type backupOperation struct {
-	keep int
+	opts AutoBackupOptions
 }
 
 func (o backupOperation) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
@@ -104,8 +110,106 @@ func (o backupOperation) Run(args skypanel.RunOperatorArgs) skypanel.OperationRe
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}
-	_, err = p.RunAutoBackup(o.keep)
+	_, err = p.RunAutoBackup(o.opts)
 	return skypanel.OperationResult{Error: err}
+}
+
+// taskIDArg is the step's "taskId" argument, which only the scheduler sets; "" when the step
+// runs outside a scheduled task
+func taskIDArg(v interface{}) (string, error) {
+	if v == nil {
+		return "", nil
+	}
+	id, ok := v.(string)
+	if !ok {
+		return "", fmt.Errorf("invalid task id %v", v)
+	}
+	return id, nil
+}
+
+// copyTaskBackupOffsite uploads a task's backup in the background when the task's frequency
+// says this run is due, then prunes the task's own older copies in the bucket. It never makes
+// the task fail: the backup is already safe on the node, and the next run tries again.
+func (p *Server) copyTaskBackupOffsite(fileName, file string, opts AutoBackupOptions) {
+	if opts.Offsite == OffsiteNever || opts.TaskID == "" || !bucket.Configured() {
+		return
+	}
+	// while the task's previous copy is still uploading it is not in the bucket yet, so this
+	// run would upload again; it stays on the node instead
+	if !startSeries(p.ID(), opts.TaskID) {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), offsiteListTimeout)
+	objects, err := bucket.List(ctx, p.ID())
+	cancel()
+	if err != nil {
+		endSeries(p.ID(), opts.TaskID)
+		p.Log(logging.Error, "Error listing off-site backups: %s", err)
+		p.RunningEnvironment.DisplayToConsole(true, "Off-site copy skipped: %s", err)
+		return
+	}
+	var last time.Time
+	for _, o := range taskObjects(objects, opts.TaskID) {
+		if o.ModTime.After(last) {
+			last = o.ModTime
+		}
+	}
+	now := time.Now
+	if opts.Now != nil {
+		now = opts.Now
+	}
+	if !offsiteDue(opts.Offsite, last, now().In(p.Scheduler.Location())) {
+		endSeries(p.ID(), opts.TaskID)
+		return
+	}
+
+	go func() {
+		defer endSeries(p.ID(), opts.TaskID)
+		p.RunningEnvironment.DisplayToConsole(true, "Uploading backup to off-site storage")
+		ctx, cancel := context.WithTimeout(context.Background(), offsiteTimeout)
+		err := bucket.Upload(ctx, p.ID(), fileName, file)
+		cancel()
+		if err != nil {
+			p.Log(logging.Error, "Error uploading backup off-site: %s", err)
+			p.RunningEnvironment.DisplayToConsole(true, "Off-site upload failed: %s", err)
+			return
+		}
+		p.RunningEnvironment.DisplayToConsole(true, "Backup uploaded to off-site storage")
+		p.pruneTaskOffsite(opts.TaskID, opts.OffsiteKeep)
+	}()
+}
+
+// pruneTaskOffsite deletes the task's oldest copies in the bucket beyond the newest keep. Copies
+// of other tasks, of the periodic schedule or made by hand are never counted nor deleted.
+func (p *Server) pruneTaskOffsite(taskID string, keep int) {
+	if keep < 1 {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), offsiteListTimeout)
+	defer cancel()
+	objects, err := bucket.List(ctx, p.ID())
+	if err != nil {
+		p.Log(logging.Error, "Error listing off-site backups: %s", err)
+		return
+	}
+	for _, name := range newestBeyond(taskObjects(objects, taskID), keep) {
+		if err := bucket.Delete(ctx, p.ID(), name); err != nil {
+			p.Log(logging.Error, "Error deleting off-site backup %s: %s", name, err)
+		}
+	}
+}
+
+// taskObjects keeps the task's own copies. The name is parsed rather than its start compared,
+// since task "a" would otherwise claim the copies of task "a-b".
+func taskObjects(objects []offsite.Object, taskID string) []offsite.Object {
+	own := make([]offsite.Object, 0, len(objects))
+	for _, o := range objects {
+		if id, ok := taskIDFromBackupName(o.FileName); ok && id == taskID {
+			own = append(own, o)
+		}
+	}
+	return own
 }
 
 type serverOperationFactory struct {
@@ -151,6 +255,18 @@ var serverOperationFactories = []skypanel.OperationFactory{
 		if err != nil {
 			return nil, err
 		}
-		return backupOperation{keep: keep}, nil
+		frequency, err := ParseOffsiteFrequency(op.OperationArgs["offsite"])
+		if err != nil {
+			return nil, err
+		}
+		offsiteKeep, err := OffsiteKeep(op.OperationArgs["offsiteKeep"])
+		if err != nil {
+			return nil, err
+		}
+		taskID, err := taskIDArg(op.OperationArgs["taskId"])
+		if err != nil {
+			return nil, err
+		}
+		return backupOperation{opts: AutoBackupOptions{Keep: keep, TaskID: taskID, Offsite: frequency, OffsiteKeep: offsiteKeep}}, nil
 	}},
 }

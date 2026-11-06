@@ -121,15 +121,9 @@ func (s *Scheduler) Init() error {
 		}
 	}
 
-	var timezone *time.Location
-	var err error
-	if s.Timezone != "" {
-		timezone, err = time.LoadLocation(s.Timezone)
-		if err != nil {
-			return err
-		}
-	} else {
-		timezone = time.Local
+	timezone, err := s.loadLocation()
+	if err != nil {
+		return err
 	}
 
 	opts := []gocron.SchedulerOption{
@@ -159,6 +153,28 @@ func (s *Scheduler) Init() error {
 	}
 
 	return nil
+}
+
+// loadLocation is the timezone the tasks run in; none set means the node's
+func (s *Scheduler) loadLocation() (*time.Location, error) {
+	if s.Timezone == "" {
+		return time.Local, nil
+	}
+	return time.LoadLocation(s.Timezone)
+}
+
+// Location is the timezone the tasks run in, so calendar periods (a week, a month) start
+// when the tasks' own schedules see them start. A server without a scheduler, or with a
+// timezone that cannot be loaded (Init refuses it), uses the node's.
+func (s *Scheduler) Location() *time.Location {
+	if s == nil {
+		return time.Local
+	}
+	location, err := s.loadLocation()
+	if err != nil {
+		return time.Local
+	}
+	return location
 }
 
 func (s *Scheduler) Stop() {
@@ -286,7 +302,7 @@ func runScheduledTask(serverID, id string) {
 		return
 	}
 
-	ops := task.Operations
+	ops := withTaskID(id, task.Operations)
 	if len(ops) > 0 {
 		p.RunningEnvironment.DisplayToConsole(true, "Running task %s\n", task.Name)
 		var process OperationProcess
@@ -307,6 +323,27 @@ func runScheduledTask(serverID, id string) {
 		}
 		p.RunningEnvironment.DisplayToConsole(true, "Task %s finished\n", task.Name)
 	}
+}
+
+// withTaskID gives each backup step the id of the task it runs in, which names its copies and
+// lets it find them in the bucket. The scheduler always sets it over whatever the stored
+// arguments say: a user could otherwise put another task's id there and prune its copies. The
+// steps are copied, so the stored task is left as it was.
+func withTaskID(id string, ops []skypanel.ConditionalMetadataType) []skypanel.ConditionalMetadataType {
+	result := make([]skypanel.ConditionalMetadataType, len(ops))
+	for i, op := range ops {
+		result[i] = op
+		if op.Type != "backup" {
+			continue
+		}
+		metadata := make(map[string]interface{}, len(op.Metadata)+1)
+		for k, v := range op.Metadata {
+			metadata[k] = v
+		}
+		metadata["taskId"] = id
+		result[i].Metadata = metadata
+	}
+	return result
 }
 
 func (s *Scheduler) GetExecutor() gocron.Scheduler {

@@ -1672,19 +1672,45 @@ func (p *Server) StartBackup() (string, error) {
 	return fileName, nil
 }
 
+// AutoBackupOptions is what a scheduled task's backup step asks for
+type AutoBackupOptions struct {
+	// Keep is how many automatic backups stay on the node
+	Keep int
+	// TaskID names the task in the file name; without it the backup is never uploaded, since
+	// no task could recognise it as its own in the bucket
+	TaskID string
+	// Offsite is how often a run uploads its backup
+	Offsite OffsiteFrequency
+	// OffsiteKeep is how many of the task's copies stay in the bucket; 0 deletes none
+	OffsiteKeep int
+	// Now is the time of the run, time.Now when nil
+	Now func() time.Time
+}
+
 // RunAutoBackup backs the server up for a scheduled task. It waits for the archive, so the
-// task's next step sees it finished, then keeps only the newest keep automatic backups.
-func (p *Server) RunAutoBackup(keep int) (string, error) {
-	fileName, file, err := p.beginBackup(AutoBackupPrefix)
+// task's next step sees it finished, then keeps only the newest Keep automatic backups and,
+// when the task's frequency says so, copies this one off-site in the background.
+func (p *Server) RunAutoBackup(opts AutoBackupOptions) (string, error) {
+	prefix := AutoBackupPrefix
+	if opts.TaskID != "" {
+		// the id becomes part of a path, so a task file edited by hand must not reach outside
+		// the backup folder
+		if !taskIDPattern.MatchString(opts.TaskID) {
+			return "", fmt.Errorf("invalid task id %q", opts.TaskID)
+		}
+		prefix = taskBackupPrefix(opts.TaskID)
+	}
+	fileName, file, err := p.beginBackup(prefix)
 	if err != nil {
 		return "", err
 	}
 	if !p.finishBackup(file) {
 		return "", errors.New("backup failed")
 	}
-	if err := p.pruneAutoBackups(keep); err != nil {
+	if err := p.pruneAutoBackups(opts.Keep); err != nil {
 		p.Log(logging.Error, "Error removing old automatic backups: %s", err)
 	}
+	p.copyTaskBackupOffsite(fileName, file, opts)
 	return fileName, nil
 }
 

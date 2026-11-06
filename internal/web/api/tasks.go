@@ -35,14 +35,16 @@ type userTaskOperation struct {
 
 // userTaskOperations is what a task made by someone without admin may do. Everything else
 // (shell commands, downloads, file writes) stays with administrators, since a task runs on
-// the node with nobody watching and those reach beyond the game.
+// the node with nobody watching and those reach beyond the game. A backup step never takes
+// taskId: only the scheduler sets it, or a user could name another task and prune its copies
+// in the bucket.
 var userTaskOperations = map[string]userTaskOperation{
 	"stdin":   {keys: []string{"command"}, scopes: []*scopes.Scope{scopes.ScopeServerSendCommand}},
 	"sleep":   {keys: []string{"duration"}},
 	"start":   {scopes: []*scopes.Scope{scopes.ScopeServerStart}},
 	"stop":    {scopes: []*scopes.Scope{scopes.ScopeServerStop}},
 	"restart": {scopes: []*scopes.Scope{scopes.ScopeServerStart, scopes.ScopeServerStop}},
-	"backup":  {keys: []string{"keep"}, scopes: []*scopes.Scope{scopes.ScopeServerBackupCreate}},
+	"backup":  {keys: []string{"keep", "offsite", "offsiteKeep"}, scopes: []*scopes.Scope{scopes.ScopeServerBackupCreate}},
 }
 
 const (
@@ -142,6 +144,12 @@ func validateUserTaskStep(op skypanel.ConditionalMetadataType) error {
 		}
 	case "backup":
 		if _, err := servers.AutoBackupKeep(op.Metadata["keep"]); err != nil {
+			return err
+		}
+		if _, err := servers.ParseOffsiteFrequency(op.Metadata["offsite"]); err != nil {
+			return err
+		}
+		if _, err := servers.OffsiteKeep(op.Metadata["offsiteKeep"]); err != nil {
 			return err
 		}
 	}
