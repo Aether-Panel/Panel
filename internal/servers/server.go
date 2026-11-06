@@ -1797,22 +1797,38 @@ func (p *Server) writeArchive(file string) error {
 // offsiteTimeout bounds one transfer to or from the bucket
 const offsiteTimeout = 2 * time.Hour
 
+// endBackup ends a backup, telling the console, the owner's channels and Discord how it went
 func (p *Server) endBackup(success bool) {
-	p.backupState.Store(backupIdle)
+	p.endBackupQuiet(success)
+	if success {
+		p.alertBackup(true)
+	}
+}
 
+// endBackupQuiet ends a backup that only alerts the owner and Discord when it fails: a periodic
+// copy every few hours on every server would otherwise bury the alerts that matter
+func (p *Server) endBackupQuiet(success bool) {
+	p.backupState.Store(backupIdle)
+	if success {
+		p.RunningEnvironment.DisplayToConsole(true, "Backup complete")
+		return
+	}
+	p.RunningEnvironment.DisplayToConsole(true, "Backup failed")
+	p.alertBackup(false)
+}
+
+// alertBackup tells the owner's channels and the admin's Discord how a backup went
+func (p *Server) alertBackup(success bool) {
 	serverName := p.Server.Display
 	if serverName == "" {
 		serverName = p.ID()
 	}
 	p.notifyBackup(success)
-	ds := services.GetDiscordService()
-	if success {
-		p.RunningEnvironment.DisplayToConsole(true, "Backup complete")
-		_ = ds.SendBackupAlert(serverName, p.ID(), services.NotificationText("backupAlert.statusSuccess"), true)
-	} else {
-		p.RunningEnvironment.DisplayToConsole(true, "Backup failed")
-		_ = ds.SendBackupAlert(serverName, p.ID(), services.NotificationText("backupAlert.statusFailed"), false)
+	status := services.NotificationText("backupAlert.statusSuccess")
+	if !success {
+		status = services.NotificationText("backupAlert.statusFailed")
 	}
+	_ = services.GetDiscordService().SendBackupAlert(serverName, p.ID(), status, success)
 }
 
 // ListBackups returns the server's finished backups, on the node and in the bucket, newest

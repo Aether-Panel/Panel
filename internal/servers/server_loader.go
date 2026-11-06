@@ -276,6 +276,7 @@ func Delete(id string) (err error) {
 	}
 	// the server's tasks, crash reports, notification and off-site settings go with it
 	forgetMetrics(safeID)
+	forgetPeriodic(safeID)
 	for _, ext := range []string{".cron", ".crashes", ".notify", ".offsite", ".metrics", ".worldmap"} {
 		if err := os.Remove(filepath.Join(config.ServersFolder.Value(), safeID+ext)); err != nil && !os.IsNotExist(err) {
 			logging.Error.Printf("Error removing %s for server %s: %s", ext, safeID, err)

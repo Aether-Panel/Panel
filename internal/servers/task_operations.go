@@ -166,23 +166,33 @@ func (p *Server) copyTaskBackupOffsite(fileName, file string, opts AutoBackupOpt
 
 	go func() {
 		defer endSeries(p.ID(), opts.TaskID)
-		p.RunningEnvironment.DisplayToConsole(true, "Uploading backup to off-site storage")
-		ctx, cancel := context.WithTimeout(context.Background(), offsiteTimeout)
-		err := bucket.Upload(ctx, p.ID(), fileName, file)
-		cancel()
-		if err != nil {
-			p.Log(logging.Error, "Error uploading backup off-site: %s", err)
-			p.RunningEnvironment.DisplayToConsole(true, "Off-site upload failed: %s", err)
+		if p.uploadOffsite(fileName, file) != nil {
 			return
 		}
-		p.RunningEnvironment.DisplayToConsole(true, "Backup uploaded to off-site storage")
-		p.pruneTaskOffsite(opts.TaskID, opts.OffsiteKeep)
+		p.pruneOffsite(opts.OffsiteKeep, func(objects []offsite.Object) []offsite.Object {
+			return taskObjects(objects, opts.TaskID)
+		})
 	}()
 }
 
-// pruneTaskOffsite deletes the task's oldest copies in the bucket beyond the newest keep. Copies
-// of other tasks, of the periodic schedule or made by hand are never counted nor deleted.
-func (p *Server) pruneTaskOffsite(taskID string, keep int) {
+// uploadOffsite copies a finished backup to the bucket, telling the console how it went
+func (p *Server) uploadOffsite(fileName, file string) error {
+	p.RunningEnvironment.DisplayToConsole(true, "Uploading backup to off-site storage")
+	ctx, cancel := context.WithTimeout(context.Background(), offsiteTimeout)
+	defer cancel()
+	if err := bucket.Upload(ctx, p.ID(), fileName, file); err != nil {
+		p.Log(logging.Error, "Error uploading backup off-site: %s", err)
+		p.RunningEnvironment.DisplayToConsole(true, "Off-site upload failed: %s", err)
+		return err
+	}
+	p.RunningEnvironment.DisplayToConsole(true, "Backup uploaded to off-site storage")
+	return nil
+}
+
+// pruneOffsite deletes the oldest copies of one series in the bucket beyond the newest keep.
+// series picks the series' own copies out of the listing, so copies of other tasks, of the
+// periodic schedule or made by hand are never counted nor deleted.
+func (p *Server) pruneOffsite(keep int, series func([]offsite.Object) []offsite.Object) {
 	if keep < 1 {
 		return
 	}
@@ -193,7 +203,7 @@ func (p *Server) pruneTaskOffsite(taskID string, keep int) {
 		p.Log(logging.Error, "Error listing off-site backups: %s", err)
 		return
 	}
-	for _, name := range newestBeyond(taskObjects(objects, taskID), keep) {
+	for _, name := range newestBeyond(series(objects), keep) {
 		if err := bucket.Delete(ctx, p.ID(), name); err != nil {
 			p.Log(logging.Error, "Error deleting off-site backup %s: %s", name, err)
 		}

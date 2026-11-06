@@ -84,11 +84,20 @@ func (p *Server) SetOffsiteSettings(s OffsiteSettings) error {
 // EffectivePeriodic is the interval in hours (0 = never) and the copies to keep this server
 // uses: its own values where it set them, the panel's otherwise
 func (p *Server) EffectivePeriodic() (hours, keep int) {
-	own, err := p.OffsiteSettings()
+	hours, keep, err := p.periodicSettings()
 	if err != nil {
 		p.Log(logging.Error, "Error reading the off-site settings: %s", err)
 	}
-	return effectivePeriodic(own)
+	return hours, keep
+}
+
+// periodicSettings is EffectivePeriodic with the error reading the server's own setting, which
+// the periodic copy needs: the panel's values are only a guess for a server that may have
+// turned its copy off
+func (p *Server) periodicSettings() (hours, keep int, err error) {
+	own, err := p.OffsiteSettings()
+	hours, keep = effectivePeriodic(own)
+	return hours, keep, err
 }
 
 // effectivePeriodic lays a server's own values over the panel's. A value the panel does not

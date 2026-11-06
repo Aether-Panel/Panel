@@ -336,6 +336,8 @@ func daemon() error {
 	servers.LoadFromFolder()
 
 	servers.InitService()
+	// each server's periodic off-site copy, made by this node
+	servers.StartOffsitePeriodic()
 
 	for _, element := range servers.GetAll() {
 		element.GetEnvironment().DisplayToConsole(true, "Daemon has been started\n")
