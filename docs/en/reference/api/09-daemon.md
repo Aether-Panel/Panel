@@ -250,6 +250,8 @@ No body. `pause` keeps the server's scheduled tasks from running until `resume`:
 
 A [node transfer](./03-servers.md#post-apiserversserveridtransfer) pauses the tasks on both nodes while it copies the server (and copies them with `GET /tasks` and `PUT /tasks/:taskID`), then resumes them on the node that keeps the server. A node without these routes answers `404` and the transfer fails at that step and is undone.
 
+While the server is being reloaded or deleted its scheduler is stopped: `PUT` and `DELETE /tasks/:taskID` and `POST /tasks/:taskID/run` then answer `409 ErrSchedulerStopped`, save nothing (the server's `.cron` file is left as it is) and can be tried again.
+
 ### `POST /daemon/server/:serverId/clone-from/:sourceId`
 
 Copies the files of server `:sourceId` (on the same node) into `:serverId` in the background; the target counts as installing until the copy ends. Optional body `{"sourceName": "Survival"}` (the name shown on the console, cut to 80 characters). `202`; `404` when the source is not on the node; `400` when both are the same server; `409` when either is running, the target is not empty or a backup is in progress.

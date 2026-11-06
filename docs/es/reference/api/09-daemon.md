@@ -250,6 +250,8 @@ Sin cuerpo. `pause` impide que las tareas programadas del servidor se ejecuten h
 
 Una [transferencia entre nodos](./03-servers.md#post-apiserversserveridtransfer) pausa las tareas en ambos nodos mientras copia el servidor (y las copia con `GET /tasks` y `PUT /tasks/:taskID`), y después las reanuda en el nodo que se queda con el servidor. Un nodo sin estas rutas responde `404` y la transferencia falla en ese paso y se deshace.
 
+Mientras el servidor se recarga o se borra, su planificador está parado: `PUT` y `DELETE /tasks/:taskID` y `POST /tasks/:taskID/run` responden entonces `409 ErrSchedulerStopped`, no guardan nada (el archivo `.cron` del servidor queda como está) y se pueden repetir.
+
 ### `POST /daemon/server/:serverId/clone-from/:sourceId`
 
 Copia en segundo plano los archivos del servidor `:sourceId` (del mismo nodo) en `:serverId`; el destino cuenta como "instalando" hasta que termina la copia. Cuerpo opcional `{"sourceName": "Survival"}` (el nombre que se muestra en la consola, cortado a 80 caracteres). `202`; `404` cuando el origen no está en el nodo; `400` cuando ambos son el mismo servidor; `409` cuando alguno está en marcha, el destino no está vacío o hay una copia de seguridad en curso.

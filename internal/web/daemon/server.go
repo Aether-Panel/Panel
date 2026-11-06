@@ -590,14 +590,28 @@ func runServerTask(c *gin.Context) {
 	taskID := c.Param("taskID")
 
 	err := server.Scheduler.RunTask(taskID)
-	if errors.Is(err, gocron.ErrJobNotFound) {
+	if !handleTaskError(c, err) {
+		c.Status(http.StatusNoContent)
+	}
+}
+
+// handleTaskError answers a task request the scheduler refused and reports whether it did.
+// A stopped scheduler means the server is being reloaded or deleted: the request may be
+// tried again, so it is a conflict rather than a failure of the node.
+func handleTaskError(c *gin.Context, err error) bool {
+	switch {
+	case err == nil:
+		return false
+	case errors.Is(err, gocron.ErrJobNotFound):
 		c.Status(http.StatusNotFound)
-		return
+	case errors.Is(err, servers.ErrInvalidTask):
+		response.HandleError(c, err, http.StatusBadRequest)
+	case errors.Is(err, servers.ErrSchedulerStopped):
+		response.HandleError(c, err, http.StatusConflict)
+	default:
+		response.HandleError(c, err, http.StatusInternalServerError)
 	}
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
-	}
-	c.Status(http.StatusNoContent)
+	return true
 }
 
 // @Summary Edit server task
@@ -621,11 +635,7 @@ func editServerTask(c *gin.Context) {
 	}
 
 	err = server.Scheduler.SetTask(taskID, task)
-	if errors.Is(err, servers.ErrInvalidTask) {
-		response.HandleError(c, err, http.StatusBadRequest)
-		return
-	}
-	if !response.HandleError(c, err, http.StatusInternalServerError) {
+	if !handleTaskError(c, err) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -644,11 +654,7 @@ func deleteServerTask(c *gin.Context) {
 	taskID := c.Param("taskID")
 
 	err := server.Scheduler.RemoveTask(taskID)
-	if errors.Is(err, gocron.ErrJobNotFound) {
-		c.Status(http.StatusNotFound)
-		return
-	}
-	if !response.HandleError(c, err, http.StatusInternalServerError) {
+	if !handleTaskError(c, err) {
 		c.Status(http.StatusNoContent)
 	}
 }
