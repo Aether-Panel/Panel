@@ -1,0 +1,183 @@
+{
+  "type": "srcds",
+  "display": "Rust",
+  "icon": "rust",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "Description": {
+      "type": "string",
+      "value": "RUST Public Server Description",
+      "display": "Server Description",
+      "desc": "Server description shown on server browser",
+      "required": true,
+      "userEdit": true
+    },
+    "MaxPlayers": {
+      "type": "integer",
+      "value": 10,
+      "display": "Max Players",
+      "desc": "Maximum number of players to support",
+      "required": true,
+      "userEdit": false
+    },
+    "RConPassword": {
+      "type": "string",
+      "value": "",
+      "display": "RCON Password",
+      "desc": "Password to use on RCON. CHANGE THIS",
+      "required": true,
+      "userEdit": true
+    },
+    "RConPort": {
+      "type": "integer",
+      "value": 28016,
+      "display": "RCON Port",
+      "desc": "Port to use for RCON",
+      "required": true,
+      "userEdit": false
+    },
+    "ServerIdentity": {
+      "type": "string",
+      "value": "server1",
+      "display": "Server identity",
+      "desc": "Server identity to use, leave as default unless you know what you're doing",
+      "required": true,
+      "userEdit": false
+    },
+    "ServerImage": {
+      "type": "string",
+      "value": "http://",
+      "display": "Server Header Image",
+      "desc": "URL For the server image banner",
+      "required": true,
+      "userEdit": true
+    },
+    "ServerLevel": {
+      "type": "string",
+      "value": "Procedural Map",
+      "display": "Server Level",
+      "desc": "What map name do you want? If unsure, leave as default.",
+      "required": true,
+      "userEdit": true
+    },
+    "ServerName": {
+      "type": "string",
+      "value": "RUST Public Server",
+      "display": "Server Name",
+      "desc": "Name of the server to use",
+      "required": true,
+      "userEdit": true
+    },
+    "ServerSeed": {
+      "type": "string",
+      "value": "1234",
+      "display": "Server Seed",
+      "desc": "Server seed to use. Default should be fine.",
+      "required": true,
+      "userEdit": true
+    },
+    "URL": {
+      "type": "string",
+      "value": "http://",
+      "display": "Server Website",
+      "desc": "URL for the website dedicated to this server.",
+      "required": true,
+      "userEdit": true
+    },
+    "WorldSize": {
+      "type": "integer",
+      "value": 3000,
+      "display": "World Size",
+      "desc": "World size (number)",
+      "required": true,
+      "userEdit": true
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 27015,
+      "display": "Port",
+      "desc": "What port to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 1024,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "steamgamedl",
+      "appId": "258550"
+    },
+    {
+      "if": "env == 'docker'",
+      "type": "command",
+      "commands": [
+        "steamcmd +force_install_dir /SkyPanel +login anonymous +app_update 258550 +quit"
+      ]
+    }
+  ],
+  "run": {
+    "command": "./RustDedicated -nographics -batchmode +server.port ${port} +server.level \"${ServerLevel}\" +server.seed ${ServerSeed} +server.worldsize ${WorldSize} +server.maxplayers ${MaxPlayers} +server.hostname \"${ServerName}\" +server.description \"${Description}\" +server.headerimage \"${ServerImage}\" +server.url \"${URL}\" +server.identity \"${ServerIdentity}\" +rcon.port ${RConPort} +rcon.password ${RConPassword} +rcon.web 1",
+    "stop": "quit",
+    "environmentVars": {
+      "LD_LIBRARY_PATH": "./RustDedicated_Data/Plugins/x86_64"
+    },
+    "stdin": {
+      "type": "rconws",
+      "port": "${RConPort}",
+      "password": "${RConPassword}"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "steamcmd/steamcmd",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64"
+  }
+}

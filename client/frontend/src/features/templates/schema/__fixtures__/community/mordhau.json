@@ -1,0 +1,205 @@
+{
+  "type": "mordhau",
+  "display": "Mordhau",
+  "icon": "mordhau",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 200,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 20480,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (20480 MB = 20 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 4096,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 7777,
+      "display": "Port",
+      "desc": "Game port (UDP) players connect to",
+      "required": true,
+      "userEdit": false
+    },
+    "beaconport": {
+      "type": "integer",
+      "value": 15000,
+      "display": "Beacon Port",
+      "desc": "Beacon port (UDP)",
+      "required": true,
+      "userEdit": false
+    },
+    "queryport": {
+      "type": "integer",
+      "value": 27015,
+      "display": "Query Port",
+      "desc": "Steam query port (UDP), used by the server browser",
+      "required": true,
+      "userEdit": false
+    },
+    "servername": {
+      "type": "string",
+      "value": "Mordhau Server",
+      "display": "Server Name",
+      "desc": "Name shown in the server browser",
+      "required": true,
+      "userEdit": true
+    },
+    "serverpassword": {
+      "type": "string",
+      "value": "",
+      "display": "Server Password",
+      "desc": "Password players need to join. Empty means anyone can join",
+      "required": false,
+      "userEdit": true
+    },
+    "adminpassword": {
+      "type": "string",
+      "value": "changeme",
+      "display": "Admin Password",
+      "desc": "Password for in-game admin login (adminlogin in the console). Change it",
+      "required": true,
+      "userEdit": true
+    },
+    "maxplayers": {
+      "type": "integer",
+      "value": 16,
+      "display": "Max Players",
+      "desc": "Player slots (up to 64)",
+      "required": true,
+      "userEdit": true
+    },
+    "map": {
+      "type": "string",
+      "value": "FFA_ThePit",
+      "display": "Map",
+      "desc": "Map loaded at startup, for example FFA_ThePit or SKM_Grad",
+      "required": true,
+      "userEdit": true
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "steamgamedl",
+      "appId": "629800"
+    },
+    {
+      "if": "env == 'docker'",
+      "type": "command",
+      "commands": [
+        "bash -c \"for try in 1 2 3 4 5; do steamcmd +@sSteamCmdForcePlatformType linux +force_install_dir /SkyPanel +login anonymous +app_update 629800 validate +quit && exit 0; echo 'steamcmd could not finish the download, trying again in 15s ($try/5)'; sleep 15; done; exit 1\""
+      ]
+    },
+    {
+      "type": "command",
+      "commands": [
+        "chmod +x Mordhau/Binaries/Linux/MordhauServer-Linux-Shipping",
+        "bash -c \"mkdir -p .steam/sdk32 .steam/sdk64; for d in .steam .steam/steamcmd .local/share/Steam/steamcmd steamcmd; do if [ -f $d/linux32/steamclient.so ]; then cp -f $d/linux32/steamclient.so .steam/sdk32/; fi; if [ -f $d/linux64/steamclient.so ]; then cp -f $d/linux64/steamclient.so .steam/sdk64/; fi; done; true\""
+      ]
+    },
+    {
+      "type": "mkdir",
+      "target": "Mordhau/Saved/Config/LinuxServer"
+    },
+    {
+      "if": "!file_exists('Mordhau/Saved/Config/LinuxServer/Game.ini')",
+      "type": "writefile",
+      "target": "Mordhau/Saved/Config/LinuxServer/Game.ini",
+      "text": "[/Script/Mordhau.MordhauGameMode]\nMapGameModeOverrides=()\nMOTDURL=\nbIsThirdPersonCameraDisabled=False\nConstrainAspectRatio=0.000000\nbIsHitStopOnTeamHitsDisabled=False\nbDisableClientMods=False\nbLogKillfeed=False\nbLogChat=False\nbLogScore=False\nbAllowAdminChat=True\nbAllowWhisperChat=False\nPlayerRespawnTime=5.000000\nAutoKickOnTeamKillAmount=5\nBallistaRespawnTime=30.000000\nCatapultRespawnTime=30.000000\nHorseRespawnTime=30.000000\nDamageFactor=1.000000\nTeamDamageFactor=0.250000\nTeamDamageFlinch=0\nMapRotation=FFA_ThePit\nMapRotation=TDM_Camp\nMapRotation=SKM_Grad\nMapRotation=FFA_Contraband\nMapRotation=TDM_Tourney\nMapRotation=SKM_MountainPeak\nMapRotation=FFA_Crossroads\nMapRotation=TDM_Taiga\nMapRotation=SKM_Feitoria\nMapRotation=FFA_Castello_New\nMapRotation=TDM_Arena\nMapRotation=SKM_Truce\nMapRotation=FFA_Highlands\nMapRotation=TDM_ThePit\nMapRotation=SKM_Camp\nMapRotation=FFA_Grad\nMapRotation=TDM_Contraband\nMapRotation=SKM_Tourney\nMapRotation=FFA_MountainPeak\nMapRotation=TDM_Crossroads\nMapRotation=SKM_Taiga\nMapRotation=FFA_Feitoria\nMapRotation=TDM_Castello_New\nMapRotation=SKM_ArenaFFA_Truce\nMapRotation=TDM_Highlands\nMapRotation=SKM_ThePit\nMapRotation=FFA_Camp\nMapRotation=TDM_Grad\nMapRotation=SKM_Contraband\nMapRotation=FFA_Tourney\nMapRotation=TDM_MountainPeak\nMapRotation=SKM_Crossroads\nMapRotation=FFA_Taiga\nMapRotation=TDM_Feitoria\nMapRotation=SKM_Castello_New\nMapRotation=FFA_Arena\nMapRotation=TDM_Truce\nMapRotation=SKM_Highlands\nMapRotation=FFA_Cortile\nMapRotation=SKM_Cortile\nMapRotation=TDM_Cortile\nMapRotation=FFA_Noria\nMapRotation=SKM_Noria\nMapRotation=TDM_Noria\nMapRotation=FFA_Arid_New\nMapRotation=TDM_Arid_New\nMapRotation=SKM_Arid_New\nMapRotation=FFA_Dungeon\nMapRotation=SKM_Dungeon\nMapRotation=TDM_Dungeon32\nMapRotation=TDM_DungeonAlt\nMapRotation=SG_Arid\nMapRotation=SG_Castello\nMapRotation=SG_Crossroads\nMapRotation=SG_Cortile\nMapRotation=SG_Dungeon\nMapRotation=SG_Noria\nMapRotation=SG_Grad\nMapRotation=SG_MountainPeak\nMapRotation=SG_Tourney\n\n[/Script/Mordhau.MordhauGameSession]\nMaxSlots=${maxplayers}\nServerName=${servername}\nServerPassword=${serverpassword}\nAdminPassword=${adminpassword}\nRconPassword=\nRconPort=0\nBannedPlayers=()\nMutedPlayers=()\n"
+    }
+  ],
+  "run": {
+    "command": "bash -c \"if [ \\\"$(id -u)\\\" = 0 ] && id container >/dev/null 2>&1; then chown -R container:container . && exec setpriv --reuid=container --regid=container --init-groups env HOME=\\\"$PWD\\\" \\\"$@\\\"; fi; exec \\\"$@\\\"\" aether ./Mordhau/Binaries/Linux/MordhauServer-Linux-Shipping Mordhau ${map} -MultiHome=${ip} -Port=${port} -BeaconPort=${beaconport} -QueryPort=${queryport} -log",
+    "stopCode": 2,
+    "pre": [
+      {
+        "type": "mkdir",
+        "target": "Mordhau/Saved/Config/LinuxServer"
+      },
+      {
+        "if": "!file_exists('Mordhau/Saved/Config/LinuxServer/Game.ini')",
+        "type": "writefile",
+        "target": "Mordhau/Saved/Config/LinuxServer/Game.ini",
+        "text": "[/Script/Mordhau.MordhauGameMode]\nMapGameModeOverrides=()\nMOTDURL=\nbIsThirdPersonCameraDisabled=False\nConstrainAspectRatio=0.000000\nbIsHitStopOnTeamHitsDisabled=False\nbDisableClientMods=False\nbLogKillfeed=False\nbLogChat=False\nbLogScore=False\nbAllowAdminChat=True\nbAllowWhisperChat=False\nPlayerRespawnTime=5.000000\nAutoKickOnTeamKillAmount=5\nBallistaRespawnTime=30.000000\nCatapultRespawnTime=30.000000\nHorseRespawnTime=30.000000\nDamageFactor=1.000000\nTeamDamageFactor=0.250000\nTeamDamageFlinch=0\nMapRotation=FFA_ThePit\nMapRotation=TDM_Camp\nMapRotation=SKM_Grad\nMapRotation=FFA_Contraband\nMapRotation=TDM_Tourney\nMapRotation=SKM_MountainPeak\nMapRotation=FFA_Crossroads\nMapRotation=TDM_Taiga\nMapRotation=SKM_Feitoria\nMapRotation=FFA_Castello_New\nMapRotation=TDM_Arena\nMapRotation=SKM_Truce\nMapRotation=FFA_Highlands\nMapRotation=TDM_ThePit\nMapRotation=SKM_Camp\nMapRotation=FFA_Grad\nMapRotation=TDM_Contraband\nMapRotation=SKM_Tourney\nMapRotation=FFA_MountainPeak\nMapRotation=TDM_Crossroads\nMapRotation=SKM_Taiga\nMapRotation=FFA_Feitoria\nMapRotation=TDM_Castello_New\nMapRotation=SKM_ArenaFFA_Truce\nMapRotation=TDM_Highlands\nMapRotation=SKM_ThePit\nMapRotation=FFA_Camp\nMapRotation=TDM_Grad\nMapRotation=SKM_Contraband\nMapRotation=FFA_Tourney\nMapRotation=TDM_MountainPeak\nMapRotation=SKM_Crossroads\nMapRotation=FFA_Taiga\nMapRotation=TDM_Feitoria\nMapRotation=SKM_Castello_New\nMapRotation=FFA_Arena\nMapRotation=TDM_Truce\nMapRotation=SKM_Highlands\nMapRotation=FFA_Cortile\nMapRotation=SKM_Cortile\nMapRotation=TDM_Cortile\nMapRotation=FFA_Noria\nMapRotation=SKM_Noria\nMapRotation=TDM_Noria\nMapRotation=FFA_Arid_New\nMapRotation=TDM_Arid_New\nMapRotation=SKM_Arid_New\nMapRotation=FFA_Dungeon\nMapRotation=SKM_Dungeon\nMapRotation=TDM_Dungeon32\nMapRotation=TDM_DungeonAlt\nMapRotation=SG_Arid\nMapRotation=SG_Castello\nMapRotation=SG_Crossroads\nMapRotation=SG_Cortile\nMapRotation=SG_Dungeon\nMapRotation=SG_Noria\nMapRotation=SG_Grad\nMapRotation=SG_MountainPeak\nMapRotation=SG_Tourney\n\n[/Script/Mordhau.MordhauGameSession]\nMaxSlots=${maxplayers}\nServerName=${servername}\nServerPassword=${serverpassword}\nAdminPassword=${adminpassword}\nRconPassword=\nRconPort=0\nBannedPlayers=()\nMutedPlayers=()\n"
+      },
+      {
+        "type": "alterfile",
+        "file": "Mordhau/Saved/Config/LinuxServer/Game.ini",
+        "search": "^MaxSlots=[^\\r\\n]*",
+        "replace": "MaxSlots=${maxplayers}",
+        "regex": true
+      },
+      {
+        "type": "alterfile",
+        "file": "Mordhau/Saved/Config/LinuxServer/Game.ini",
+        "search": "^ServerName=[^\\r\\n]*",
+        "replace": "ServerName=${servername}",
+        "regex": true
+      },
+      {
+        "type": "alterfile",
+        "file": "Mordhau/Saved/Config/LinuxServer/Game.ini",
+        "search": "^ServerPassword=[^\\r\\n]*",
+        "replace": "ServerPassword=${serverpassword}",
+        "regex": true
+      },
+      {
+        "type": "alterfile",
+        "file": "Mordhau/Saved/Config/LinuxServer/Game.ini",
+        "search": "^AdminPassword=[^\\r\\n]*",
+        "replace": "AdminPassword=${adminpassword}",
+        "regex": true
+      }
+    ],
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "ghcr.io/aether-panel/steamcmd",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/udp",
+        "0.0.0.0:${beaconport}:${beaconport}/udp",
+        "0.0.0.0:${queryport}:${queryport}/udp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64"
+  }
+}

@@ -1,0 +1,221 @@
+{
+  "type": "terraria",
+  "display": "Terraria - TShock",
+  "icon": "terraria",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "arch": {
+      "type": "option",
+      "value": "x64",
+      "display": "Architecture",
+      "desc": "Architecture your machine",
+      "required": true,
+      "userEdit": false,
+      "options": [
+        {
+          "value": "arm",
+          "display": "arm"
+        },
+        {
+          "value": "arm64",
+          "display": "arm64"
+        },
+        {
+          "value": "x64",
+          "display": "amd64"
+        }
+      ]
+    },
+    "dotnetversion": {
+      "type": "string",
+      "value": "6.0.14",
+      "display": ".NET Runtime Version",
+      "desc": ".NET Runtime Version",
+      "required": true,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "Sets the IP address for the server to listen on - 0.0.0.0 means every possible IP",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 7777,
+      "display": "Port",
+      "desc": "What port to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "secure": {
+      "type": "option",
+      "value": "",
+      "display": "secure",
+      "desc": "Enable cheat protection ?",
+      "required": true,
+      "userEdit": false,
+      "options": [
+        {
+          "value": "-secure",
+          "display": "Yes"
+        },
+        {
+          "value": "",
+          "display": "No"
+        }
+      ]
+    },
+    "tshockversion": {
+      "type": "string",
+      "value": "6.1.0",
+      "display": "TShock Version (Set this to the latest server version - see here https://github.com/Pryaxis/TShock/releases/latest)",
+      "desc": "TShock Version",
+      "required": true,
+      "userEdit": false
+    },
+    "version": {
+      "type": "string",
+      "value": "1.4.5.6",
+      "display": "Server Version",
+      "desc": "Server Version (Set this to the latest server version)",
+      "required": true,
+      "userEdit": false
+    },
+    "wsize": {
+      "type": "option",
+      "value": "3",
+      "display": "World Size",
+      "desc": "World Size to create",
+      "required": true,
+      "userEdit": false,
+      "options": [
+        {
+          "value": "1",
+          "display": "Small"
+        },
+        {
+          "value": "2",
+          "display": "Medium"
+        },
+        {
+          "value": "3",
+          "display": "Large"
+        }
+      ]
+    },
+    "memory": {
+      "type": "integer",
+      "value": 1024,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "download",
+      "files": [
+        "https://dotnetcli.azureedge.net/dotnet/Runtime/${dotnetversion}/dotnet-runtime-${dotnetversion}-linux-${arch}.tar.gz"
+      ]
+    },
+    {
+      "if": "env == 'host'",
+      "type": "command",
+      "commands": [
+        "rm -rf dotnet",
+        "mkdir -p dotnet"
+      ]
+    },
+    {
+      "if": "env == 'host'",
+      "type": "extract",
+      "source": "dotnet-runtime-${dotnetversion}-linux-${arch}.tar.gz",
+      "destination": "dotnet"
+    },
+    {
+      "if": "env == 'host'",
+      "type": "command",
+      "commands": [
+        "rm -rf dotnet-runtime-linux-${arch}.tar.gz"
+      ]
+    },
+    {
+      "type": "githubdl",
+      "repository": "Pryaxis/TShock",
+      "assetMatch": "linux-${arch}-Release.zip",
+      "outputVariable": "tshockAsset"
+    },
+    {
+      "type": "extract",
+      "source": "${tshockAsset}",
+      "destination": "."
+    },
+    {
+      "type": "command",
+      "commands": [
+        "rm \"${tshockAsset}\""
+      ]
+    },
+    {
+      "type": "command",
+      "commands": [
+        "mkdir worlds"
+      ]
+    }
+  ],
+  "run": {
+    "command": "./TShock.Server -ip ${ip} -port ${port} -world ${rootDir}/worlds/world.wld -autocreate ${wsize} ${secure} --stats-optout",
+    "stop": "exit",
+    "environmentVars": {
+      "DOTNET_ROOT": "./dotnet"
+    },
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "mcr.microsoft.com/dotnet/runtime:${dotnetversion}",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64",
+    "binaries": [
+      "unzip"
+    ]
+  }
+}

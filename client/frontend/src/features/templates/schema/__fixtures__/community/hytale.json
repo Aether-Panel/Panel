@@ -1,0 +1,234 @@
+{
+  "type": "hytale",
+  "display": "Hytale",
+  "icon": "hytale",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 400,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 6144,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate. Hytale needs at least 4 GB; view distance is what uses most of it",
+      "required": true,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 5520,
+      "display": "Port",
+      "desc": "Game port (UDP, QUIC) players connect to",
+      "required": true,
+      "userEdit": false
+    },
+    "servername": {
+      "type": "string",
+      "value": "Hytale Server",
+      "display": "Server Name",
+      "desc": "Name players see",
+      "required": true,
+      "userEdit": true
+    },
+    "serverpassword": {
+      "type": "string",
+      "value": "",
+      "display": "Server Password",
+      "desc": "Password players need to join. Empty means anyone can join",
+      "required": false,
+      "userEdit": true
+    },
+    "maxplayers": {
+      "type": "integer",
+      "value": 100,
+      "display": "Max Players",
+      "desc": "Player slots",
+      "required": true,
+      "userEdit": true
+    },
+    "patchline": {
+      "type": "option",
+      "value": "release",
+      "display": "Patchline",
+      "desc": "Which Hytale build to install. Players must be on the same one",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "release",
+          "display": "Release"
+        },
+        {
+          "value": "pre-release",
+          "display": "Pre-release"
+        }
+      ]
+    },
+    "aotcache": {
+      "type": "boolean",
+      "value": true,
+      "display": "Use AOT Cache",
+      "desc": "Start Java with the ahead-of-time cache shipped with the server, which shortens boot time",
+      "required": false,
+      "userEdit": true
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "javadl",
+      "version": "25"
+    },
+    {
+      "type": "download",
+      "files": [
+        "https://downloader.hytale.com/hytale-downloader.zip"
+      ]
+    },
+    {
+      "type": "extract",
+      "source": "hytale-downloader.zip",
+      "destination": "."
+    },
+    {
+      "type": "command",
+      "commands": [
+        "chmod +x hytale-downloader-linux-amd64"
+      ]
+    },
+    {
+      "type": "console",
+      "message": "The Hytale downloader needs a Hytale account that owns the game. If it prints a login link and code below, open the link in a browser and approve it within 15 minutes; the install continues by itself. This is only asked the first time."
+    },
+    {
+      "if": "patchline == 'release'",
+      "type": "command",
+      "commands": [
+        "./hytale-downloader-linux-amd64 -download-path hytale-server.zip -skip-update-check"
+      ]
+    },
+    {
+      "if": "patchline != 'release'",
+      "type": "command",
+      "commands": [
+        "./hytale-downloader-linux-amd64 -download-path hytale-server.zip -skip-update-check -patchline ${patchline}"
+      ]
+    },
+    {
+      "type": "extract",
+      "source": "hytale-server.zip",
+      "destination": "."
+    },
+    {
+      "type": "command",
+      "commands": [
+        "bash -c \"if [ -d game/Server ]; then cp -a game/. . && rm -rf game; fi; rm -f hytale-server.zip hytale-downloader.zip hytale-downloader-windows-amd64.exe\""
+      ]
+    },
+    {
+      "if": "!file_exists('config.json')",
+      "type": "writefile",
+      "target": "config.json",
+      "text": "{\n  \"Version\": 4,\n  \"ServerName\": \"${servername}\",\n  \"MOTD\": \"\",\n  \"Password\": \"${serverpassword}\",\n  \"MaxPlayers\": ${maxplayers},\n  \"MaxViewRadius\": 12,\n  \"Defaults\": {\n    \"World\": \"default\",\n    \"GameMode\": \"Adventure\",\n    \"HardcoreMode\": \"None\",\n    \"CrashRecovery\": {}\n  },\n  \"ConnectionTimeouts\": {},\n  \"RateLimit\": {},\n  \"Modules\": {\n    \"PathPlugin\": {\n      \"Modules\": {}\n    },\n    \"Telemetry\": {\n      \"Modules\": {}\n    }\n  },\n  \"LogLevels\": {},\n  \"Mods\": {},\n  \"RequireJoinPermission\": false,\n  \"DisplayTmpTagsInStrings\": false,\n  \"PlayerStorage\": {\n    \"Type\": \"Hytale\"\n  },\n  \"UniverseResourceStorage\": {\n    \"Type\": \"Hytale\"\n  },\n  \"BanStorage\": {\n    \"Type\": \"Disk\",\n    \"Path\": \"bans.json\"\n  },\n  \"AuthCredentialStore\": {\n    \"Type\": \"Encrypted\",\n    \"Path\": \"auth.enc\"\n  },\n  \"Update\": {},\n  \"Backup\": {},\n  \"WorldMap\": {}\n}\n"
+    }
+  ],
+  "run": {
+    "command": [
+      {
+        "if": "!file_exists('Server/HytaleServer.jar')",
+        "command": "bash -c \"echo 'Aether Panel: the Hytale server files are not installed. Reinstall the server and, within 10 minutes, open the sign-in link it shows in the console and log in with your Hytale account.'; exit 0\""
+      },
+      {
+        "if": "env == 'host' && aotcache && file_exists('Server/HytaleServer.aot')",
+        "command": "java25 -Xms1024M -Xmx${memory}M -XX:AOTCache=Server/HytaleServer.aot -jar Server/HytaleServer.jar --assets Assets.zip --bind ${ip}:${port}"
+      },
+      {
+        "if": "env == 'host'",
+        "command": "java25 -Xms1024M -Xmx${memory}M -jar Server/HytaleServer.jar --assets Assets.zip --bind ${ip}:${port}"
+      },
+      {
+        "if": "aotcache && file_exists('Server/HytaleServer.aot')",
+        "command": "java -Xms1024M -Xmx${memory}M -XX:AOTCache=Server/HytaleServer.aot -jar Server/HytaleServer.jar --assets Assets.zip --bind ${ip}:${port}"
+      },
+      {
+        "command": "java -Xms1024M -Xmx${memory}M -jar Server/HytaleServer.jar --assets Assets.zip --bind ${ip}:${port}"
+      }
+    ],
+    "stop": "stop",
+    "pre": [
+      {
+        "if": "!file_exists('config.json')",
+        "type": "writefile",
+        "target": "config.json",
+        "text": "{\n  \"Version\": 4,\n  \"ServerName\": \"${servername}\",\n  \"MOTD\": \"\",\n  \"Password\": \"${serverpassword}\",\n  \"MaxPlayers\": ${maxplayers},\n  \"MaxViewRadius\": 12,\n  \"Defaults\": {\n    \"World\": \"default\",\n    \"GameMode\": \"Adventure\",\n    \"HardcoreMode\": \"None\",\n    \"CrashRecovery\": {}\n  },\n  \"ConnectionTimeouts\": {},\n  \"RateLimit\": {},\n  \"Modules\": {\n    \"PathPlugin\": {\n      \"Modules\": {}\n    },\n    \"Telemetry\": {\n      \"Modules\": {}\n    }\n  },\n  \"LogLevels\": {},\n  \"Mods\": {},\n  \"RequireJoinPermission\": false,\n  \"DisplayTmpTagsInStrings\": false,\n  \"PlayerStorage\": {\n    \"Type\": \"Hytale\"\n  },\n  \"UniverseResourceStorage\": {\n    \"Type\": \"Hytale\"\n  },\n  \"BanStorage\": {\n    \"Type\": \"Disk\",\n    \"Path\": \"bans.json\"\n  },\n  \"AuthCredentialStore\": {\n    \"Type\": \"Encrypted\",\n    \"Path\": \"auth.enc\"\n  },\n  \"Update\": {},\n  \"Backup\": {},\n  \"WorldMap\": {}\n}\n"
+      },
+      {
+        "type": "alterfile",
+        "file": "config.json",
+        "search": "\"ServerName\"\\s*:\\s*\"[^\"]*\"",
+        "replace": "\"ServerName\": \"${servername}\"",
+        "regex": true
+      },
+      {
+        "type": "alterfile",
+        "file": "config.json",
+        "search": "\"Password\"\\s*:\\s*\"[^\"]*\"",
+        "replace": "\"Password\": \"${serverpassword}\"",
+        "regex": true
+      },
+      {
+        "type": "alterfile",
+        "file": "config.json",
+        "search": "\"MaxPlayers\"\\s*:\\s*[0-9]+",
+        "replace": "\"MaxPlayers\": ${maxplayers}",
+        "regex": true
+      }
+    ],
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "eclipse-temurin:25-jre",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/udp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64"
+  }
+}

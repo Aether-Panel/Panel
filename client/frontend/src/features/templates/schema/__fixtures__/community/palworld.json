@@ -1,0 +1,205 @@
+{
+  "type": "palworld",
+  "display": "Palworld Dedicated Server",
+  "icon": "palworld",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 400,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 400% = 4 threads. Palworld wants at least 4",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 20480,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (20480 MB = 20 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 16384,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate. Palworld needs 8 GB at the very least and 16 GB for a few players",
+      "required": true,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 8211,
+      "display": "Port",
+      "desc": "Game port (UDP) players connect to",
+      "required": true,
+      "userEdit": false
+    },
+    "queryport": {
+      "type": "integer",
+      "value": 27015,
+      "display": "Query Port",
+      "desc": "Steam query port (UDP), used by the community server list",
+      "required": true,
+      "userEdit": false
+    },
+    "servername": {
+      "type": "string",
+      "value": "Palworld Server",
+      "display": "Server Name",
+      "desc": "Name shown in the server list",
+      "required": true,
+      "userEdit": true
+    },
+    "serverpassword": {
+      "type": "string",
+      "value": "",
+      "display": "Server Password",
+      "desc": "Password players need to join. Empty means anyone can join",
+      "required": false,
+      "userEdit": true
+    },
+    "adminpassword": {
+      "type": "string",
+      "value": "changeme",
+      "display": "Admin Password",
+      "desc": "Password for in-game admin commands (/AdminPassword). Change it",
+      "required": true,
+      "userEdit": true
+    },
+    "maxplayers": {
+      "type": "integer",
+      "value": 32,
+      "display": "Max Players",
+      "desc": "Most players at once (up to 32)",
+      "required": true,
+      "userEdit": true
+    },
+    "publiclobby": {
+      "type": "boolean",
+      "value": false,
+      "display": "Community Server",
+      "desc": "List the server in the in-game community server list",
+      "required": false,
+      "userEdit": true
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "steamgamedl",
+      "appId": "2394010"
+    },
+    {
+      "if": "env == 'docker'",
+      "type": "command",
+      "commands": [
+        "bash -c \"for try in 1 2 3 4 5; do steamcmd +@sSteamCmdForcePlatformType linux +force_install_dir /SkyPanel +login anonymous +app_update 2394010 validate +quit && exit 0; echo 'steamcmd could not finish the download, trying again in 15s ($try/5)'; sleep 15; done; exit 1\"",
+        "bash -c \"mkdir -p /SkyPanel/.steam/sdk64 && cp -f /SkyPanel/linux64/steamclient.so /SkyPanel/.steam/sdk64/steamclient.so 2>/dev/null || true\""
+      ]
+    },
+    {
+      "type": "mkdir",
+      "target": "Pal/Saved/Config/LinuxServer"
+    },
+    {
+      "if": "!file_exists('Pal/Saved/Config/LinuxServer/PalWorldSettings.ini')",
+      "type": "writefile",
+      "target": "Pal/Saved/Config/LinuxServer/PalWorldSettings.ini",
+      "text": "[/Script/Pal.PalGameWorldSettings]\nOptionSettings=(ServerName=\"${servername}\",ServerDescription=\"\",AdminPassword=\"${adminpassword}\",ServerPassword=\"${serverpassword}\",PublicPort=${port},ServerPlayerMaxNum=${maxplayers},RCONEnabled=False)\n"
+    }
+  ],
+  "run": {
+    "command": [
+      {
+        "if": "publiclobby",
+        "command": "bash -c \"if [ \\\"$(id -u)\\\" = 0 ] && id container >/dev/null 2>&1; then chown -R container:container . && exec setpriv --reuid=container --regid=container --init-groups env HOME=\\\"$PWD\\\" \\\"$@\\\"; fi; exec \\\"$@\\\"\" aether ./PalServer.sh -port=${port} -queryport=${queryport} -players=${maxplayers} -publiclobby -useperfthreads -NoAsyncLoadingThread -UseMultithreadForDS"
+      },
+      {
+        "command": "bash -c \"if [ \\\"$(id -u)\\\" = 0 ] && id container >/dev/null 2>&1; then chown -R container:container . && exec setpriv --reuid=container --regid=container --init-groups env HOME=\\\"$PWD\\\" \\\"$@\\\"; fi; exec \\\"$@\\\"\" aether ./PalServer.sh -port=${port} -queryport=${queryport} -players=${maxplayers} -useperfthreads -NoAsyncLoadingThread -UseMultithreadForDS"
+      }
+    ],
+    "pre": [
+      {
+        "type": "mkdir",
+        "target": "Pal/Saved/Config/LinuxServer"
+      },
+      {
+        "if": "!file_exists('Pal/Saved/Config/LinuxServer/PalWorldSettings.ini')",
+        "type": "writefile",
+        "target": "Pal/Saved/Config/LinuxServer/PalWorldSettings.ini",
+        "text": "[/Script/Pal.PalGameWorldSettings]\nOptionSettings=(ServerName=\"${servername}\",ServerDescription=\"\",AdminPassword=\"${adminpassword}\",ServerPassword=\"${serverpassword}\",PublicPort=${port},ServerPlayerMaxNum=${maxplayers},RCONEnabled=False)\n"
+      },
+      {
+        "type": "alterfile",
+        "file": "Pal/Saved/Config/LinuxServer/PalWorldSettings.ini",
+        "search": "ServerName=\"[^\"]*\"",
+        "replace": "ServerName=\"${servername}\"",
+        "regex": true
+      },
+      {
+        "type": "alterfile",
+        "file": "Pal/Saved/Config/LinuxServer/PalWorldSettings.ini",
+        "search": "ServerPassword=\"[^\"]*\"",
+        "replace": "ServerPassword=\"${serverpassword}\"",
+        "regex": true
+      },
+      {
+        "type": "alterfile",
+        "file": "Pal/Saved/Config/LinuxServer/PalWorldSettings.ini",
+        "search": "AdminPassword=\"[^\"]*\"",
+        "replace": "AdminPassword=\"${adminpassword}\"",
+        "regex": true
+      },
+      {
+        "type": "alterfile",
+        "file": "Pal/Saved/Config/LinuxServer/PalWorldSettings.ini",
+        "search": "PublicPort=[0-9]+",
+        "replace": "PublicPort=${port}",
+        "regex": true
+      },
+      {
+        "type": "alterfile",
+        "file": "Pal/Saved/Config/LinuxServer/PalWorldSettings.ini",
+        "search": "ServerPlayerMaxNum=[0-9]+",
+        "replace": "ServerPlayerMaxNum=${maxplayers}",
+        "regex": true
+      }
+    ],
+    "stopCode": 2,
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "ghcr.io/aether-panel/steamcmd",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/udp",
+        "0.0.0.0:${queryport}:${queryport}/udp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64"
+  }
+}

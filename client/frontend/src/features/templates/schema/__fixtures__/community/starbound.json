@@ -1,0 +1,127 @@
+{
+  "type": "starbound",
+  "display": "Starbound",
+  "icon": "starbound",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "gameServerPort": {
+      "type": "integer",
+      "value": 21025,
+      "display": "Server Port",
+      "desc": "Server Port",
+      "required": true,
+      "userEdit": false
+    },
+    "maxPlayers": {
+      "type": "integer",
+      "value": 8,
+      "display": "Maximum Players",
+      "desc": "Maximum Players",
+      "required": true,
+      "userEdit": true
+    },
+    "serverName": {
+      "type": "string",
+      "value": "A Starbound Server",
+      "display": "Server Name",
+      "desc": "Server Name",
+      "required": true,
+      "userEdit": true
+    },
+    "steamUser": {
+      "type": "string",
+      "value": "",
+      "display": "Steam Username",
+      "desc": "Steam Username (required for install)",
+      "required": true,
+      "userEdit": true
+    },
+    "memory": {
+      "type": "integer",
+      "value": 1024,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    }
+  },
+  "install": [
+    {
+      "type": "mkdir",
+      "target": "storage"
+    },
+    {
+      "if": "env == 'host'",
+      "type": "steamgamedl",
+      "username": "${steamUser}",
+      "appId": "533830"
+    },
+    {
+      "if": "env == 'docker'",
+      "type": "command",
+      "commands": [
+        "steamcmd +force_install_dir /SkyPanel +login ${steamUser} +app_update 533830 +quit"
+      ]
+    },
+    {
+      "type": "writefile",
+      "text": "{\n\t\"assetDirectories\" : [\n\t\t\"assets/\",\n\t\t\"mods/\"\n\t],\n\t\"storageDirectory\" : \"storage/\"\n}\n",
+      "target": "sbinit.config"
+    },
+    {
+      "type": "writefile",
+      "text": "{\n\t\"allowAdminCommands\" : true,\n\t\"allowAdminCommandsFromAnyone\" : false,\n\t\"allowAnonymousConnections\" : true,\n\t\"allowAssetsMismatch\" : true,\n\t\"anonymousConnectionsAreAdmin\" : false,\n\t\"bannedIPs\" : [],\n\t\"bannedUuids\" : [],\n\t\"checkAssetsDigest\" : false,\n\t\"clearPlayerFiles\" : false,\n\t\"clearUniverseFiles\" : false,\n\t\"clientIPJoinable\" : true,\n\t\"clientP2PJoinable\" : false,\n\t\"configurationVersion\" : {\n\t\t\"basic\" : 2,\n\t\t\"server\" : 4\n\t},\n\t\"crafting\" : {\n\t\t\"filterHaveMaterials\" : false\n\t},\n\t\"gameServerBind\" : \"::\",\n\t\"gameServerPort\" : ${gameServerPort},\n\t\"interactiveHighlight\" : true,\n\t\"inventory\" : {\n\t\t\"pickupToActionBar\" : true\n\t},\n\t\"maxPlayers\" : ${maxPlayers},\n\t\"maxTeamSize\" : 4,\n\t\"monochromeLighting\" : false,\n\t\"playerBackupFileCount\" : 3,\n\t\"queryServerBind\" : \"::\",\n\t\"queryServerPort\" : 21025,\n\t\"rconServerBind\" : \"::\",\n\t\"rconServerPassword\" : \"\",\n\t\"rconServerPort\" : 21026,\n\t\"rconServerTimeout\" : 1000,\n\t\"runQueryServer\" : false,\n\t\"runRconServer\" : false,\n\t\"safeScripts\" : true,\n\t\"scriptInstructionLimit\" : 10000000,\n\t\"scriptInstructionMeasureInterval\" : 10000,\n\t\"scriptProfilingEnabled\" : false,\n\t\"scriptRecursionLimit\" : 100,\n\t\"serverFidelity\" : \"automatic\",\n\t\"serverName\" : \"${serverName}\",\n\t\"serverOverrideAssetsDigest\" : null,\n\t\"serverUsers\" : {\n\t},\n\t\"tutorialMessages\" : true\n}\n",
+      "target": "storage/starbound_server.config"
+    },
+    {
+      "type": "command",
+      "commands": [
+        "chmod +x starbound_server"
+      ]
+    }
+  ],
+  "run": {
+    "command": "./starbound_server",
+    "stopCode": 2,
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "steamcmd/steamcmd",
+      "portBindings": [
+        "0.0.0.0:${gameServerPort}:${gameServerPort}/tcp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64"
+  }
+}

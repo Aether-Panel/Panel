@@ -1,0 +1,141 @@
+{
+  "type": "srcds",
+  "display": "Eco 9 Beta Version",
+  "icon": "eco",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "ServerName": {
+      "type": "string",
+      "value": "",
+      "display": "Name the Server",
+      "desc": "Server Name",
+      "required": true,
+      "userEdit": true
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the Eco game server to.",
+      "required": true,
+      "userEdit": false
+    },
+    "maxcon": {
+      "type": "integer",
+      "value": -1,
+      "display": "Max Connections",
+      "desc": "Maximum Connections to Server (Player Limit, -1 is unlimited)",
+      "required": true,
+      "userEdit": true
+    },
+    "password": {
+      "type": "string",
+      "value": "",
+      "display": "Password",
+      "desc": "Password for the Eco Game Server, which will be required for login.",
+      "required": false,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 3000,
+      "display": "Game-Server Port, port forward for external access",
+      "desc": "What port to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "upnp": {
+      "type": "boolean",
+      "value": false,
+      "display": "Do you wish to Enable uPnP?",
+      "desc": "Enable pnp?",
+      "required": true,
+      "userEdit": false
+    },
+    "webServerPort": {
+      "type": "integer",
+      "value": 3001,
+      "display": "Web-Server Port",
+      "desc": "What port to bind the Eco web server to.",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 1024,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "steamgamedl",
+      "appId": "739590"
+    },
+    {
+      "if": "env == 'docker'",
+      "type": "command",
+      "commands": [
+        "steamcmd +force_install_dir /SkyPanel +login anonymous +app_update 739590 -beta default validate +quit"
+      ]
+    },
+    {
+      "type": "writefile",
+      "target": "Configs/Network.eco",
+      "text": "{\n  \"PublicServer\": false,\n  \"Password\": \"${password}\",\n  \"Description\": \"${ServerName}\",\n  \"IPAddress\": \"${ip}\",\n  \"GameServerPort\": ${port},\n  \"WebServerPort\": ${webServerPort},\n  \"Rate\": 10,\n  \"MaxConnections\": ${maxcon},\n \"UPnPEnabled\": ${upnp}\n}"
+    },
+    {
+      "type": "command",
+      "commands": [
+        "chmod +x EcoServer"
+      ]
+    }
+  ],
+  "run": {
+    "command": "./EcoServer",
+    "stopCode": 2,
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "steamcmd/steamcmd",
+      "portBindings": [
+        "${port}:${port}/tcp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64"
+  }
+}

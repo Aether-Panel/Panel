@@ -1,0 +1,124 @@
+{
+  "operations": [
+    {
+      "key": "alterfile",
+      "templates": true
+    },
+    {
+      "key": "archive",
+      "templates": true
+    },
+    {
+      "key": "backup",
+      "templates": false
+    },
+    {
+      "key": "command",
+      "templates": true
+    },
+    {
+      "key": "console",
+      "templates": true
+    },
+    {
+      "key": "curseforge",
+      "templates": true
+    },
+    {
+      "key": "dockerpull",
+      "templates": true
+    },
+    {
+      "key": "download",
+      "templates": true
+    },
+    {
+      "key": "extract",
+      "templates": true
+    },
+    {
+      "key": "fabricdl",
+      "templates": true
+    },
+    {
+      "key": "forgedl",
+      "templates": true
+    },
+    {
+      "key": "githubdl",
+      "templates": true
+    },
+    {
+      "key": "javadl",
+      "templates": true
+    },
+    {
+      "key": "mkdir",
+      "templates": true
+    },
+    {
+      "key": "mojangdl",
+      "templates": true
+    },
+    {
+      "key": "move",
+      "templates": true
+    },
+    {
+      "key": "neoforgedl",
+      "templates": true
+    },
+    {
+      "key": "nodejsdl",
+      "templates": true
+    },
+    {
+      "key": "paperdl",
+      "templates": true
+    },
+    {
+      "key": "resolveforgeversion",
+      "templates": true
+    },
+    {
+      "key": "resolveneoforgeversion",
+      "templates": true
+    },
+    {
+      "key": "restart",
+      "templates": false
+    },
+    {
+      "key": "scraperdl",
+      "templates": true
+    },
+    {
+      "key": "sleep",
+      "templates": true
+    },
+    {
+      "key": "spongedl",
+      "templates": true
+    },
+    {
+      "key": "start",
+      "templates": false
+    },
+    {
+      "key": "stdin",
+      "templates": true
+    },
+    {
+      "key": "steamgamedl",
+      "templates": true
+    },
+    {
+      "key": "stop",
+      "templates": false
+    },
+    {
+      "key": "writefile",
+      "templates": true
+    }
+  ]
+}

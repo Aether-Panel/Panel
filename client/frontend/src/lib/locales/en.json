@@ -3293,6 +3293,519 @@
       "noResultsTitle": "No template matches",
       "noResultsDescription": "No templates for “{{query}}”. Try another name, a language (Go, PHP, C#…) or a game.",
       "clear": "Clear search"
+    },
+    "editor": {
+      "operationCategories": {
+        "files": "Files",
+        "downloads": "Downloads",
+        "minecraft": "Games/Minecraft",
+        "steam": "Steam",
+        "runtimes": "Java/Node",
+        "system": "System",
+        "server": "Server"
+      },
+      "operations": {
+        "alterfile": {
+          "label": "Edit file",
+          "help": "Finds a text in a file and replaces every occurrence.",
+          "fields": {
+            "file": {
+              "label": "File",
+              "help": "Path of the file inside the server folder.",
+              "placeholder": "server.properties"
+            },
+            "search": {
+              "label": "Find",
+              "help": "Text to look for. With \"Regular expression\" on, a pattern.",
+              "placeholder": "server-port=25565"
+            },
+            "replace": {
+              "label": "Replace with",
+              "help": "Text that takes its place. Empty deletes what was found.",
+              "placeholder": "server-port=${port}"
+            },
+            "regex": {
+              "label": "Regular expression",
+              "help": "Reads \"Find\" as a Go regular expression; \"Replace with\" can use $1, $2…"
+            }
+          }
+        },
+        "writefile": {
+          "label": "Write file",
+          "help": "Creates a file with the given text, or overwrites it if it exists.",
+          "fields": {
+            "target": {
+              "label": "File",
+              "help": "Path of the file inside the server folder.",
+              "placeholder": "eula.txt"
+            },
+            "text": {
+              "label": "Content",
+              "help": "The whole text of the file. It can hold variables such as ${port}."
+            }
+          }
+        },
+        "mkdir": {
+          "label": "Create folder",
+          "help": "Creates a folder, and any missing parents, inside the server folder.",
+          "fields": {
+            "target": {
+              "label": "Folder",
+              "help": "Path of the folder to create.",
+              "placeholder": "plugins"
+            }
+          }
+        },
+        "move": {
+          "label": "Move or rename",
+          "help": "Moves or renames files inside the server folder.",
+          "fields": {
+            "source": {
+              "label": "Source",
+              "help": "File to move. Wildcards work (*.jar); with several, the target must be an existing folder.",
+              "placeholder": "server-*.jar"
+            },
+            "target": {
+              "label": "Target",
+              "help": "New path, or the folder they move into.",
+              "placeholder": "server.jar"
+            }
+          }
+        },
+        "extract": {
+          "label": "Extract archive",
+          "help": "Unpacks a .zip, .tar.gz or other supported archive inside the server folder.",
+          "fields": {
+            "source": {
+              "label": "Archive",
+              "help": "Path of the archive to unpack.",
+              "placeholder": "server.zip"
+            },
+            "destination": {
+              "label": "Destination folder",
+              "help": "Where its content goes. Empty means the server folder.",
+              "placeholder": "."
+            }
+          }
+        },
+        "archive": {
+          "label": "Compress",
+          "help": "Creates an archive with the given files and folders.",
+          "fields": {
+            "source": {
+              "label": "Files",
+              "help": "Paths to include, one per line.",
+              "placeholder": "world"
+            },
+            "destination": {
+              "label": "Output file",
+              "help": "Path of the archive to create; it must not exist.",
+              "placeholder": "world-backup.zip"
+            }
+          }
+        },
+        "download": {
+          "label": "Download files",
+          "help": "Downloads each URL into the server folder, named after the file in the URL.",
+          "fields": {
+            "files": {
+              "label": "URLs",
+              "help": "Addresses to download, one per line.",
+              "placeholder": "https://example.com/server.jar"
+            }
+          }
+        },
+        "githubdl": {
+          "label": "Download from GitHub",
+          "help": "Downloads a file from the latest release of a GitHub repository.",
+          "fields": {
+            "repository": {
+              "label": "Repository",
+              "help": "Owner and name of the repository.",
+              "placeholder": "lavalink-devs/Lavalink"
+            },
+            "assetMatch": {
+              "label": "Release file",
+              "help": "Part of the name of the file to download. Empty takes the release's first file.",
+              "placeholder": "Lavalink.jar"
+            },
+            "outputVariable": {
+              "label": "Store name in variable",
+              "help": "Variable that receives the downloaded file's name, for the next steps.",
+              "placeholder": "downloadedFile"
+            }
+          }
+        },
+        "scraperdl": {
+          "label": "Download latest version from a page",
+          "help": "Reads a page, finds the version with a regular expression and downloads the download URL with that version.",
+          "fields": {
+            "url": {
+              "label": "Page",
+              "help": "Address to read.",
+              "placeholder": "https://api.purpurmc.org/v2/purpur"
+            },
+            "regex": {
+              "label": "Regular expression",
+              "help": "Pattern with one group in parentheses that captures the version.",
+              "placeholder": "\"current\":\"([^\"]+)\""
+            },
+            "downloadUrl": {
+              "label": "Download URL",
+              "help": "Address of the file; ${match} is replaced with the version found.",
+              "placeholder": "https://example.com/download/${match}/server.jar"
+            },
+            "outputVariable": {
+              "label": "Store version in variable",
+              "help": "Variable that receives the version found, for the next steps.",
+              "placeholder": "resolvedVersion"
+            }
+          }
+        },
+        "mojangdl": {
+          "label": "Minecraft (Mojang)",
+          "help": "Downloads the official Minecraft Java server of the given version.",
+          "fields": {
+            "version": {
+              "label": "Version",
+              "help": "A specific version (1.21.1), \"latest\" or \"release\" for the latest stable, or \"snapshot\".",
+              "placeholder": "${version}"
+            },
+            "target": {
+              "label": "File",
+              "help": "Name the server is saved as.",
+              "placeholder": "server.jar"
+            }
+          }
+        },
+        "paperdl": {
+          "label": "PaperMC",
+          "help": "Downloads Paper or another PaperMC project (Folia, Velocity, Waterfall).",
+          "fields": {
+            "project": {
+              "label": "Project",
+              "help": "PaperMC project. Empty means Paper."
+            },
+            "minecraftVersion": {
+              "label": "Minecraft version",
+              "help": "Minecraft version, or \"latest\" for the newest the project supports.",
+              "placeholder": "${version}"
+            },
+            "build": {
+              "label": "Build",
+              "help": "Build number, or \"latest\".",
+              "placeholder": "latest"
+            },
+            "target": {
+              "label": "File",
+              "help": "Name the server is saved as.",
+              "placeholder": "server.jar"
+            }
+          }
+        },
+        "fabricdl": {
+          "label": "Fabric installer",
+          "help": "Downloads the latest Fabric installer as fabric-installer.jar; a later \"Run commands\" step runs it."
+        },
+        "forgedl": {
+          "label": "Forge installer",
+          "help": "Downloads the Minecraft Forge installer. Give the Minecraft version, the Forge version or both.",
+          "fields": {
+            "minecraftVersion": {
+              "label": "Minecraft version",
+              "help": "Without a Forge version, the latest for this Minecraft version is used.",
+              "placeholder": "1.20.1"
+            },
+            "version": {
+              "label": "Forge version",
+              "help": "Full version, such as 1.20.1-47.2.0. Empty means the latest for the Minecraft version.",
+              "placeholder": "1.20.1-47.2.0"
+            },
+            "target": {
+              "label": "File",
+              "help": "Name the installer is saved as.",
+              "placeholder": "installer.jar"
+            },
+            "outputVariable": {
+              "label": "Store version in variable",
+              "help": "Variable that receives the Forge version chosen."
+            }
+          }
+        },
+        "neoforgedl": {
+          "label": "NeoForge installer",
+          "help": "Downloads the NeoForge installer. Give the Minecraft version, the NeoForge version or both.",
+          "fields": {
+            "minecraftVersion": {
+              "label": "Minecraft version",
+              "help": "Without a NeoForge version, the latest for this Minecraft version is used.",
+              "placeholder": "1.21.1"
+            },
+            "version": {
+              "label": "NeoForge version",
+              "help": "NeoForge version. Empty means the latest for the Minecraft version.",
+              "placeholder": "21.1.77"
+            },
+            "target": {
+              "label": "File",
+              "help": "Name the installer is saved as.",
+              "placeholder": "installer.jar"
+            },
+            "outputVariable": {
+              "label": "Store version in variable",
+              "help": "Variable that receives the NeoForge version chosen."
+            }
+          }
+        },
+        "resolveforgeversion": {
+          "label": "Find Forge version",
+          "help": "Works out which Forge version applies and stores it in a variable, without downloading anything.",
+          "fields": {
+            "minecraftVersion": {
+              "label": "Minecraft version",
+              "help": "Minecraft version to find Forge for.",
+              "placeholder": "${version}"
+            },
+            "version": {
+              "label": "Forge version",
+              "help": "When given, it is used as is.",
+              "placeholder": "${forgebuild}"
+            },
+            "outputVariable": {
+              "label": "Store version in variable",
+              "help": "Variable that receives the version found."
+            }
+          }
+        },
+        "resolveneoforgeversion": {
+          "label": "Find NeoForge version",
+          "help": "Works out which NeoForge version applies and stores it in a variable, without downloading anything.",
+          "fields": {
+            "minecraftVersion": {
+              "label": "Minecraft version",
+              "help": "Minecraft version to find NeoForge for.",
+              "placeholder": "${version}"
+            },
+            "version": {
+              "label": "NeoForge version",
+              "help": "When given, it is used as is.",
+              "placeholder": "${neoforgebuild}"
+            },
+            "outputVariable": {
+              "label": "Store version in variable",
+              "help": "Variable that receives the version found."
+            }
+          }
+        },
+        "spongedl": {
+          "label": "Sponge",
+          "help": "Downloads SpongeVanilla or installs SpongeForge.",
+          "fields": {
+            "spongeType": {
+              "label": "Type",
+              "help": "Sponge edition to install.",
+              "options": {
+                "spongevanilla": "SpongeVanilla",
+                "spongeforge": "SpongeForge"
+              }
+            },
+            "minecraftVersion": {
+              "label": "Minecraft version",
+              "help": "Narrows the Sponge versions to a Minecraft version.",
+              "placeholder": "1.20.1"
+            },
+            "spongeVersion": {
+              "label": "Sponge version",
+              "help": "A specific version. Empty means the latest that matches the filters.",
+              "placeholder": "1.20.1-11.0.0"
+            },
+            "recommended": {
+              "label": "Recommended only",
+              "help": "Picks the latest version marked as recommended."
+            }
+          }
+        },
+        "curseforge": {
+          "label": "CurseForge modpack",
+          "help": "Installs the server files of a CurseForge modpack. Needs the CurseForge API key set in the panel.",
+          "fields": {
+            "projectId": {
+              "label": "Project ID",
+              "help": "Number of the project on CurseForge.",
+              "placeholder": "${projectId}"
+            },
+            "fileId": {
+              "label": "File ID",
+              "help": "A specific modpack version. Empty means the newest.",
+              "placeholder": "${fileId}"
+            },
+            "java": {
+              "label": "Java",
+              "help": "Java command that runs the modpack's installer.",
+              "placeholder": "java${javaversion}"
+            }
+          }
+        },
+        "steamgamedl": {
+          "label": "Steam game",
+          "help": "Downloads or updates a Steam game with DepotDownloader.",
+          "fields": {
+            "appId": {
+              "label": "App ID",
+              "help": "Steam app number of the dedicated server.",
+              "placeholder": "896660"
+            },
+            "username": {
+              "label": "Steam user",
+              "help": "Only for games that need a login. Empty downloads anonymously.",
+              "placeholder": "${steam_user}"
+            },
+            "password": {
+              "label": "Steam password",
+              "help": "Password of that account. Better as a variable than written here."
+            },
+            "extraArgs": {
+              "label": "Extra arguments",
+              "help": "Additional DepotDownloader options, one per line.",
+              "placeholder": "-beta"
+            }
+          }
+        },
+        "javadl": {
+          "label": "Java",
+          "help": "Installs Java (Eclipse Temurin) on the node and makes it available as java<version>, such as java21.",
+          "fields": {
+            "version": {
+              "label": "Version",
+              "help": "Java major version.",
+              "placeholder": "${javaversion}"
+            }
+          }
+        },
+        "nodejsdl": {
+          "label": "Node.js",
+          "help": "Installs Node.js on the node and makes it available as node<version> and npm<version>.",
+          "fields": {
+            "version": {
+              "label": "Version",
+              "help": "Node.js major version.",
+              "placeholder": "${nodeversion}"
+            }
+          }
+        },
+        "command": {
+          "label": "Run commands",
+          "help": "Runs commands in the server folder, one after another; it stops at the first that fails.",
+          "fields": {
+            "commands": {
+              "label": "Commands",
+              "help": "One command per line.",
+              "placeholder": "java -jar installer.jar --installServer"
+            },
+            "stdin": {
+              "label": "Command console",
+              "help": "How input reaches these commands. Rarely needed."
+            }
+          }
+        },
+        "console": {
+          "label": "Show message",
+          "help": "Writes a message to the server console, for instance with instructions.",
+          "fields": {
+            "message": {
+              "label": "Message",
+              "help": "Text shown in the console.",
+              "placeholder": "Open the link below to sign in."
+            }
+          }
+        },
+        "stdin": {
+          "label": "Send to console",
+          "help": "Sends a command to the running server's console.",
+          "fields": {
+            "command": {
+              "label": "Command",
+              "help": "What is typed into the console.",
+              "placeholder": "save-all"
+            }
+          }
+        },
+        "sleep": {
+          "label": "Wait",
+          "help": "Pauses before the next step.",
+          "fields": {
+            "duration": {
+              "label": "Duration",
+              "help": "With a unit: 30s, 5m, 1h30m.",
+              "placeholder": "30s"
+            }
+          }
+        },
+        "dockerpull": {
+          "label": "Pull Docker image",
+          "help": "Downloads a Docker image on the node.",
+          "fields": {
+            "imageName": {
+              "label": "Image",
+              "help": "Image name and tag. Use official images or ghcr.io/aether-panel ones.",
+              "placeholder": "eclipse-temurin:21"
+            }
+          }
+        },
+        "start": {
+          "label": "Start",
+          "help": "Starts the server. Scheduled tasks only."
+        },
+        "stop": {
+          "label": "Stop",
+          "help": "Stops the server and waits for it to shut down. Scheduled tasks only."
+        },
+        "restart": {
+          "label": "Restart",
+          "help": "Restarts the server if it is running. Scheduled tasks only."
+        },
+        "backup": {
+          "label": "Backup",
+          "help": "Backs up the server. Scheduled tasks only.",
+          "fields": {
+            "keep": {
+              "label": "Copies kept",
+              "help": "Older automatic backups are deleted by themselves (1 to 50)."
+            },
+            "offsite": {
+              "label": "Upload to S3",
+              "help": "How often the backup is also uploaded to off-site storage.",
+              "options": {
+                "never": "Never",
+                "always": "Always",
+                "weekend": "Every weekend",
+                "weekly": "Every week",
+                "biweekly": "Every 15 days",
+                "monthly": "Every month"
+              }
+            },
+            "offsiteKeep": {
+              "label": "Copies in S3",
+              "help": "How many of this task's backups stay in S3 (1 to 50)."
+            }
+          }
+        }
+      },
+      "validation": {
+        "required": "This field is required.",
+        "invalidType": "The value is not of the expected type.",
+        "invalidNumber": "Must be a whole number or a variable, such as ${version}.",
+        "invalidBoolean": "Must be true or false.",
+        "outOfRange": "The value is outside the allowed range.",
+        "invalidOption": "Pick one of the available options.",
+        "invalidValue": "The value is not valid.",
+        "invalidDuration": "Give a duration with a unit, such as 30s, 5m or 1h.",
+        "invalidVariableKey": "The key can only hold letters, digits, hyphens and underscores.",
+        "invalidEnvironment": "Pick an environment: host or docker.",
+        "invalidCommand": "Must be a command or a list of commands with conditions.",
+        "unknownOperation": "The node does not know this step type.",
+        "versionOrMinecraftVersion": "Give the Minecraft version, the loader version or both."
+      }
     }
   },
   "common": {

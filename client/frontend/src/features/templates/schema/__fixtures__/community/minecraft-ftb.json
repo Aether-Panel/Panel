@@ -1,0 +1,226 @@
+{
+  "type": "minecraft-java",
+  "display": "Minecraft - FTB Modpack",
+  "icon": "minecraft-java",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "eula": {
+      "type": "boolean",
+      "value": false,
+      "display": "EULA Agreement",
+      "desc": "Do you (or the server owner) agree to the <a href='https://account.mojang.com/documents/minecraft_eula'>Minecraft EULA?</a>",
+      "required": true,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "javaversion": {
+      "type": "option",
+      "value": "17",
+      "display": "Java Version",
+      "desc": "Eclipse Temurin image to run with: 8 for Minecraft 1.16 and older, 17 for 1.17 to 1.20.4, 21 for 1.20.5 and newer, 25 for the newest releases",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "8",
+          "display": "Java 8"
+        },
+        {
+          "value": "11",
+          "display": "Java 11"
+        },
+        {
+          "value": "17",
+          "display": "Java 17"
+        },
+        {
+          "value": "21",
+          "display": "Java 21"
+        },
+        {
+          "value": "25",
+          "display": "Java 25"
+        }
+      ]
+    },
+    "memory": {
+      "type": "integer",
+      "value": 4096,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate to the Java Heap",
+      "required": true,
+      "userEdit": false
+    },
+    "modpack_id": {
+      "type": "integer",
+      "value": 0,
+      "display": "Modpack ID",
+      "desc": "Get the modpack ID for your preferred modpack in the <a href='https://www.feed-the-beast.com/modpack' target='_blank'>Modpacklist</a>.",
+      "required": true,
+      "userEdit": true
+    },
+    "modpack_version": {
+      "type": "integer",
+      "value": 0,
+      "display": "Modpack version ID",
+      "desc": "Version ID from the versions tab of the selected modpack in the <a href='https://www.feed-the-beast.com/modpack' target='_blank'>Modpacklist</a>.",
+      "required": true,
+      "userEdit": true
+    },
+    "motd": {
+      "type": "string",
+      "value": "A Minecraft Server hosted on SkyPanel",
+      "display": "MOTD message of the day",
+      "desc": "This is the message that is displayed in the server list of the client, below the name. The MOTD does support <a href='https://minecraft.gamepedia.com/Formatting_codes' target='_blank'>color and formatting codes</a>.",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 25565,
+      "display": "Port",
+      "desc": "What port to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "version": {
+      "type": "string",
+      "value": "",
+      "display": "Version",
+      "desc": "Forge version shipped with the modpack, with no spaces, e.g. 1.20.1-47.2.0 (see <a href='https://files.minecraftforge.net/'>files.minecraftforge.net</a>). Leave it empty for modpacks on Minecraft 1.16 and older.",
+      "required": false,
+      "userEdit": true
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "javadl",
+      "version": "${javaversion}"
+    },
+    {
+      "if": "os == 'windows'",
+      "type": "download",
+      "files": [
+        "https://api.feed-the-beast.com/v1/modpacks/public/modpack/${modpack_id}/${modpack_version}/server/windows"
+      ]
+    },
+    {
+      "if": "os == 'linux' && arch == 'amd64'",
+      "type": "download",
+      "files": [
+        "https://api.feed-the-beast.com/v1/modpacks/public/modpack/${modpack_id}/${modpack_version}/server/linux"
+      ]
+    },
+    {
+      "if": "os == 'linux' && arch == 'arm64'",
+      "type": "download",
+      "files": [
+        "https://api.feed-the-beast.com/v1/modpacks/public/modpack/${modpack_id}/${modpack_version}/server/arm/linux"
+      ]
+    },
+    {
+      "if": "os == 'windows'",
+      "type": "command",
+      "commands": [
+        "./windows_${modpack_id}_${modpack_version} --auto"
+      ]
+    },
+    {
+      "if": "os == 'linux'",
+      "type": "command",
+      "commands": [
+        "chmod u+x serverinstall_${modpack_id}_${modpack_version}",
+        "./serverinstall_${modpack_id}_${modpack_version} --auto --force"
+      ]
+    },
+    {
+      "if": "version == ''",
+      "type": "move",
+      "target": "server.jar",
+      "source": "forge-*.jar"
+    },
+    {
+      "type": "writefile",
+      "text": "eula=${eula}",
+      "target": "eula.txt"
+    },
+    {
+      "type": "writefile",
+      "text": "server-ip=${ip}\nserver-port=${port}\nmotd=${motd}\n",
+      "target": "server.properties"
+    }
+  ],
+  "run": {
+    "command": [
+      {
+        "command": "java${javaversion} -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true @libraries/net/minecraftforge/forge/${version}/unix_args.txt nogui",
+        "if": "env == 'host' && file_exists('libraries/net/minecraftforge/forge/' + version + '/unix_args.txt')"
+      },
+      {
+        "command": "java -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true @libraries/net/minecraftforge/forge/${version}/unix_args.txt nogui",
+        "if": "env != 'host' && file_exists('libraries/net/minecraftforge/forge/' + version + '/unix_args.txt')"
+      },
+      {
+        "command": "java${javaversion} -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true -jar server.jar",
+        "if": "env == 'host'"
+      },
+      {
+        "command": "java -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true -jar server.jar"
+      }
+    ],
+    "stop": "stop",
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "eclipse-temurin:${javaversion}",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux"
+  },
+  "stats": {
+    "type": "jcmd"
+  },
+  "query": {
+    "type": "minecraft"
+  }
+}

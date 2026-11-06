@@ -3293,6 +3293,519 @@
       "noResultsTitle": "Ninguna plantilla coincide",
       "noResultsDescription": "No hay plantillas para «{{query}}». Prueba con otro nombre, un lenguaje (Go, PHP, C#…) o un juego.",
       "clear": "Borrar búsqueda"
+    },
+    "editor": {
+      "operationCategories": {
+        "files": "Archivos",
+        "downloads": "Descargas",
+        "minecraft": "Juegos/Minecraft",
+        "steam": "Steam",
+        "runtimes": "Java/Node",
+        "system": "Sistema",
+        "server": "Servidor"
+      },
+      "operations": {
+        "alterfile": {
+          "label": "Modificar archivo",
+          "help": "Busca un texto en un archivo y lo sustituye en todas sus apariciones.",
+          "fields": {
+            "file": {
+              "label": "Archivo",
+              "help": "Ruta del archivo dentro de la carpeta del servidor.",
+              "placeholder": "server.properties"
+            },
+            "search": {
+              "label": "Buscar",
+              "help": "Texto que se busca. Con «Expresión regular» activado, un patrón.",
+              "placeholder": "server-port=25565"
+            },
+            "replace": {
+              "label": "Sustituir por",
+              "help": "Texto que ocupa su lugar. Vacío, se borra lo encontrado.",
+              "placeholder": "server-port=${port}"
+            },
+            "regex": {
+              "label": "Expresión regular",
+              "help": "Trata «Buscar» como una expresión regular de Go; «Sustituir por» puede usar $1, $2…"
+            }
+          }
+        },
+        "writefile": {
+          "label": "Escribir archivo",
+          "help": "Crea un archivo con el texto indicado, o lo sobrescribe si ya existe.",
+          "fields": {
+            "target": {
+              "label": "Archivo",
+              "help": "Ruta del archivo dentro de la carpeta del servidor.",
+              "placeholder": "eula.txt"
+            },
+            "text": {
+              "label": "Contenido",
+              "help": "Texto completo del archivo. Puede llevar variables, como ${port}."
+            }
+          }
+        },
+        "mkdir": {
+          "label": "Crear carpeta",
+          "help": "Crea una carpeta, y las que falten por encima, dentro de la carpeta del servidor.",
+          "fields": {
+            "target": {
+              "label": "Carpeta",
+              "help": "Ruta de la carpeta que se crea.",
+              "placeholder": "plugins"
+            }
+          }
+        },
+        "move": {
+          "label": "Mover o renombrar",
+          "help": "Mueve o renombra archivos dentro de la carpeta del servidor.",
+          "fields": {
+            "source": {
+              "label": "Origen",
+              "help": "Archivo que se mueve. Admite comodines (*.jar); con varios, el destino debe ser una carpeta existente.",
+              "placeholder": "server-*.jar"
+            },
+            "target": {
+              "label": "Destino",
+              "help": "Nueva ruta, o la carpeta a la que se mueven.",
+              "placeholder": "server.jar"
+            }
+          }
+        },
+        "extract": {
+          "label": "Extraer archivo comprimido",
+          "help": "Descomprime un .zip, .tar.gz u otro formato admitido dentro de la carpeta del servidor.",
+          "fields": {
+            "source": {
+              "label": "Archivo comprimido",
+              "help": "Ruta del archivo que se descomprime.",
+              "placeholder": "server.zip"
+            },
+            "destination": {
+              "label": "Carpeta de destino",
+              "help": "Dónde se extrae su contenido. Vacío, en la carpeta del servidor.",
+              "placeholder": "."
+            }
+          }
+        },
+        "archive": {
+          "label": "Comprimir",
+          "help": "Crea un archivo comprimido con los archivos y carpetas indicados.",
+          "fields": {
+            "source": {
+              "label": "Archivos",
+              "help": "Rutas que se incluyen, una por línea.",
+              "placeholder": "world"
+            },
+            "destination": {
+              "label": "Archivo de salida",
+              "help": "Ruta del archivo que se crea; no debe existir.",
+              "placeholder": "world-backup.zip"
+            }
+          }
+        },
+        "download": {
+          "label": "Descargar archivos",
+          "help": "Descarga cada dirección en la carpeta del servidor, con el nombre del archivo de la URL.",
+          "fields": {
+            "files": {
+              "label": "URL",
+              "help": "Direcciones que se descargan, una por línea.",
+              "placeholder": "https://example.com/server.jar"
+            }
+          }
+        },
+        "githubdl": {
+          "label": "Descargar de GitHub",
+          "help": "Descarga un archivo de la última versión publicada de un repositorio de GitHub.",
+          "fields": {
+            "repository": {
+              "label": "Repositorio",
+              "help": "Propietario y nombre del repositorio.",
+              "placeholder": "lavalink-devs/Lavalink"
+            },
+            "assetMatch": {
+              "label": "Archivo de la versión",
+              "help": "Parte del nombre del archivo que se descarga. Vacío, el primero de la versión.",
+              "placeholder": "Lavalink.jar"
+            },
+            "outputVariable": {
+              "label": "Guardar nombre en variable",
+              "help": "Variable donde se guarda el nombre del archivo descargado, para los pasos siguientes.",
+              "placeholder": "downloadedFile"
+            }
+          }
+        },
+        "scraperdl": {
+          "label": "Descargar la última versión de una web",
+          "help": "Lee una página, busca la versión con una expresión regular y descarga la URL de descarga con esa versión.",
+          "fields": {
+            "url": {
+              "label": "Página",
+              "help": "Dirección que se consulta.",
+              "placeholder": "https://api.purpurmc.org/v2/purpur"
+            },
+            "regex": {
+              "label": "Expresión regular",
+              "help": "Patrón con un grupo entre paréntesis que captura la versión.",
+              "placeholder": "\"current\":\"([^\"]+)\""
+            },
+            "downloadUrl": {
+              "label": "URL de descarga",
+              "help": "Dirección del archivo; ${match} se sustituye por la versión encontrada.",
+              "placeholder": "https://example.com/download/${match}/server.jar"
+            },
+            "outputVariable": {
+              "label": "Guardar versión en variable",
+              "help": "Variable donde se guarda la versión encontrada, para los pasos siguientes.",
+              "placeholder": "resolvedVersion"
+            }
+          }
+        },
+        "mojangdl": {
+          "label": "Minecraft (Mojang)",
+          "help": "Descarga el servidor oficial de Minecraft Java de la versión indicada.",
+          "fields": {
+            "version": {
+              "label": "Versión",
+              "help": "Una versión concreta (1.21.1), «latest» o «release» para la última estable, o «snapshot».",
+              "placeholder": "${version}"
+            },
+            "target": {
+              "label": "Archivo",
+              "help": "Nombre con el que se guarda el servidor.",
+              "placeholder": "server.jar"
+            }
+          }
+        },
+        "paperdl": {
+          "label": "PaperMC",
+          "help": "Descarga Paper u otro proyecto de PaperMC (Folia, Velocity, Waterfall).",
+          "fields": {
+            "project": {
+              "label": "Proyecto",
+              "help": "Proyecto de PaperMC. Vacío, Paper."
+            },
+            "minecraftVersion": {
+              "label": "Versión de Minecraft",
+              "help": "Versión de Minecraft, o «latest» para la última que admite el proyecto.",
+              "placeholder": "${version}"
+            },
+            "build": {
+              "label": "Build",
+              "help": "Número de build, o «latest».",
+              "placeholder": "latest"
+            },
+            "target": {
+              "label": "Archivo",
+              "help": "Nombre con el que se guarda el servidor.",
+              "placeholder": "server.jar"
+            }
+          }
+        },
+        "fabricdl": {
+          "label": "Instalador de Fabric",
+          "help": "Descarga el instalador de Fabric más reciente como fabric-installer.jar; un paso «Comando» posterior lo ejecuta."
+        },
+        "forgedl": {
+          "label": "Instalador de Forge",
+          "help": "Descarga el instalador de Minecraft Forge. Indica la versión de Minecraft, la de Forge o ambas.",
+          "fields": {
+            "minecraftVersion": {
+              "label": "Versión de Minecraft",
+              "help": "Sin versión de Forge, se usa la última de esta versión de Minecraft.",
+              "placeholder": "1.20.1"
+            },
+            "version": {
+              "label": "Versión de Forge",
+              "help": "Versión completa, como 1.20.1-47.2.0. Vacía, la última para la versión de Minecraft.",
+              "placeholder": "1.20.1-47.2.0"
+            },
+            "target": {
+              "label": "Archivo",
+              "help": "Nombre con el que se guarda el instalador.",
+              "placeholder": "installer.jar"
+            },
+            "outputVariable": {
+              "label": "Guardar versión en variable",
+              "help": "Variable donde se guarda la versión de Forge elegida."
+            }
+          }
+        },
+        "neoforgedl": {
+          "label": "Instalador de NeoForge",
+          "help": "Descarga el instalador de NeoForge. Indica la versión de Minecraft, la de NeoForge o ambas.",
+          "fields": {
+            "minecraftVersion": {
+              "label": "Versión de Minecraft",
+              "help": "Sin versión de NeoForge, se usa la última de esta versión de Minecraft.",
+              "placeholder": "1.21.1"
+            },
+            "version": {
+              "label": "Versión de NeoForge",
+              "help": "Versión de NeoForge. Vacía, la última para la versión de Minecraft.",
+              "placeholder": "21.1.77"
+            },
+            "target": {
+              "label": "Archivo",
+              "help": "Nombre con el que se guarda el instalador.",
+              "placeholder": "installer.jar"
+            },
+            "outputVariable": {
+              "label": "Guardar versión en variable",
+              "help": "Variable donde se guarda la versión de NeoForge elegida."
+            }
+          }
+        },
+        "resolveforgeversion": {
+          "label": "Averiguar versión de Forge",
+          "help": "Busca qué versión de Forge corresponde y la guarda en una variable, sin descargar nada.",
+          "fields": {
+            "minecraftVersion": {
+              "label": "Versión de Minecraft",
+              "help": "Versión de Minecraft para la que se busca Forge.",
+              "placeholder": "${version}"
+            },
+            "version": {
+              "label": "Versión de Forge",
+              "help": "Si se indica, se usa tal cual.",
+              "placeholder": "${forgebuild}"
+            },
+            "outputVariable": {
+              "label": "Guardar versión en variable",
+              "help": "Variable donde se guarda la versión encontrada."
+            }
+          }
+        },
+        "resolveneoforgeversion": {
+          "label": "Averiguar versión de NeoForge",
+          "help": "Busca qué versión de NeoForge corresponde y la guarda en una variable, sin descargar nada.",
+          "fields": {
+            "minecraftVersion": {
+              "label": "Versión de Minecraft",
+              "help": "Versión de Minecraft para la que se busca NeoForge.",
+              "placeholder": "${version}"
+            },
+            "version": {
+              "label": "Versión de NeoForge",
+              "help": "Si se indica, se usa tal cual.",
+              "placeholder": "${neoforgebuild}"
+            },
+            "outputVariable": {
+              "label": "Guardar versión en variable",
+              "help": "Variable donde se guarda la versión encontrada."
+            }
+          }
+        },
+        "spongedl": {
+          "label": "Sponge",
+          "help": "Descarga SpongeVanilla o instala SpongeForge.",
+          "fields": {
+            "spongeType": {
+              "label": "Tipo",
+              "help": "Edición de Sponge que se instala.",
+              "options": {
+                "spongevanilla": "SpongeVanilla",
+                "spongeforge": "SpongeForge"
+              }
+            },
+            "minecraftVersion": {
+              "label": "Versión de Minecraft",
+              "help": "Filtra las versiones de Sponge por versión de Minecraft.",
+              "placeholder": "1.20.1"
+            },
+            "spongeVersion": {
+              "label": "Versión de Sponge",
+              "help": "Versión concreta. Vacía, la última que cumpla los filtros.",
+              "placeholder": "1.20.1-11.0.0"
+            },
+            "recommended": {
+              "label": "Solo recomendadas",
+              "help": "Elige la última versión marcada como recomendada."
+            }
+          }
+        },
+        "curseforge": {
+          "label": "Modpack de CurseForge",
+          "help": "Instala los archivos de servidor de un modpack de CurseForge. Necesita la clave de API de CurseForge configurada en el panel.",
+          "fields": {
+            "projectId": {
+              "label": "ID del proyecto",
+              "help": "Número del proyecto en CurseForge.",
+              "placeholder": "${projectId}"
+            },
+            "fileId": {
+              "label": "ID del archivo",
+              "help": "Versión concreta del modpack. Vacío, la más reciente.",
+              "placeholder": "${fileId}"
+            },
+            "java": {
+              "label": "Java",
+              "help": "Comando de Java con el que se ejecuta el instalador del modpack.",
+              "placeholder": "java${javaversion}"
+            }
+          }
+        },
+        "steamgamedl": {
+          "label": "Juego de Steam",
+          "help": "Descarga o actualiza un juego de Steam con DepotDownloader.",
+          "fields": {
+            "appId": {
+              "label": "App ID",
+              "help": "Número de la aplicación del servidor dedicado en Steam.",
+              "placeholder": "896660"
+            },
+            "username": {
+              "label": "Usuario de Steam",
+              "help": "Solo para juegos que piden iniciar sesión. Vacío, se descarga de forma anónima.",
+              "placeholder": "${steam_user}"
+            },
+            "password": {
+              "label": "Contraseña de Steam",
+              "help": "Contraseña de esa cuenta. Mejor como variable que escrita aquí."
+            },
+            "extraArgs": {
+              "label": "Argumentos extra",
+              "help": "Opciones adicionales para DepotDownloader, una por línea.",
+              "placeholder": "-beta"
+            }
+          }
+        },
+        "javadl": {
+          "label": "Java",
+          "help": "Instala Java (Eclipse Temurin) en el nodo y lo deja disponible como java<versión>, por ejemplo java21.",
+          "fields": {
+            "version": {
+              "label": "Versión",
+              "help": "Versión principal de Java.",
+              "placeholder": "${javaversion}"
+            }
+          }
+        },
+        "nodejsdl": {
+          "label": "Node.js",
+          "help": "Instala Node.js en el nodo y lo deja disponible como node<versión> y npm<versión>.",
+          "fields": {
+            "version": {
+              "label": "Versión",
+              "help": "Versión principal de Node.js.",
+              "placeholder": "${nodeversion}"
+            }
+          }
+        },
+        "command": {
+          "label": "Ejecutar comandos",
+          "help": "Ejecuta comandos en la carpeta del servidor, uno tras otro; si uno falla, se detiene.",
+          "fields": {
+            "commands": {
+              "label": "Comandos",
+              "help": "Un comando por línea.",
+              "placeholder": "java -jar installer.jar --installServer"
+            },
+            "stdin": {
+              "label": "Consola del comando",
+              "help": "Cómo se envía la entrada a estos comandos. Casi nunca hace falta."
+            }
+          }
+        },
+        "console": {
+          "label": "Mostrar mensaje",
+          "help": "Escribe un mensaje en la consola del servidor, por ejemplo para dar instrucciones.",
+          "fields": {
+            "message": {
+              "label": "Mensaje",
+              "help": "Texto que se muestra en la consola.",
+              "placeholder": "Abre el enlace que aparece abajo para iniciar sesión."
+            }
+          }
+        },
+        "stdin": {
+          "label": "Enviar a la consola",
+          "help": "Envía un comando a la consola del servidor en marcha.",
+          "fields": {
+            "command": {
+              "label": "Comando",
+              "help": "Lo que se escribe en la consola.",
+              "placeholder": "save-all"
+            }
+          }
+        },
+        "sleep": {
+          "label": "Esperar",
+          "help": "Hace una pausa antes del siguiente paso.",
+          "fields": {
+            "duration": {
+              "label": "Duración",
+              "help": "Con unidad: 30s, 5m, 1h30m.",
+              "placeholder": "30s"
+            }
+          }
+        },
+        "dockerpull": {
+          "label": "Descargar imagen de Docker",
+          "help": "Descarga una imagen de Docker en el nodo.",
+          "fields": {
+            "imageName": {
+              "label": "Imagen",
+              "help": "Nombre y etiqueta de la imagen. Usa imágenes oficiales o de ghcr.io/aether-panel.",
+              "placeholder": "eclipse-temurin:21"
+            }
+          }
+        },
+        "start": {
+          "label": "Iniciar",
+          "help": "Inicia el servidor. Solo en tareas programadas."
+        },
+        "stop": {
+          "label": "Detener",
+          "help": "Detiene el servidor y espera a que se apague. Solo en tareas programadas."
+        },
+        "restart": {
+          "label": "Reiniciar",
+          "help": "Reinicia el servidor si está encendido. Solo en tareas programadas."
+        },
+        "backup": {
+          "label": "Copia de seguridad",
+          "help": "Hace una copia de seguridad del servidor. Solo en tareas programadas.",
+          "fields": {
+            "keep": {
+              "label": "Copias que se guardan",
+              "help": "Las copias automáticas más antiguas se borran solas (de 1 a 50)."
+            },
+            "offsite": {
+              "label": "Subir al S3",
+              "help": "Con qué frecuencia la copia se sube también al almacenamiento externo.",
+              "options": {
+                "never": "Nunca",
+                "always": "Siempre",
+                "weekend": "Cada fin de semana",
+                "weekly": "Cada semana",
+                "biweekly": "Cada 15 días",
+                "monthly": "Cada mes"
+              }
+            },
+            "offsiteKeep": {
+              "label": "Copias en S3",
+              "help": "Cuántas copias de esta tarea se conservan en el S3 (de 1 a 50)."
+            }
+          }
+        }
+      },
+      "validation": {
+        "required": "Este campo es obligatorio.",
+        "invalidType": "El valor no tiene el tipo esperado.",
+        "invalidNumber": "Debe ser un número entero o una variable, como ${version}.",
+        "invalidBoolean": "Debe ser verdadero o falso.",
+        "outOfRange": "El valor está fuera del rango permitido.",
+        "invalidOption": "Elige una de las opciones disponibles.",
+        "invalidValue": "El valor no es válido.",
+        "invalidDuration": "Indica una duración con unidad, como 30s, 5m o 1h.",
+        "invalidVariableKey": "La clave solo puede llevar letras, números, guiones y guiones bajos.",
+        "invalidEnvironment": "Elige un entorno: host o docker.",
+        "invalidCommand": "Debe ser un comando o una lista de comandos con condición.",
+        "unknownOperation": "El nodo no conoce este tipo de paso.",
+        "versionOrMinecraftVersion": "Indica la versión de Minecraft, la del cargador o ambas."
+      }
     }
   },
   "common": {
