@@ -72,6 +72,9 @@ const ALIASES: Record<string, string> = {
     garrysmod: 'gmod',
 };
 
+/** Every value a template's "icon" field can take to show one of these logos, for the icon picker. */
+export const TEMPLATE_LOGO_KEYS: readonly string[] = Object.keys(LOGOS);
+
 export type TemplateLogo = { src: string; plate: boolean };
 
 function logoFor(key: string): TemplateLogo {

@@ -3217,7 +3217,7 @@
   "templates": {
     "title": "Template Management",
     "description": "Select a template to create a new server.",
-    "create": "Create Template",
+    "create": "New template",
     "use": "Use Template",
     "categories": {
       "web": "Web",
@@ -3226,12 +3226,8 @@
       "other": "Other",
       "NoGroup": "No Group"
     },
-    "General": "General",
-    "RunConfig": "Run Configuration",
-    "Json": "JSON",
     "upload": "Upload",
     "uploading": "Uploading…",
-    "save": "Save template",
     "listTitle": "Available templates",
     "localDescription": "Templates stored on this panel.",
     "communityDescription": "Templates from community repositories.",
@@ -3241,7 +3237,8 @@
     },
     "actions": {
       "delete": "Delete {{name}}",
-      "openMenu": "Actions for {{name}}"
+      "openMenu": "Actions for {{name}}",
+      "duplicate": "Duplicate"
     },
     "empty": {
       "localTitle": "No local templates",
@@ -3253,25 +3250,6 @@
       "title": "Delete template",
       "description": "Delete the local template \"{{name}}\"? This can't be undone."
     },
-    "createDialog": {
-      "description": "Define the template parameters. The fields and the JSON stay in sync."
-    },
-    "fields": {
-      "name": "Name (unique ID)",
-      "namePlaceholder": "e.g. spigot",
-      "display": "Display name",
-      "displayPlaceholder": "e.g. Minecraft Spigot",
-      "type": "Category (type)",
-      "typePlaceholder": "e.g. web, game, bot",
-      "startCommand": "Start command",
-      "startCommandPlaceholder": "e.g. java -jar server.jar",
-      "stopCommand": "Stop command",
-      "stopCommandPlaceholder": "e.g. stop",
-      "workingDirectory": "Working directory",
-      "json": "Template JSON",
-      "jsonPlaceholder": "Paste or write the template JSON here…",
-      "loadFromFile": "Load from JSON file"
-    },
     "toast": {
       "uploaded": "Uploaded {{count}} templates.",
       "uploadFailed": "Couldn't upload the templates.",
@@ -3279,13 +3257,8 @@
       "deleted": "Template \"{{name}}\" deleted.",
       "deleteFailed": "Couldn't delete the template.",
       "created": "Template created.",
-      "nameRequired": "The template must have a \"name\" field.",
-      "saveFailed": "Invalid JSON or network error.",
-      "updated": "Template updated.",
-      "loadFailed": "Couldn't load the template."
-    },
-    "editDialog": {
-      "title": "Edit template"
+      "saveFailed": "Couldn't save the template.",
+      "updated": "Template updated."
     },
     "search": {
       "label": "Search templates",
@@ -3294,7 +3267,155 @@
       "noResultsDescription": "No templates for “{{query}}”. Try another name, a language (Go, PHP, C#…) or a game.",
       "clear": "Clear search"
     },
+    "chooser": {
+      "title": "New template",
+      "description": "Choose how to start. Nothing is saved until you press Save in the editor.",
+      "blank": {
+        "title": "Blank",
+        "description": "Start from the bare minimum and fill in each section."
+      },
+      "duplicate": {
+        "option": "Duplicate an existing one",
+        "optionDescription": "Start from a local or community template and save it as your own.",
+        "title": "Duplicate a template",
+        "description": "Pick the template to start from. The copy opens in the editor as a local template.",
+        "searchLabel": "Search for the template to duplicate",
+        "emptyTitle": "No template matches",
+        "emptyDescription": "Try another name, a language or a game."
+      },
+      "import": {
+        "title": "Import a .json",
+        "description": "Open a template file in the editor to review it before saving.",
+        "failed": "Couldn't open the file in the editor."
+      },
+      "back": "Back"
+    },
     "editor": {
+      "breadcrumb": "Editor",
+      "newTitle": "New template",
+      "back": "Templates",
+      "descriptionNew": "A new local template: it is stored in this panel when you press Save.",
+      "descriptionLocal": "Local template \"{{name}}\".",
+      "unsaved": "Unsaved",
+      "save": "Save",
+      "download": "Download .json",
+      "saveFailed": "Couldn't save the template: {{message}}",
+      "copySuffix": "copy",
+      "views": {
+        "label": "View",
+        "form": "Form",
+        "json": "JSON",
+        "split": "Split"
+      },
+      "status": {
+        "clean": "No problems",
+        "jsonInvalid": "The JSON is not valid: fix it to save.",
+        "blocked": "Fix the marked errors to save."
+      },
+      "issues": {
+        "errorsOne": "1 error",
+        "errorsMany": "{{count}} errors",
+        "warningsOne": "1 warning",
+        "warningsMany": "{{count}} warnings"
+      },
+      "confirmErrors": {
+        "title": "Save with errors?",
+        "descriptionOne": "The template has 1 error. The panel may reject it or the installation may fail. Save it anyway?",
+        "descriptionMany": "The template has {{count}} errors. The panel may reject it or the installation may fail. Save it anyway?",
+        "confirm": "Save anyway"
+      },
+      "sections": {
+        "navLabel": "Template sections",
+        "selectLabel": "Section",
+        "info": {
+          "label": "Information",
+          "description": "What the template is called and how users see it."
+        },
+        "variables": {
+          "label": "Variables",
+          "description": "What people fill in when they create a server: port, version, password…"
+        },
+        "install": {
+          "label": "Installation",
+          "description": "The steps that prepare the server's files on install, and the ones that clean up on uninstall."
+        },
+        "run": {
+          "label": "Run",
+          "description": "How the server starts and stops, its folder, its environment variables and its console."
+        },
+        "environment": {
+          "label": "Environment",
+          "description": "Where the server runs: on the host or in a Docker container, and with which image."
+        },
+        "requirements": {
+          "label": "Requirements",
+          "description": "The operating system, architecture and programs the node needs."
+        },
+        "advanced": {
+          "label": "Advanced",
+          "description": "Variable groups, statistics, status query and keep-alive."
+        }
+      },
+      "placeholder": {
+        "title": "Form on its way",
+        "description": "For now, \"{{section}}\" is edited in the JSON view. Everything you write there is kept when you save.",
+        "openJson": "Open the JSON view"
+      },
+      "info": {
+        "identity": {
+          "title": "Identity",
+          "description": "The name identifies the template in the panel; the display name is what users see."
+        },
+        "appearance": {
+          "title": "Category and icon",
+          "description": "They help people find the template in the list and when creating a server."
+        },
+        "name": {
+          "label": "Name (unique ID)",
+          "placeholder": "e.g. paper",
+          "hint": "It appears in links and is unique among local templates. Lowercase letters, digits and hyphens work best.",
+          "hintRename": "If you change it, a new template is saved under that name and \"{{name}}\" stays as it is."
+        },
+        "display": {
+          "label": "Display name",
+          "placeholder": "e.g. Minecraft Paper",
+          "hint": "What users see when they pick the template."
+        },
+        "type": {
+          "label": "Category",
+          "placeholder": "e.g. minecraft-java",
+          "hint": "Groups the template and sets its default icon in the list. You can type your own."
+        },
+        "icon": {
+          "label": "Icon",
+          "automatic": "Automatic (from the name)",
+          "hint": "The template's logo. Automatic looks it up by the template's name."
+        }
+      },
+      "json": {
+        "title": "Template JSON",
+        "valid": "Valid JSON",
+        "invalidShort": "Invalid JSON",
+        "invalid": "The JSON is not valid.",
+        "notObject": "The JSON must be an object: { … }.",
+        "keptForm": "The form keeps showing the last valid version.",
+        "formNotice": "The JSON has changes that are not valid. The form shows the last valid version; editing here discards those changes.",
+        "loading": "Loading the editor…"
+      },
+      "load": {
+        "notFound": {
+          "title": "Template not found",
+          "description": "There is no template \"{{name}}\". It may have been deleted or renamed."
+        },
+        "importMissing": {
+          "title": "Nothing to import",
+          "description": "The imported file is no longer in this tab. Import it again from the template list."
+        },
+        "loadFailed": {
+          "title": "Couldn't open the template",
+          "description": "The panel didn't answer as expected. Try again in a moment."
+        }
+      },
       "operationCategories": {
         "files": "Files",
         "downloads": "Downloads",
@@ -3806,7 +3927,18 @@
         "unknownOperation": "The node does not know this step type.",
         "versionOrMinecraftVersion": "Give the Minecraft version, the loader version or both.",
         "invalidInteger": "Must be a whole number.",
-        "stepNotObject": "Each step must be an object with its \"type\"."
+        "stepNotObject": "Each step must be an object with its \"type\".",
+        "nameRequired": "Enter a name for the template.",
+        "nameTooLong": "The name can be at most 100 characters long.",
+        "nameSlash": "The name cannot contain \"/\".",
+        "nameDots": "The name cannot be \".\" or \"..\".",
+        "nameWhitespace": "The name cannot start or end with spaces.",
+        "nameControl": "The name has characters that cannot be used.",
+        "nameTaken": "There is already a local template with this name."
+      },
+      "warnings": {
+        "integerVariableValue": "Not a whole number: the node will change it without warning (text, for example, becomes 0).",
+        "noDefaultEnvironment": "The template has no default environment: choose host or Docker."
       }
     }
   },

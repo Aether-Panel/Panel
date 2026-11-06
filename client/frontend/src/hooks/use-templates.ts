@@ -44,21 +44,11 @@ export function useTemplates() {
 
     const getTemplateDetails = async (repoId: number, templateName: string) => {
         try {
-            const data = await api.get(`/api/templates/${repoId}/${templateName}`);
+            const data = await api.get(`/api/templates/${repoId}/${encodeURIComponent(templateName)}`);
             return data;
         } catch (e) {
             console.error('Failed to fetch details for template %s:', templateName, e);
             return null;
-        }
-    };
-
-    const saveTemplate = async (templateName: string, templateData: any) => {
-        try {
-            await api.put(`/api/templates/0/${templateName}`, templateData);
-            return true;
-        } catch (e) {
-            console.error('Failed to save template %s:', templateName, e);
-            throw e;
         }
     };
 
@@ -88,5 +78,5 @@ export function useTemplates() {
         void fetchRepos();
     }, []);
 
-    return { repos, loading, error, refresh: fetchRepos, getTemplatesForRepo, getTemplateDetails, saveTemplate, uploadTemplates, deleteTemplate };
+    return { repos, loading, error, refresh: fetchRepos, getTemplatesForRepo, getTemplateDetails, uploadTemplates, deleteTemplate };
 }

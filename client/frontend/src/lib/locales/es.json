@@ -3217,7 +3217,7 @@
   "templates": {
     "title": "Gestión de plantillas",
     "description": "Selecciona una plantilla para crear un nuevo servidor.",
-    "create": "Crear plantilla",
+    "create": "Nueva plantilla",
     "use": "Usar plantilla",
     "categories": {
       "web": "Web",
@@ -3226,12 +3226,8 @@
       "other": "Otro",
       "NoGroup": "Sin grupo"
     },
-    "General": "General",
-    "RunConfig": "Configuración de ejecución",
-    "Json": "JSON",
     "upload": "Subir",
     "uploading": "Subiendo…",
-    "save": "Guardar plantilla",
     "listTitle": "Plantillas disponibles",
     "localDescription": "Plantillas guardadas en este panel.",
     "communityDescription": "Plantillas de los repositorios de la comunidad.",
@@ -3241,7 +3237,8 @@
     },
     "actions": {
       "delete": "Eliminar {{name}}",
-      "openMenu": "Acciones de {{name}}"
+      "openMenu": "Acciones de {{name}}",
+      "duplicate": "Duplicar"
     },
     "empty": {
       "localTitle": "No hay plantillas locales",
@@ -3253,25 +3250,6 @@
       "title": "Eliminar plantilla",
       "description": "¿Eliminar la plantilla local «{{name}}»? Esta acción no se puede deshacer."
     },
-    "createDialog": {
-      "description": "Define los parámetros de la plantilla. Los campos y el JSON se mantienen sincronizados."
-    },
-    "fields": {
-      "name": "Nombre (ID único)",
-      "namePlaceholder": "p. ej. spigot",
-      "display": "Nombre visible",
-      "displayPlaceholder": "p. ej. Minecraft Spigot",
-      "type": "Categoría (tipo)",
-      "typePlaceholder": "p. ej. web, game, bot",
-      "startCommand": "Comando de inicio",
-      "startCommandPlaceholder": "p. ej. java -jar server.jar",
-      "stopCommand": "Comando de parada",
-      "stopCommandPlaceholder": "p. ej. stop",
-      "workingDirectory": "Directorio de trabajo",
-      "json": "JSON de la plantilla",
-      "jsonPlaceholder": "Pega o escribe aquí el JSON de la plantilla…",
-      "loadFromFile": "Cargar desde archivo JSON"
-    },
     "toast": {
       "uploaded": "Se han subido {{count}} plantillas.",
       "uploadFailed": "No se pudieron subir las plantillas.",
@@ -3279,13 +3257,8 @@
       "deleted": "Plantilla «{{name}}» eliminada.",
       "deleteFailed": "No se pudo eliminar la plantilla.",
       "created": "Plantilla creada correctamente.",
-      "nameRequired": "La plantilla debe tener un campo «name».",
-      "saveFailed": "JSON no válido o error de red.",
-      "updated": "Plantilla actualizada correctamente.",
-      "loadFailed": "No se pudo cargar la plantilla."
-    },
-    "editDialog": {
-      "title": "Editar plantilla"
+      "saveFailed": "No se pudo guardar la plantilla.",
+      "updated": "Plantilla actualizada correctamente."
     },
     "search": {
       "label": "Buscar plantillas",
@@ -3294,7 +3267,155 @@
       "noResultsDescription": "No hay plantillas para «{{query}}». Prueba con otro nombre, un lenguaje (Go, PHP, C#…) o un juego.",
       "clear": "Borrar búsqueda"
     },
+    "chooser": {
+      "title": "Nueva plantilla",
+      "description": "Elige cómo empezar. No se guarda nada hasta que pulses Guardar en el editor.",
+      "blank": {
+        "title": "En blanco",
+        "description": "Empieza con lo mínimo y rellena cada sección."
+      },
+      "duplicate": {
+        "option": "Duplicar una existente",
+        "optionDescription": "Parte de una plantilla local o de la comunidad y guárdala como tuya.",
+        "title": "Duplicar una plantilla",
+        "description": "Elige de qué plantilla partir. La copia se abre en el editor como plantilla local.",
+        "searchLabel": "Buscar la plantilla que duplicar",
+        "emptyTitle": "Ninguna plantilla coincide",
+        "emptyDescription": "Prueba con otro nombre, un lenguaje o un juego."
+      },
+      "import": {
+        "title": "Importar un .json",
+        "description": "Abre un archivo de plantilla en el editor para revisarlo antes de guardarlo.",
+        "failed": "No se pudo abrir el archivo en el editor."
+      },
+      "back": "Volver"
+    },
     "editor": {
+      "breadcrumb": "Editor",
+      "newTitle": "Nueva plantilla",
+      "back": "Plantillas",
+      "descriptionNew": "Plantilla local nueva: se guarda en este panel cuando pulses Guardar.",
+      "descriptionLocal": "Plantilla local «{{name}}».",
+      "unsaved": "Sin guardar",
+      "save": "Guardar",
+      "download": "Descargar .json",
+      "saveFailed": "No se pudo guardar la plantilla: {{message}}",
+      "copySuffix": "copia",
+      "views": {
+        "label": "Vista",
+        "form": "Formulario",
+        "json": "JSON",
+        "split": "Dividido"
+      },
+      "status": {
+        "clean": "Sin problemas",
+        "jsonInvalid": "El JSON no es válido: corrígelo para poder guardar.",
+        "blocked": "Corrige los errores marcados para poder guardar."
+      },
+      "issues": {
+        "errorsOne": "1 error",
+        "errorsMany": "{{count}} errores",
+        "warningsOne": "1 aviso",
+        "warningsMany": "{{count}} avisos"
+      },
+      "confirmErrors": {
+        "title": "¿Guardar con errores?",
+        "descriptionOne": "La plantilla tiene 1 error. Puede que el panel la rechace o que la instalación falle. ¿Quieres guardarla igualmente?",
+        "descriptionMany": "La plantilla tiene {{count}} errores. Puede que el panel la rechace o que la instalación falle. ¿Quieres guardarla igualmente?",
+        "confirm": "Guardar igualmente"
+      },
+      "sections": {
+        "navLabel": "Secciones de la plantilla",
+        "selectLabel": "Sección",
+        "info": {
+          "label": "Información",
+          "description": "Cómo se llama la plantilla y cómo la ven los usuarios."
+        },
+        "variables": {
+          "label": "Variables",
+          "description": "Lo que rellena quien crea un servidor: puerto, versión, contraseña…"
+        },
+        "install": {
+          "label": "Instalación",
+          "description": "Los pasos que preparan los archivos del servidor al instalarlo, y los que lo limpian al desinstalarlo."
+        },
+        "run": {
+          "label": "Ejecución",
+          "description": "Cómo arranca y se detiene el servidor, su carpeta, sus variables de entorno y su consola."
+        },
+        "environment": {
+          "label": "Entorno",
+          "description": "Dónde se ejecuta el servidor: en el host o en un contenedor Docker, y con qué imagen."
+        },
+        "requirements": {
+          "label": "Requisitos",
+          "description": "El sistema operativo, la arquitectura y los programas que necesita el nodo."
+        },
+        "advanced": {
+          "label": "Avanzado",
+          "description": "Grupos de variables, estadísticas, consulta del estado y keep-alive."
+        }
+      },
+      "placeholder": {
+        "title": "Formulario en preparación",
+        "description": "Por ahora, «{{section}}» se edita en la vista JSON. Todo lo que escribas allí se conserva al guardar.",
+        "openJson": "Abrir la vista JSON"
+      },
+      "info": {
+        "identity": {
+          "title": "Identidad",
+          "description": "El nombre identifica la plantilla en el panel; el nombre visible es el que ven los usuarios."
+        },
+        "appearance": {
+          "title": "Categoría e icono",
+          "description": "Ayudan a encontrar la plantilla en la lista y al crear un servidor."
+        },
+        "name": {
+          "label": "Nombre (ID único)",
+          "placeholder": "p. ej. paper",
+          "hint": "Aparece en los enlaces y no se repite entre las plantillas locales. Mejor en minúsculas, con números y guiones.",
+          "hintRename": "Si lo cambias, se guarda una plantilla nueva con ese nombre y «{{name}}» se queda como está."
+        },
+        "display": {
+          "label": "Nombre visible",
+          "placeholder": "p. ej. Minecraft Paper",
+          "hint": "Lo que ven los usuarios al elegir la plantilla."
+        },
+        "type": {
+          "label": "Categoría",
+          "placeholder": "p. ej. minecraft-java",
+          "hint": "Agrupa la plantilla y decide su icono por defecto en la lista. Puedes escribir una propia."
+        },
+        "icon": {
+          "label": "Icono",
+          "automatic": "Automático (según el nombre)",
+          "hint": "El logo de la plantilla. En automático se busca por su nombre."
+        }
+      },
+      "json": {
+        "title": "JSON de la plantilla",
+        "valid": "JSON válido",
+        "invalidShort": "JSON no válido",
+        "invalid": "El JSON no es válido.",
+        "notObject": "El JSON tiene que ser un objeto: { … }.",
+        "keptForm": "El formulario sigue mostrando la última versión válida.",
+        "formNotice": "El JSON tiene cambios que no son válidos. El formulario muestra la última versión válida; si editas aquí, esos cambios se descartan.",
+        "loading": "Cargando el editor…"
+      },
+      "load": {
+        "notFound": {
+          "title": "No se encontró la plantilla",
+          "description": "No hay ninguna plantilla «{{name}}». Puede que se haya eliminado o renombrado."
+        },
+        "importMissing": {
+          "title": "No hay nada que importar",
+          "description": "El archivo importado ya no está en esta pestaña. Vuelve a importarlo desde la lista de plantillas."
+        },
+        "loadFailed": {
+          "title": "No se pudo abrir la plantilla",
+          "description": "El panel no respondió como se esperaba. Vuelve a intentarlo en un momento."
+        }
+      },
       "operationCategories": {
         "files": "Archivos",
         "downloads": "Descargas",
@@ -3806,7 +3927,18 @@
         "unknownOperation": "El nodo no conoce este tipo de paso.",
         "versionOrMinecraftVersion": "Indica la versión de Minecraft, la del cargador o ambas.",
         "invalidInteger": "Debe ser un número entero.",
-        "stepNotObject": "Cada paso debe ser un objeto con su «type»."
+        "stepNotObject": "Cada paso debe ser un objeto con su «type».",
+        "nameRequired": "Escribe un nombre para la plantilla.",
+        "nameTooLong": "El nombre puede tener 100 caracteres como mucho.",
+        "nameSlash": "El nombre no puede llevar «/».",
+        "nameDots": "El nombre no puede ser «.» ni «..».",
+        "nameWhitespace": "El nombre no puede empezar ni acabar con espacios.",
+        "nameControl": "El nombre lleva caracteres que no se pueden usar.",
+        "nameTaken": "Ya hay una plantilla local con este nombre."
+      },
+      "warnings": {
+        "integerVariableValue": "No es un número entero: el nodo lo cambiará sin avisar (un texto, por ejemplo, pasa a ser 0).",
+        "noDefaultEnvironment": "La plantilla no tiene entorno por defecto: elige host o Docker."
       }
     }
   },
