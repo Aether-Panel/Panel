@@ -3792,6 +3792,8 @@
     "ErrDiscordNoWebhooks": "No hay webhooks de Discord configurados.",
     "ErrDiscordTestFailed": "El mensaje de prueba no llegó a estos webhooks: {{webhooks}}. Revisa que sigan existiendo en Discord.",
     "ErrNotificationLanguage": "El idioma de las notificaciones debe ser español o inglés.",
+    "ErrOffsitePeriodicHours": "La copia periódica externa solo puede hacerse cada 12, 24, 48, 72, 168, 336 o 720 horas, o desactivarse (0).",
+    "ErrOffsiteKeep": "Las copias externas que se conservan deben ser entre 1 y 50.",
     "ErrAIConfirmationInvalid": "Esta solicitud ha caducado, ya se respondió o es de otra persona. Vuelve a preguntar.",
     "ErrAccountPending": "Tu cuenta está pendiente de aprobación. Un administrador tiene que aprobarla antes de que puedas entrar.",
     "ErrGitHubNotConfigured": "GitHub no está configurado en este panel. Un administrador debe añadir el Client ID en Configuración → GitHub.",

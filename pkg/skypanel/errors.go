@@ -173,6 +173,11 @@ var ErrDiscordTestFailed = func(webhooks []string) *Error {
 
 var ErrNotificationLanguage = CreateError("the notification language must be es or en", "ErrNotificationLanguage")
 
+// ErrOffsitePeriodicHours and ErrOffsiteKeep refuse a periodic off-site copy setting the panel
+// does not offer, globally or for one server
+var ErrOffsitePeriodicHours = CreateError("the periodic off-site copy must be every 0 (never), 12, 24, 48, 72, 168, 336 or 720 hours", "ErrOffsitePeriodicHours")
+var ErrOffsiteKeep = CreateError("the off-site copies to keep must be between 1 and 50", "ErrOffsiteKeep")
+
 var ErrFieldRequired = func(fieldName string) *Error {
 	return CreateError("${field} is required", "ErrFieldRequired").Metadata(map[string]interface{}{"field": fieldName})
 }

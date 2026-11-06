@@ -162,6 +162,9 @@ func registerServers(g *gin.RouterGroup) {
 	g.OPTIONS("/:serverId/notifications", response.CreateOptions("GET", "PUT"))
 	g.POST("/:serverId/notifications/test", middleware.RequiresPermission(scopes.ScopeServerEditFlags), middleware.ResolveServerPanel, proxyServerRequest)
 	g.OPTIONS("/:serverId/notifications/test", response.CreateOptions("POST"))
+	g.GET("/:serverId/offsite", middleware.RequiresPermission(scopes.ScopeServerBackupView), middleware.ResolveServerPanel, proxyServerRequest)
+	g.PUT("/:serverId/offsite", middleware.RequiresPermission(scopes.ScopeServerBackupCreate), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/offsite", response.CreateOptions("GET", "PUT"))
 
 	g.POST("/:serverId/reload", middleware.RequiresPermission(scopes.ScopeServerReload), middleware.ResolveServerPanel, proxyServerRequest)
 	g.OPTIONS("/:serverId/reload", response.CreateOptions("POST"))

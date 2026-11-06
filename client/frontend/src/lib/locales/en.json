@@ -3792,6 +3792,8 @@
     "ErrDiscordNoWebhooks": "There are no Discord webhooks configured.",
     "ErrDiscordTestFailed": "The test message did not reach these webhooks: {{webhooks}}. Check that they still exist in Discord.",
     "ErrNotificationLanguage": "The notification language must be Spanish or English.",
+    "ErrOffsitePeriodicHours": "The periodic off-site copy can only run every 12, 24, 48, 72, 168, 336 or 720 hours, or be turned off (0).",
+    "ErrOffsiteKeep": "The off-site copies to keep must be between 1 and 50.",
     "ErrAIConfirmationInvalid": "This request expired, was already answered or belongs to someone else. Ask again.",
     "ErrAccountPending": "Your account is waiting for approval. An administrator has to approve it before you can sign in.",
     "ErrGitHubNotConfigured": "GitHub is not set up on this panel. An administrator has to add the Client ID in Settings → GitHub.",

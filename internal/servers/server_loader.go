@@ -274,9 +274,9 @@ func Delete(id string) (err error) {
 			logging.Error.Printf("Error removing the temporary folder of server %s: %s", safeID, err)
 		}
 	}
-	// the server's tasks, crash reports and notification settings go with it
+	// the server's tasks, crash reports, notification and off-site settings go with it
 	forgetMetrics(safeID)
-	for _, ext := range []string{".cron", ".crashes", ".notify", ".metrics", ".worldmap"} {
+	for _, ext := range []string{".cron", ".crashes", ".notify", ".offsite", ".metrics", ".worldmap"} {
 		if err := os.Remove(filepath.Join(config.ServersFolder.Value(), safeID+ext)); err != nil && !os.IsNotExist(err) {
 			logging.Error.Printf("Error removing %s for server %s: %s", ext, safeID, err)
 		}
