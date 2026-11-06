@@ -194,7 +194,8 @@ User guide: [Backups](../features/backups.md).
 | Kind | File name | Made by | Kept |
 |---|---|---|---|
 | Manual | `<uuid>.tar.gz` | `POST /api/servers/{id}/backup/create` | Until deleted; users are capped by `panel.backups.maxPerServer` |
-| Automatic | `auto-<uuid>.tar.gz` | The `backup` operation of a scheduled task | The newest `keep` (5 by default, 50 at most); only `auto-` files are pruned |
+| Automatic | `auto-<task-id>-<uuid>.tar.gz` (formerly `auto-<uuid>.tar.gz`) | The `backup` operation of a scheduled task | On the node, the newest `keep` (5 by default, 50 at most; every `auto-` file counts together); in the bucket, the task's newest `offsiteKeep` (4 by default) |
+| Periodic | `offsite-<uuid>.tar.gz` | The node's periodic copy worker | Only in the bucket: the server's newest `periodicKeep` (4 by default) |
 | Restore point | `restore-<reason>-<uuid>.tar.gz` | The daemon, before a risky step | The newest 3 |
 
 - Backups live in `daemon.data.backups.folder/<id>/`. The archive is written under a hidden name and moved into place when complete, so a half-written backup is never listed, downloaded or restored. Only one backup or restore runs at a time per server.
@@ -202,7 +203,7 @@ User guide: [Backups](../features/backups.md).
 - Deleting the server deletes its backup folder on the node; copies in the off-site bucket stay. A node transfer copies the backups kept on the node (`local` and `both`) to the new node through the panel (`PUT /daemon/server/{id}/backup/file`), then deletes the server and its backups from the old node; off-site copies are not touched. See [Server transfers](../features/server-transfers.md).
 - **Restore points** are taken before installing or removing a plugin (at most one every 30 minutes for a run of plugin changes; only once Modrinth offered a compatible file, or the plugin to remove exists), installing a world map, changing the game version, installing a modpack, and restoring a backup. They do not count against the automatic-backup retention.
 - **Restore** (`POST /api/servers/{id}/backup/restore/{backupID}`) only runs on a stopped, idle server. The archive is checked first, a restore point is written (without it the restore does not go ahead), the server's files are removed and the archive is extracted.
-- With **off-site backups** on (`daemon.backups.s3.*`), every finished backup is also uploaded to the bucket; a failed upload is reported on the console but the local backup stays. The list merges both places (`location`: `local`, `offsite` or `both`), a backup only in the bucket is downloaded before it is restored, and deleting removes both copies.
+- With **off-site backups** on (`daemon.backups.s3.*`), a task backup is also uploaded to the bucket when its frequency (`offsite`) says so, in the background and without failing the task; manual backups and restore points are not uploaded. `StartOffsitePeriodic` starts, with the daemon, a single worker that every 10 minutes (the first pass 5 minutes after start) goes through the servers one at a time and makes the periodic copy of those that are due (`daemon.backups.s3.periodicHours` or the server's `<id>.offsite` setting): it writes `offsite-<uuid>.tar.gz`, uploads it, prunes the bucket and deletes the local file, alerts only when something fails and, after a failure, waits 1, 2, 4… up to 24 h. It leaves a server for another pass while it is being installed, moved, or backed up or restored. `GET`/`PUT /daemon/server/{id}/offsite` read and save the server's own setting. Local pruning (`keep`) does not touch the bucket. The list merges both places (`location`: `local`, `offsite` or `both`), a backup only in the bucket is downloaded before it is restored, and deleting removes both copies.
 
 ## File history
 

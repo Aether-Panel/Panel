@@ -236,7 +236,7 @@ Ver [Subdominio (Cloudflare)](./04-servers.md#subdominio-cloudflare) y [Subdomin
 
 | Clave | Tipo | Por defecto | Configuración | Descripción |
 |---|---|---|---|---|
-| `daemon.backups.s3.enabled` | bool | `false` | Sí | Copia cada copia de seguridad terminada a un bucket compatible con S3 (AWS S3, Backblaze B2, Cloudflare R2, Wasabi, MinIO…). La copia local se conserva. |
+| `daemon.backups.s3.enabled` | bool | `false` | Sí | Activa el bucket compatible con S3 (AWS S3, Backblaze B2, Cloudflare R2, Wasabi, MinIO…), al que van la copia periódica de cada servidor y las copias de las tareas a las que les toca subir. Las copias manuales no se suben. |
 | `daemon.backups.s3.endpoint` | string | — | Sí | Endpoint: `s3.example.com`, `host:puerto` o una URL completa. |
 | `daemon.backups.s3.region` | string | — | Sí | Región. |
 | `daemon.backups.s3.bucket` | string | — | Sí | Bucket. |
@@ -244,8 +244,10 @@ Ver [Subdominio (Cloudflare)](./04-servers.md#subdominio-cloudflare) y [Subdomin
 | `daemon.backups.s3.secretKey` | string | — | Sí | Clave secreta. |
 | `daemon.backups.s3.prefix` | string | `aether-backups` | Sí | Prefijo de los objetos en el bucket. |
 | `daemon.backups.s3.insecure` | bool | `false` | Sí | HTTP sin cifrar hacia el endpoint (para un MinIO en la red local). |
+| `daemon.backups.s3.periodicHours` | int | `0` | Sí | Intervalo por defecto de la copia periódica de cada servidor, en horas. Solo se aceptan `0` (desactivada), `12`, `24`, `48`, `72`, `168`, `336` y `720`; la página Configuración y `POST`/`PUT /api/settings` rechazan cualquier otro valor con `ErrOffsitePeriodicHours`, y un valor no permitido escrito a mano en el archivo desactiva la copia. |
+| `daemon.backups.s3.periodicKeep` | int | `4` | Sí | Copias periódicas que se conservan en el bucket por servidor, de 1 a 50 (fuera de rango: `ErrOffsiteKeep`; escrito a mano en el archivo, se usa 4). |
 
-La copia solo se hace si está activada y están fijados endpoint, bucket, clave de acceso y clave secreta. Son claves del daemon: La página Configuración las cambia en la máquina donde corre el panel (su nodo local); un nodo remoto las lee de su propia configuración. `POST /api/settings/test/s3` comprueba que el bucket existe y luego escribe y borra un objeto pequeño (no se prueba la lectura, así que una clave que puede escribir pero no leer también pasa la prueba). Ver [Copias de seguridad](../features/backups.md).
+Las copias externas solo funcionan si están activadas y están fijados endpoint, bucket, clave de acceso y clave secreta. Cada servidor puede cambiar `periodicHours` y `periodicKeep` en su pestaña Copias de seguridad; ese ajuste se guarda en el nodo, en `<daemon.data.servers>/<id>.offsite`, y tiene prioridad sobre estas claves. Son claves del daemon: la página Configuración las cambia en la máquina donde corre el panel (su nodo local); un nodo remoto las lee de su propia configuración. `POST /api/settings/test/s3` comprueba que el bucket existe y luego escribe y borra un objeto pequeño (no se prueba la lectura, así que una clave que puede escribir pero no leer también pasa la prueba). Ver [Copias de seguridad](../features/backups.md).
 
 ### Docker
 

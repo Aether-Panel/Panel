@@ -35,6 +35,8 @@ Routes marked "node" are forwarded to the server's node (`/daemon/server/:server
 | POST | `/backup/restore/:backupID` | `server.backup.restore` | Restores a backup |
 | GET | `/backup/download/:backupID` | `server.backup.view` | Downloads the archive |
 | DELETE | `/backup/:backupID` | `server.backup.delete` | Deletes a backup |
+| GET | `/offsite` | `server.backup.view` | The server's periodic copy to S3 (node) |
+| PUT | `/offsite` | `server.backup.create` | Changes the server's periodic copy to S3 (node) |
 | GET | `/tasks` | `server.tasks.view` | Lists scheduled tasks (node) |
 | GET | `/tasks/:taskId` | `server.tasks.view` | One task (node) |
 | PUT | `/tasks/:taskId` | any of `server.tasks.create`, `server.tasks.edit` | Creates or replaces a task |
@@ -193,18 +195,18 @@ The panel keeps a record per backup; the node keeps the archive, which goes with
 [ { "id": 12, "name": "before update", "fileName": "....tar.gz", "fileSize": 104857600, "location": "both", "createdAt": "2026-10-31T09:00:00Z" } ]
 ```
 
-`location` is `local`, `offsite` or `both`. Before answering, the panel brings the list in line with the node: backups made by scheduled tasks are added, ones removed by retention disappear, a backup made by hand whose archive could not be written is removed (the node reports it as `failed`) and sizes are filled in once the archive is written (best effort; when the node cannot be reached the stored list is shown).
+`location` is `local`, `offsite` or `both`. Before answering, the panel brings the list in line with the node: backups made by scheduled tasks and periodic copies (`offsite-…`, named `Periodic backup (S3)`) are added, ones removed by retention disappear, a backup made by hand whose archive could not be written is removed (the node reports it as `failed`) and sizes are filled in once the archive is written (best effort; when the node cannot be reached the stored list is shown).
 
 `GET /backup/:backupID` answers one record.
 
 ### `POST /api/servers/:serverId/backup/create?name=before+update`
 
-Starts a backup; the archive is written in the background and the console reports when it is done. `204`. The record is made right away; if the archive then fails, the next listing drops it.
+Starts a backup; the archive is written in the background and the console reports when it is done. The backup stays on the node only: manual backups are not uploaded to the bucket. `204`. The record is made right away; if the archive then fails, the next listing drops it.
 
 | Error | When |
 |-------|------|
 | `400 ErrFieldRequired` | No `name` |
-| `409 ErrBackupLimit` | The server already has `panel.backups.maxPerServer` backups (default 10; `0` disables the cap). Administrators are not capped |
+| `409 ErrBackupLimit` | The server already has `panel.backups.maxPerServer` backups (default 10; `0` disables the cap), periodic copies not counted. Administrators are not capped |
 | The node's error | For example another backup or restore running |
 
 Backups store the server folder: files are opened beneath it, symbolic links are stored as links and never followed, and pipes are left out.
@@ -219,7 +221,30 @@ Streams the archive (`application/octet-stream`, `Content-Disposition: attachmen
 
 ### `DELETE /api/servers/:serverId/backup/:backupID`
 
-Deletes the archive on the node and the record. `204`; `404` for an unknown backup; the node's error when it refuses.
+Deletes the archive on the node (and in the bucket, when it is there) and the record. `204`; `404` for an unknown backup; the node's error when it refuses.
+
+### `GET /api/servers/:serverId/offsite`
+
+The server's [periodic copy](../../features/backups.md#periodic-copy), as its node sees it:
+
+```json
+{ "periodicHours": null, "periodicKeep": 6, "effectiveHours": 24, "effectiveKeep": 6, "configured": true, "lastPeriodic": "2026-11-05T04:12:00Z" }
+```
+
+`periodicHours` and `periodicKeep` are the server's own setting (`null` = the node's default); `effectiveHours` and `effectiveKeep`, what it ends up using (`0` hours = no periodic copy); `configured`, whether the node has S3 set up; `lastPeriodic`, the date of the last periodic copy the node knows of (`null` when none). A node from an earlier version answers `404`.
+
+### `PUT /api/servers/:serverId/offsite`
+
+```json
+{ "periodicHours": 48, "periodicKeep": null }
+```
+
+Saves the server's own setting; `null` goes back to the default and `periodicHours: 0` turns that server's periodic copy off. `204`.
+
+| Error | When |
+|-------|------|
+| `400 ErrOffsitePeriodicHours` | `periodicHours` is not `0`, `12`, `24`, `48`, `72`, `168`, `336` or `720` |
+| `400 ErrOffsiteKeep` | `periodicKeep` is not between 1 and 50 |
 
 ## Tasks
 
@@ -254,7 +279,7 @@ Callers without `admin` get stricter rules (`400` with the reason; `413` for a b
 | `stdin` | `command`, one line of at most 512 characters; needs `server.console.send` |
 | `sleep` | `duration` up to one hour |
 | `start`, `stop`, `restart` | Need `server.start`, `server.stop`, or both |
-| `backup` | Optional `keep` (1 to 50, default 5); needs `server.backup.create` |
+| `backup` | Optional `keep` (1 to 50, default 5), optional `offsite` (`never`, `always`, `weekend`, `weekly`, `biweekly` or `monthly`; `always` when missing) and optional `offsiteKeep` (1 to 50, default 4); needs `server.backup.create` |
 | Schedule | Five fields (no seconds) or `@yearly`, `@annually`, `@monthly`, `@weekly`, `@daily`, `@midnight`, `@hourly`; an optional `CRON_TZ=` or `TZ=` prefix |
 | `name`, `description` | At most 64 and 256 characters |
 

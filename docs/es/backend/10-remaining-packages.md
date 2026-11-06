@@ -240,7 +240,7 @@ Complementos de administración: un zip con `extension.json` en la raíz y pági
 
 ## `internal/offsite/` — Copias externas
 
-Copia cada copia de seguridad terminada en un bucket compatible con S3 (AWS S3, Backblaze B2, Cloudflare R2, Wasabi, MinIO) mediante `github.com/minio/minio-go/v7`. Guía de uso: [Copias de seguridad](../features/backups.md).
+Lleva copias de seguridad a un bucket compatible con S3 (AWS S3, Backblaze B2, Cloudflare R2, Wasabi, MinIO) mediante `github.com/minio/minio-go/v7`: la copia periódica de cada servidor y las copias de las tareas a las que les toca subir. Las copias manuales no se suben. Guía de uso: [Copias de seguridad](../features/backups.md).
 
 | Ajuste | Por defecto | Notas |
 |---|---|---|
@@ -251,16 +251,19 @@ Copia cada copia de seguridad terminada en un bucket compatible con S3 (AWS S3, 
 | `daemon.backups.s3.accessKey` / `secretKey` | `""` | |
 | `daemon.backups.s3.prefix` | `aether-backups` | Los objetos son `<prefijo>/<serverId>/<archivo>.tar.gz` |
 | `daemon.backups.s3.insecure` | `false` | http sin TLS, para un MinIO en la red local |
+| `daemon.backups.s3.periodicHours` | `0` | Intervalo por defecto de la copia periódica (`0`, `12`, `24`, `48`, `72`, `168`, `336` o `720`; `0` = desactivada) |
+| `daemon.backups.s3.periodicKeep` | `4` | Copias periódicas que se conservan por servidor (1-50) |
 
 `FromSettings()` devuelve la configuración y si está activada **y** completa (endpoint, bucket y ambas claves).
 
 | Función | Para qué se usa |
 |---|---|
-| `Upload` | Tras cada copia (`Server.uploadOffsite`, límite de 2 h). La copia local se mantiene; un fallo de subida se muestra en la consola pero no hace fallar la copia. |
-| `List` | Lista de copias: las entradas se marcan como `local`, `offsite` o `both` (límite de 15 s; si falla se muestra la lista local) |
-| `Exists`, `Download` | Restaurar una copia que solo está en el bucket (se descarga como `<archivo>.download` y después se renombra) |
+| `Upload` | `Server.uploadOffsite` (límite de 2 h): tras la copia de una tarea a la que le toca subir (en segundo plano; la copia local se mantiene y un fallo no hace fallar la tarea) y en la copia periódica (después se borra el archivo local) |
+| `List` | Lista de copias: las entradas se marcan como `local`, `offsite` o `both` (límite de 15 s; si falla se muestra la lista local). También decide si una tarea sube su copia, busca la última copia periódica y poda cada serie (límite de 1 min) |
+| `Reachable` | Antes de escribir una copia periódica: comprueba que el bucket responde y existe, sin escribir nada |
+| `Download` | Restaurar una copia que solo está en el bucket (se descarga como `<archivo>.download` y después se renombra) |
 | `Open` | Descargar una copia directamente desde el bucket |
-| `Delete` | Al borrar una copia también se borra el objeto |
+| `Delete` | Al borrar una copia desde el panel también se borra el objeto; también poda las copias de una tarea más allá de `offsiteKeep` y las periódicas más allá de `periodicKeep`. La poda local de las tareas (`keep`) no lo usa |
 | `Test` | `POST /api/settings/test/s3` (scope `settings.edit`): comprueba que el bucket existe, escribe un objeto pequeño bajo `<prefijo>/.aether-test/` y lo borra |
 
 ---

@@ -15,7 +15,7 @@ For full endpoint details see the [API reference](../reference/11-api-reference.
 | [Modpacks and plugins](modpacks-and-plugins.md) | Modpack install from Modrinth and CurseForge; Modrinth plugin browser |
 | [World map](world-map.md) | BlueMap and Dynmap install and the in-panel map viewer |
 | [Scheduled tasks](scheduled-tasks.md) | Cron and manual tasks: steps, permissions, limits |
-| [Backups](backups.md) | Manual and scheduled backups, restore, restore points, per-server cap, S3 off-site copies |
+| [Backups](backups.md) | Manual and scheduled backups, restore, restore points, per-server cap, S3 off-site copies (periodic and per task) |
 | [File history](file-history.md) | Saved versions of files edited in the panel, diff and restore |
 | [Crash detection and crash reports](crash-reports.md) | How crashes are detected, automatic restart, crash reports |
 | [Server notifications](server-notifications.md) | Per-server alerts to Discord, Telegram or a signed webhook |

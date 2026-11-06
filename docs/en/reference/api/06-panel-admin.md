@@ -180,7 +180,7 @@ Editable keys:
 | Notifications | `panel.settings.notificationLanguage` (`es` or `en`, default `es`: the language of Discord, Telegram and webhook alerts, the panel's Discord reports and extension events), `panel.notifications.discordWebhook`, `panel.notifications.discordWebhookSystem`, `panel.notifications.discordWebhookNode`, `panel.notifications.discordWebhookExTransfer` |
 | AI and integrations | `panel.settings.geminiApiKey`, `panel.settings.hideAiAnalysis`, `daemon.curseforge.key` |
 | Experimental | `panel.experimental.versionSwitch`, `panel.experimental.propertiesEditor`, `panel.experimental.serverClone` |
-| Off-site backups | `daemon.backups.s3.enabled`, `daemon.backups.s3.endpoint`, `daemon.backups.s3.region`, `daemon.backups.s3.bucket`, `daemon.backups.s3.accessKey`, `daemon.backups.s3.secretKey`, `daemon.backups.s3.prefix`, `daemon.backups.s3.insecure` |
+| Off-site backups | `daemon.backups.s3.enabled`, `daemon.backups.s3.endpoint`, `daemon.backups.s3.region`, `daemon.backups.s3.bucket`, `daemon.backups.s3.accessKey`, `daemon.backups.s3.secretKey`, `daemon.backups.s3.prefix`, `daemon.backups.s3.insecure`, `daemon.backups.s3.periodicHours` (`0`, `12`, `24`, `48`, `72`, `168`, `336` or `720`; any other value: `400 ErrOffsitePeriodicHours`), `daemon.backups.s3.periodicKeep` (1 to 50; any other value: `400 ErrOffsiteKeep`) |
 | Subdomains | `panel.dns.cloudflare.token`, `panel.dns.cloudflare.zoneId`, `panel.dns.baseDomain`, `panel.dns.target`, `panel.dns.autoAssign` |
 | GitHub | `panel.github.clientId` |
 | License | `panel.license.key`, `panel.license.status`, `panel.license.serverId`, `panel.license.serverIp` |

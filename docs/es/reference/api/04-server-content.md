@@ -35,6 +35,8 @@ Las rutas marcadas con «nodo» se reenvían al nodo del servidor (`/daemon/serv
 | POST | `/backup/restore/:backupID` | `server.backup.restore` | Restaura una copia de seguridad |
 | GET | `/backup/download/:backupID` | `server.backup.view` | Descarga el archivo |
 | DELETE | `/backup/:backupID` | `server.backup.delete` | Elimina una copia de seguridad |
+| GET | `/offsite` | `server.backup.view` | Copia periódica al S3 del servidor (nodo) |
+| PUT | `/offsite` | `server.backup.create` | Cambia la copia periódica al S3 del servidor (nodo) |
 | GET | `/tasks` | `server.tasks.view` | Lista las tareas programadas (nodo) |
 | GET | `/tasks/:taskId` | `server.tasks.view` | Una tarea (nodo) |
 | PUT | `/tasks/:taskId` | cualquiera de `server.tasks.create`, `server.tasks.edit` | Crea o sustituye una tarea |
@@ -193,18 +195,18 @@ El panel guarda un registro por copia; el nodo guarda el archivo, que acompaña 
 [ { "id": 12, "name": "before update", "fileName": "....tar.gz", "fileSize": 104857600, "location": "both", "createdAt": "2026-10-31T09:00:00Z" } ]
 ```
 
-`location` es `local`, `offsite` o `both`. Antes de responder, el panel pone la lista al día con el nodo: se añaden las copias hechas por tareas programadas, desaparecen las que eliminó la retención, se quita una copia hecha a mano cuyo archivo no se pudo escribir (el nodo la indica como `failed`) y se completan los tamaños cuando el archivo ya está escrito (en la medida de lo posible; si no se puede contactar con el nodo, se muestra la lista guardada).
+`location` es `local`, `offsite` o `both`. Antes de responder, el panel pone la lista al día con el nodo: se añaden las copias hechas por tareas programadas y las copias periódicas (`offsite-…`, con el nombre `Periodic backup (S3)`), desaparecen las que eliminó la retención, se quita una copia hecha a mano cuyo archivo no se pudo escribir (el nodo la indica como `failed`) y se completan los tamaños cuando el archivo ya está escrito (en la medida de lo posible; si no se puede contactar con el nodo, se muestra la lista guardada).
 
 `GET /backup/:backupID` responde un único registro.
 
 ### `POST /api/servers/:serverId/backup/create?name=before+update`
 
-Inicia una copia de seguridad; el archivo se escribe en segundo plano y la consola avisa cuando termina. `204`. El registro se crea en el acto; si después falla el archivo, el siguiente listado lo quita.
+Inicia una copia de seguridad; el archivo se escribe en segundo plano y la consola avisa cuando termina. La copia se queda solo en el nodo: las copias manuales no se suben al bucket. `204`. El registro se crea en el acto; si después falla el archivo, el siguiente listado lo quita.
 
 | Error | Cuándo |
 |-------|--------|
 | `400 ErrFieldRequired` | Falta `name` |
-| `409 ErrBackupLimit` | El servidor ya tiene `panel.backups.maxPerServer` copias (por defecto 10; `0` desactiva el límite). Los administradores no tienen límite |
+| `409 ErrBackupLimit` | El servidor ya tiene `panel.backups.maxPerServer` copias (por defecto 10; `0` desactiva el límite), sin contar las periódicas. Los administradores no tienen límite |
 | El error del nodo | Por ejemplo, otra copia o restauración en curso |
 
 Las copias guardan la carpeta del servidor: los archivos se abren por debajo de ella, los enlaces simbólicos se guardan como enlaces y nunca se siguen, y las tuberías (pipes) se omiten.
@@ -219,7 +221,30 @@ Transmite el archivo (`application/octet-stream`, `Content-Disposition: attachme
 
 ### `DELETE /api/servers/:serverId/backup/:backupID`
 
-Elimina el archivo en el nodo y el registro. `204`; `404` para una copia desconocida; el error del nodo cuando este lo rechaza.
+Elimina el archivo en el nodo (y en el bucket, si está allí) y el registro. `204`; `404` para una copia desconocida; el error del nodo cuando este lo rechaza.
+
+### `GET /api/servers/:serverId/offsite`
+
+La [copia periódica](../../features/backups.md#copia-periódica) del servidor, tal como la ve su nodo:
+
+```json
+{ "periodicHours": null, "periodicKeep": 6, "effectiveHours": 24, "effectiveKeep": 6, "configured": true, "lastPeriodic": "2026-11-05T04:12:00Z" }
+```
+
+`periodicHours` y `periodicKeep` son el ajuste propio del servidor (`null` = el valor por defecto del nodo); `effectiveHours` y `effectiveKeep`, lo que usa al final (`0` horas = sin copia periódica); `configured`, si el nodo tiene el S3 configurado; `lastPeriodic`, la fecha de la última copia periódica que conoce el nodo (`null` si ninguna). Un nodo de una versión anterior responde `404`.
+
+### `PUT /api/servers/:serverId/offsite`
+
+```json
+{ "periodicHours": 48, "periodicKeep": null }
+```
+
+Guarda el ajuste propio del servidor; `null` vuelve al valor por defecto y `periodicHours: 0` desactiva la copia periódica de ese servidor. `204`.
+
+| Error | Cuándo |
+|-------|--------|
+| `400 ErrOffsitePeriodicHours` | `periodicHours` no es `0`, `12`, `24`, `48`, `72`, `168`, `336` ni `720` |
+| `400 ErrOffsiteKeep` | `periodicKeep` no está entre 1 y 50 |
 
 ## Tareas
 
@@ -254,7 +279,7 @@ Quien llama sin `admin` tiene reglas más estrictas (`400` con el motivo; `413` 
 | `stdin` | `command`, una línea de 512 caracteres como máximo; necesita `server.console.send` |
 | `sleep` | `duration` de hasta una hora |
 | `start`, `stop`, `restart` | Necesitan `server.start`, `server.stop` o ambos |
-| `backup` | `keep` opcional (de 1 a 50, por defecto 5); necesita `server.backup.create` |
+| `backup` | `keep` opcional (de 1 a 50, por defecto 5), `offsite` opcional (`never`, `always`, `weekend`, `weekly`, `biweekly` o `monthly`; si falta, `always`) y `offsiteKeep` opcional (de 1 a 50, por defecto 4); necesita `server.backup.create` |
 | Programación | Cinco campos (sin segundos) o `@yearly`, `@annually`, `@monthly`, `@weekly`, `@daily`, `@midnight`, `@hourly`; con un prefijo opcional `CRON_TZ=` o `TZ=` |
 | `name`, `description` | Como máximo 64 y 256 caracteres |
 

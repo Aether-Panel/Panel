@@ -18,7 +18,7 @@ La estructura interna del planificador (el tipo `Scheduler` y su archivo) se des
 | `start` | Iniciar | — | Inicia el servidor si no está ya encendido. |
 | `stop` | Detener | — | Detiene el servidor y espera hasta 5 minutos a que termine. |
 | `restart` | Reiniciar | — | Detiene e inicia el servidor, **solo si está encendido**. Un servidor que su propietario apagó no se vuelve a encender. |
-| `backup` | Copia de seguridad | `keep` (1–50, por defecto 5) | Hace una copia automática y borra las copias automáticas más antiguas que superen `keep`. Las copias hechas a mano nunca se borran. |
+| `backup` | Copia de seguridad | `keep` (1–50, por defecto 5), `offsite` (`never`, `always`, `weekend`, `weekly`, `biweekly`, `monthly`; `weekly` en un paso nuevo, `always` si falta), `offsiteKeep` (1–50, por defecto 4) | Hace una copia automática y borra del nodo las copias automáticas más antiguas que superen `keep`. Las copias hechas a mano nunca se borran. Según `offsite` (**Subir al S3**), sube además la copia al bucket y deja allí las `offsiteKeep` más recientes de la tarea; véase [Copias de seguridad](backups.md#subida-de-las-copias-de-tareas). |
 
 - Los administradores (quienes tienen el permiso `admin`) también pueden usar cualquier operación del [motor de operaciones](../backend/06-operations.md) (comandos de shell, descargas, escritura de archivos...) y condiciones `if`. El resto de usuarios no, porque una tarea se ejecuta en el nodo sin supervisión.
 
@@ -29,7 +29,7 @@ La estructura interna del planificador (el tipo `Scheduler` y su archivo) se des
 - El planificador de cada servidor ejecuta como máximo **5 tareas a la vez**; las ejecuciones adicionales esperan a que quede un hueco (`concurrentLimit: 5`, `limitMode: "wait"` en el archivo `.cron`). Estos valores no se exponen en el panel ni en la API.
 - Mientras un servidor se [traslada a otro nodo](server-transfers.md), sus tareas quedan **pausadas** en ambos nodos (`"paused": true` en el archivo `.cron`, que se mantiene si el nodo se reinicia): las ejecuciones que tocan y **Ejecutar ahora** se omiten, y el nodo registra `Task <id> skipped: the server is being moved to another node`. Una tarea que ya se está ejecutando no se interrumpe. La transferencia copia las tareas al nodo nuevo y las reanuda en el nodo que se queda con el servidor; si la transferencia se deshace, se reanudan en el nodo antiguo.
 - Al ejecutarse una tarea, la consola muestra `Running task <nombre>` y, al terminar, `Task <nombre> finished`. Si un paso falla, la consola muestra `Failed to setup tasks` seguido del error.
-- Las copias automáticas se escriben como `auto-<uuid>.tar.gz` en la carpeta de copias del servidor. El panel las añade a la lista de **Copias de seguridad** (con el nombre "Automatic backup") la próxima vez que se carga la lista, y quita las entradas que la retención ha borrado. Véase [Copias de seguridad](backups.md).
+- Las copias automáticas se escriben como `auto-<id-de-la-tarea>-<uuid>.tar.gz` en la carpeta de copias del servidor (las de versiones anteriores, `auto-<uuid>.tar.gz`). El planificador pone el id de la tarea en cada paso de copia al ejecutarla, también con **Ejecutar ahora**, sin leerlo de los argumentos guardados. El panel las añade a la lista de **Copias de seguridad** (con el nombre "Automatic backup") la próxima vez que se carga la lista, y quita las entradas que la retención ha borrado. Borrar una tarea no borra sus copias del nodo ni del bucket. Véase [Copias de seguridad](backups.md).
 - El panel siempre escribe una programación de cinco campos precedida de la zona horaria del navegador de quien crea la tarea, por ejemplo `CRON_TZ=Europe/Madrid 0 5 * * *`. Así, "05:00" significa las 05:00 en el lugar donde vive quien creó la tarea, sea cual sea la zona horaria del nodo.
 
 ### Comprobaciones para usuarios que no son administradores
@@ -44,6 +44,7 @@ Cuando quien llama no tiene `admin`, el panel valida la tarea antes de enviarla 
 | Comando (`stdin`) | una sola línea, hasta 512 caracteres |
 | Espera (`sleep`) | mayor que 0, hasta 1 hora |
 | `keep` (`backup`) | De 1 a 50 |
+| `offsite` / `offsiteKeep` (`backup`) | `never`, `always`, `weekend`, `weekly`, `biweekly` o `monthly` / de 1 a 50 |
 | Programación | cinco campos (minuto, hora, día del mes, mes, día de la semana) o `@yearly`, `@annually`, `@monthly`, `@weekly`, `@daily`, `@midnight`, `@hourly`, opcionalmente tras `CRON_TZ=`/`TZ=`. Sin campo de segundos ni `@every`, de modo que una tarea se ejecuta como mucho una vez por minuto. |
 | Tamaño del cuerpo | 64 KiB |
 | Condiciones (`if`) | no permitidas |
@@ -56,11 +57,11 @@ Además, cada paso exige el permiso que necesita el botón equivalente: `stdin` 
 
 Abra el servidor y seleccione la pestaña **Tareas** (visible para usuarios con `server.tasks.view`).
 
-- Si aún no hay tareas, la pestaña ofrece tres **Plantillas**: **Reinicio diario** (todos los días a las 05:00), **Copia de seguridad diaria** (todos los días a las 04:00, guarda las 7 últimas) y **Aviso y reinicio** (envía `say El servidor se reiniciará en 5 minutos`, espera 5 minutos y reinicia).
+- Si aún no hay tareas, la pestaña ofrece tres **Plantillas**: **Reinicio diario** (todos los días a las 05:00), **Copia de seguridad diaria** (todos los días a las 04:00, guarda las 7 últimas y sube una cada semana al S3) y **Aviso y reinicio** (envía `say El servidor se reiniciará en 5 minutos`, espera 5 minutos y reinicia).
 - **Nueva tarea** abre el editor:
   - **Nombre**.
   - **Cuándo** → **Frecuencia**: **Todos los días** (una **Hora**), **Días de la semana** (una hora y uno o más **Días**), **Cada pocas horas** (cada 1, 2, 3, 4, 6, 8 o 12 h, en punto), **Personalizada (cron)** (una **Expresión cron** de cinco campos, por ejemplo `30 4 * * 1`) o **Solo a mano**. El editor indica qué zona horaria usan las horas.
-  - **Qué hace**: **Añadir paso**, reordenar con las flechas, quitar. La lista solo ofrece los pasos que el usuario puede usar. **Esperar** ofrece 1, 5, 10, 15, 30 o 60 minutos. **Copia de seguridad** tiene **Guardar las últimas** (1–50).
+  - **Qué hace**: **Añadir paso**, reordenar con las flechas, quitar. La lista solo ofrece los pasos que el usuario puede usar. **Esperar** ofrece 1, 5, 10, 15, 30 o 60 minutos. **Copia de seguridad** tiene **Guardar las últimas** (1–50), **Subir al S3** (**Nunca**, **Siempre**, **Cada fin de semana**, **Cada semana**, **Cada 15 días** o **Cada mes**; un paso nuevo trae **Cada semana**) y, salvo con **Nunca**, **Conservar en S3** (1–50, 4 por defecto).
   - **Guardar tarea**.
 - Cada tarjeta de tarea muestra su programación, la **Próxima** ejecución (solo para programaciones sencillas en la zona horaria de quien la ve), sus pasos y los botones **Ejecutar ahora**, **Editar** y **Eliminar**. Un paso que el usuario no puede editar aparece como "Paso de administrador: `<tipo>`".
 - **Ejecutar ahora** lanza la tarea de inmediato; su salida puede seguirse en la consola.
@@ -88,7 +89,7 @@ Ejemplo de cuerpo para `PUT /api/servers/:serverId/tasks/nightly-backup`:
   "operations": [
     { "type": "stdin", "command": "save-all" },
     { "type": "sleep", "duration": "1m" },
-    { "type": "backup", "keep": 7 }
+    { "type": "backup", "keep": 7, "offsite": "weekly", "offsiteKeep": 4 }
   ]
 }
 ```
@@ -126,6 +127,8 @@ Guardar, eliminar y ejecutar una tarea queda anotado en el [registro de activida
 | `a command must be a single line of at most 512 characters` | Quite los saltos de línea o acorte el comando. |
 | `a wait step can last up to one hour` | Use una duración de `sleep` mayor que 0 y de hasta `1h`. |
 | `keep must be between 1 and 50` | Ajuste el `keep` del paso de copia. |
+| `invalid off-site frequency "…"` / `off-site keep must be between 1 and 50` | Use para `offsite` uno de `never`, `always`, `weekend`, `weekly`, `biweekly` o `monthly`, y para `offsiteKeep` un número de 1 a 50. |
+| Consola: `Off-site copy skipped: …` | No se pudo listar el bucket para decidir si la copia sube. La copia está en el nodo y la tarea sigue; véase [Copias de seguridad](backups.md#subida-de-las-copias-de-tareas). |
 | `the task is too large` (413) | El cuerpo de la petición supera 64 KiB. |
 | Consola: `Failed to setup tasks` + `backup in progress` | Había otra copia en curso. Separe en el tiempo las tareas de copia. |
 | Consola: `Server is not running, skipping the restart` | Es lo esperado: `restart` no enciende un servidor detenido. Use `start` si es lo que se busca. |

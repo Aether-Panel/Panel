@@ -240,7 +240,7 @@ Administrator add-ons: a zip with `extension.json` at its root and HTML pages. P
 
 ## `internal/offsite/` — Off-site backups
 
-Copies every finished backup to an S3-compatible bucket (AWS S3, Backblaze B2, Cloudflare R2, Wasabi, MinIO) with `github.com/minio/minio-go/v7`. User guide: [Backups](../features/backups.md).
+Takes backups to an S3-compatible bucket (AWS S3, Backblaze B2, Cloudflare R2, Wasabi, MinIO) with `github.com/minio/minio-go/v7`: each server's periodic copy and the backups of the tasks whose turn it is to upload. Manual backups are not uploaded. User guide: [Backups](../features/backups.md).
 
 | Setting | Default | Notes |
 |---|---|---|
@@ -251,16 +251,19 @@ Copies every finished backup to an S3-compatible bucket (AWS S3, Backblaze B2, C
 | `daemon.backups.s3.accessKey` / `secretKey` | `""` | |
 | `daemon.backups.s3.prefix` | `aether-backups` | Objects are `<prefix>/<serverId>/<file>.tar.gz` |
 | `daemon.backups.s3.insecure` | `false` | Plain http, for a MinIO on the LAN |
+| `daemon.backups.s3.periodicHours` | `0` | Default interval of the periodic copy (`0`, `12`, `24`, `48`, `72`, `168`, `336` or `720`; `0` = off) |
+| `daemon.backups.s3.periodicKeep` | `4` | Periodic copies kept per server (1-50) |
 
 `FromSettings()` returns the config and whether it is enabled **and** complete (endpoint, bucket, both keys).
 
 | Function | Used for |
 |---|---|
-| `Upload` | After each backup (`Server.uploadOffsite`, 2 h timeout). The local copy stays; a failed upload is shown in the console but does not fail the backup. |
-| `List` | Backup list: entries are marked `local`, `offsite` or `both` (15 s timeout; on error the local list is shown) |
-| `Exists`, `Download` | Restoring a backup only the bucket has (downloaded to `<file>.download`, then renamed) |
+| `Upload` | `Server.uploadOffsite` (2 h timeout): after the backup of a task whose turn it is to upload (in the background; the local copy stays and a failure does not fail the task) and in the periodic copy (the local file is deleted afterwards) |
+| `List` | Backup list: entries are marked `local`, `offsite` or `both` (15 s timeout; on error the local list is shown). Also decides whether a task uploads its backup, finds the last periodic copy and prunes each series (1 min timeout) |
+| `Reachable` | Before writing a periodic copy: checks the bucket answers and exists, without writing anything |
+| `Download` | Restoring a backup only the bucket has (downloaded to `<file>.download`, then renamed) |
 | `Open` | Downloading a backup straight from the bucket |
-| `Delete` | Deleting a backup also deletes the object |
+| `Delete` | Deleting a backup from the panel also deletes the object; it also prunes a task's copies beyond `offsiteKeep` and the periodic ones beyond `periodicKeep`. Local task pruning (`keep`) does not use it |
 | `Test` | `POST /api/settings/test/s3` (scope `settings.edit`): checks the bucket exists, writes a small object under `<prefix>/.aether-test/` and deletes it |
 
 ---

@@ -15,7 +15,7 @@ Para el detalle completo de los endpoints, consulte la [referencia de la API](..
 | [Modpacks y plugins](modpacks-and-plugins.md) | Instalación de modpacks desde Modrinth y CurseForge; explorador de plugins de Modrinth |
 | [Mapa del mundo](world-map.md) | Instalación de BlueMap y Dynmap y visor del mapa integrado en el panel |
 | [Tareas programadas](scheduled-tasks.md) | Tareas cron y manuales: pasos, permisos y límites |
-| [Copias de seguridad](backups.md) | Copias manuales y programadas, restauración, puntos de restauración, límite por servidor, copias externas en S3 |
+| [Copias de seguridad](backups.md) | Copias manuales y programadas, restauración, puntos de restauración, límite por servidor, copias externas en S3 (periódicas y por tarea) |
 | [Historial de archivos](file-history.md) | Versiones guardadas de los archivos editados en el panel, comparación y restauración |
 | [Detección de caídas e informes de caída](crash-reports.md) | Cómo se detectan las caídas, reinicio automático e informes de caída |
 | [Notificaciones del servidor](server-notifications.md) | Avisos por servidor a Discord, Telegram o un webhook firmado |
