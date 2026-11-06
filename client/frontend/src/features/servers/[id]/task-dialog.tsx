@@ -47,6 +47,16 @@ function offsiteFrequency(step: TaskStep): OffsiteFrequency {
   return (OFFSITE_FREQUENCIES as readonly string[]).includes(String(step.offsite)) ? (step.offsite as OffsiteFrequency) : 'always';
 }
 
+/**
+ * Copies of the step kept in S3, as the node counts them: a step saved before the S3 options
+ * existed kept as many there as on the server, so it keeps at least that many.
+ */
+function offsiteKeepOf(step: TaskStep): number {
+  if (step.offsiteKeep !== undefined && step.offsiteKeep !== null) return Number(step.offsiteKeep);
+  if (step.offsite !== undefined && step.offsite !== null) return DEFAULT_OFFSITE_KEEP;
+  return Math.max(Number(step.keep ?? DEFAULT_BACKUP_KEEP), DEFAULT_OFFSITE_KEEP);
+}
+
 export function sleepMinutes(step: TaskStep): number | null {
   const match = /^(\d+)m$/.exec(typeof step.duration === 'string' ? step.duration : '');
   return match ? Number(match[1]) : null;
@@ -423,16 +433,7 @@ function BackupStepFields({ step, id, t, onChange }: Readonly<{ step: TaskStep; 
           <Label htmlFor={`${id}-keep`} className="text-xs font-normal text-muted-foreground">
             {t('servers.tasks.steps.keep')}
           </Label>
-          <Input
-            id={`${id}-keep`}
-            type="number"
-            inputMode="numeric"
-            min={MIN_KEEP}
-            max={MAX_KEEP}
-            className="h-9 w-20 shrink-0 tabular-nums"
-            value={String(step.keep ?? DEFAULT_BACKUP_KEEP)}
-            onChange={(e) => onChange({ keep: clampKeep(e.target.value) })}
-          />
+          <KeepInput id={`${id}-keep`} value={Number(step.keep ?? DEFAULT_BACKUP_KEEP)} onChange={(keep) => onChange({ keep })} />
         </div>
         <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start">
           <Label htmlFor={`${id}-offsite`} className="shrink-0 text-xs font-normal text-muted-foreground">
@@ -454,16 +455,7 @@ function BackupStepFields({ step, id, t, onChange }: Readonly<{ step: TaskStep; 
             <Label htmlFor={`${id}-offsite-keep`} className="text-xs font-normal text-muted-foreground">
               {t('servers.tasks.steps.offsiteKeep')}
             </Label>
-            <Input
-              id={`${id}-offsite-keep`}
-              type="number"
-              inputMode="numeric"
-              min={MIN_KEEP}
-              max={MAX_KEEP}
-              className="h-9 w-20 shrink-0 tabular-nums"
-              value={String(step.offsiteKeep ?? DEFAULT_OFFSITE_KEEP)}
-              onChange={(e) => onChange({ offsiteKeep: clampKeep(e.target.value) })}
-            />
+            <KeepInput id={`${id}-offsite-keep`} value={offsiteKeepOf(step)} onChange={(offsiteKeep) => onChange({ offsiteKeep })} />
           </div>
         )}
       </div>
@@ -472,5 +464,34 @@ function BackupStepFields({ step, id, t, onChange }: Readonly<{ step: TaskStep; 
         <p className="text-xs text-muted-foreground">{t('servers.tasks.steps.offsiteHelp')}</p>
       )}
     </div>
+  );
+}
+
+/**
+ * A copies-to-keep field. What is typed stays as typed while the field has focus, so an emptied
+ * field stays empty instead of turning into 1 (and typing 3 then gave 13); leaving it, or Enter,
+ * shows the number the step holds. The step is updated on every keystroke with the typed number
+ * held to 1-50, so the dialog saves what was typed even when the field never lost focus.
+ */
+function KeepInput({ id, value, onChange }: Readonly<{ id: string; value: number; onChange: (keep: number) => void }>) {
+  const [text, setText] = useState<string | null>(null);
+  const edit = (raw: string) => {
+    setText(raw);
+    if (raw.trim() !== '') onChange(clampKeep(raw));
+  };
+  const commit = () => setText(null);
+  return (
+    <Input
+      id={id}
+      type="number"
+      inputMode="numeric"
+      min={MIN_KEEP}
+      max={MAX_KEEP}
+      className="h-9 w-20 shrink-0 tabular-nums"
+      value={text ?? String(value)}
+      onChange={(e) => edit(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === 'Enter' && commit()}
+    />
   );
 }
