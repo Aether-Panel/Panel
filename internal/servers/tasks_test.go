@@ -277,6 +277,33 @@ func TestTaskBackup_OldTaskStillUploadsEveryRun(t *testing.T) {
 	assert.Len(t, fake.names(p.ID()), 2)
 }
 
+// backupStepOptions is what a backup step saved with these arguments asks for
+func backupStepOptions(t *testing.T, args map[string]interface{}) AutoBackupOptions {
+	t.Helper()
+	for _, f := range serverOperationFactories {
+		if f.Key() == "backup" {
+			op, err := f.Create(skypanel.CreateOperation{OperationArgs: args})
+			require.NoError(t, err)
+			return op.(backupOperation).opts
+		}
+	}
+	t.Fatal("no backup operation")
+	return AutoBackupOptions{}
+}
+
+func TestTaskBackup_OldStepKeepsAtLeastItsLocalCopiesInTheBucket(t *testing.T) {
+	// saved before the frequency existed: it kept keep copies in the bucket, and now at least 4
+	assert.Equal(t, 4, backupStepOptions(t, map[string]interface{}{"keep": float64(2)}).OffsiteKeep)
+	assert.Equal(t, 7, backupStepOptions(t, map[string]interface{}{"keep": float64(7)}).OffsiteKeep,
+		"an old step that kept 7 copies in the bucket still does")
+	assert.Equal(t, 5, backupStepOptions(t, map[string]interface{}{}).OffsiteKeep, "keep defaults to 5")
+
+	// a step that says how often it uploads keeps its own offsiteKeep, 4 when not set
+	assert.Equal(t, 4, backupStepOptions(t, map[string]interface{}{"keep": float64(7), "offsite": "always"}).OffsiteKeep)
+	assert.Equal(t, 2, backupStepOptions(t, map[string]interface{}{"keep": float64(7), "offsite": "weekly", "offsiteKeep": float64(2)}).OffsiteKeep)
+	assert.Equal(t, 2, backupStepOptions(t, map[string]interface{}{"keep": float64(7), "offsiteKeep": float64(2)}).OffsiteKeep)
+}
+
 func TestTaskBackup_NeverStaysLocal(t *testing.T) {
 	fake := useFakeBucket(t)
 	p, _ := newBackupTestServer(t)

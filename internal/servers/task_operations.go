@@ -313,6 +313,11 @@ var serverOperationFactories = []skypanel.OperationFactory{
 		if err != nil {
 			return nil, err
 		}
+		if op.OperationArgs["offsite"] == nil && op.OperationArgs["offsiteKeep"] == nil {
+			// saved before either option existed, the step kept keep copies in the bucket too;
+			// it keeps at least that many, so an upgrade deletes none of them
+			offsiteKeep = max(keep, defaultOffsiteKeep)
+		}
 		taskID, err := taskIDArg(op.OperationArgs["taskId"])
 		if err != nil {
 			return nil, err
