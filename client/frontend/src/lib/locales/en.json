@@ -1029,7 +1029,8 @@
       "usage": {
         "label": "Space used by backups:",
         "largest": "The largest takes {{size}}",
-        "offsite": "{{count}} also off-site"
+        "offsite": "{{count}} also off-site",
+        "offsiteOnly": "{{count}} off-site only"
       },
       "restorePoint": {
         "badge": "Restore point",

@@ -1029,7 +1029,8 @@
       "usage": {
         "label": "Espacio usado por copias:",
         "largest": "La mayor ocupa {{size}}",
-        "offsite": "{{count}} también en externo"
+        "offsite": "{{count}} también en externo",
+        "offsiteOnly": "{{count}} solo en externo"
       },
       "restorePoint": {
         "badge": "Punto de restauración",
