@@ -102,11 +102,11 @@ Scopes are explained in the [scopes reference](../general/scopes-reference.md).
 ## Requirements and configuration
 
 - **Modrinth** needs no key. The node must reach `api.modrinth.com` and the download hosts listed above.
-- **CurseForge** needs an API key, created at console.curseforge.com, on the node that runs the server:
+- **CurseForge** needs an API key, created at console.curseforge.com, on the node that runs the server. It is set once in the panel and the panel sends it to every node:
 
 | Key | Default | Environment variable | Notes |
 |-----|---------|----------------------|-------|
-| `daemon.curseforge.key` | empty (a build can embed one with the `curseforgeKey` build argument of the Dockerfile) | `SKYPANEL_DAEMON_CURSEFORGE_KEY` | Read by the daemon. For the main node it can be set in **Settings › General › Modpacks › CurseForge API key**. Remote nodes read the value in their own configuration. |
+| `daemon.curseforge.key` | empty (a build can embed one with the `curseforgeKey` build argument of the Dockerfile) | `SKYPANEL_DAEMON_CURSEFORGE_KEY` | Read by the daemon. Set it in **Settings › General › Modpacks › CurseForge API key**: the panel sends it to every remote node by itself and it overwrites a value set by hand on a node. A node must run a version with `/daemon/settings` to get it (see [Panel settings → Nodes](./panel-settings.md#nodes)). |
 
 - The server must be of type `minecraft-java` for the Modpacks tab, and enough memory for the pack (the panel suggests at least 4096 MB).
 - Enough disk: the server's disk limit applies to everything written.
@@ -130,7 +130,7 @@ See [Configuration](../backend/02-configuration.md) for how keys and environment
 
 | Message | Cause and fix |
 |---------|---------------|
-| `CurseForge needs an API key; an administrator can add it in the panel settings` | No `daemon.curseforge.key` on the node. Add it in **Settings › General** (main node) or in the remote node's configuration. |
+| `CurseForge needs an API key; an administrator can add it in the panel settings` | No `daemon.curseforge.key` on the node. Add it in **Settings › General**. On a remote node, check under **Settings › Off-site backups › Nodes** that the node is up to date; a node not updated does not get the key until it is updated. |
 | `CurseForge: refused the request (check the API key)` | The key is wrong or revoked. Replace it. |
 | `<site>: too many requests, try again in a minute` | Rate limit at Modrinth or CurseForge. Wait and retry. |
 | `a modpack install is already running` / `a backup or restore is running; try again when it finishes` / `a version change is already running` | Another job holds the server. Wait for it to finish. |

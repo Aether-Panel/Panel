@@ -45,6 +45,8 @@ A token that does not check out usually means the node's `daemon.auth.clientSecr
 | GET | `/daemon/servers/status` | Panel token | Running / installing state of every server on the node; the request also carries the panel's notification language | The panel's uptime poller and Discord node report |
 | POST | `/daemon/update` | Panel token | Starts an update of this node | `POST /api/settings/update-panel` |
 | GET | `/daemon/update-status` | Panel token | State of this node's last update | `GET /api/settings/update-status` |
+| GET | `/daemon/settings` | Panel token | Keys and hash of the node settings the panel hands out (never their values) | The panel's node settings sync ([`GET /api/settings/node-sync`](./06-panel-admin.md#get-apisettingsnode-sync)) |
+| PUT | `/daemon/settings` | Panel token | Saves and applies those settings without a restart | The panel's node settings sync |
 
 ### Servers
 
@@ -163,6 +165,31 @@ Starts an update of the machine the node runs on, in a short-lived container (th
 ```
 
 The state of the last update started on this node: whether it is running, its exit code and the end of its log.
+
+### `GET /daemon/settings`
+
+```json
+{ "hash": "9b1c…e4", "keys": ["daemon.backups.s3.enabled", "daemon.backups.s3.endpoint", "…", "daemon.curseforge.key"] }
+```
+
+The node settings the panel hands to every node, that is, the off-site backups (`daemon.backups.s3.*`: `enabled`, `endpoint`, `region`, `bucket`, `accessKey`, `secretKey`, `prefix`, `insecure`, `periodicHours`, `periodicKeep`) and the CurseForge key (`daemon.curseforge.key`). `keys` lists the ones this node knows and `hash` is the sha256 (hex) of the canonical JSON of their current values. The values themselves are never answered: they include secrets. The panel hashes its own values for the keys both know and compares, so a panel and a node of different versions still agree on the settings they share; when the hashes differ it sends `PUT /daemon/settings`.
+
+Auth: the panel's token for this node, like the other routes here, so only the panel can read or change these settings. A node older than this route answers `404`, and the settings page lists it as not updated.
+
+### `PUT /daemon/settings`
+
+```json
+{ "daemon.backups.s3.enabled": true, "daemon.backups.s3.bucket": "my-backups", "daemon.backups.s3.periodicHours": 24, "daemon.curseforge.key": "…" }
+```
+
+The node checks the whole body first, then saves each value to its `config.json` and applies it without a restart (the S3 settings are read on every use and the periodic copy reads its defaults on every pass). `204`.
+
+- The body holds **any subset** of the keys above: a key left out stays as it is, so an older panel that sends fewer keys still works.
+- A key this node does not know (from a newer panel) is ignored.
+- A known key with a value of the wrong type (`400 ErrNodeSettingInvalid`, naming the key, never the value), a `periodicHours` the panel does not offer (`400 ErrOffsitePeriodicHours`) or a `periodicKeep` outside 1-50 (`400 ErrOffsiteKeep`) refuses the whole body: **nothing is applied**.
+- A body with no known key changes nothing and also answers `204`.
+
+The panel calls it after a save in **Settings** that changes one of these keys and on its pass every 10 minutes; the values it sends overwrite whatever the node had set by hand. See [Backups → Requirements and configuration](../../features/backups.md#requirements-and-configuration).
 
 ## Server routes
 

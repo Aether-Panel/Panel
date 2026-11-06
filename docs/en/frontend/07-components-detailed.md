@@ -147,7 +147,7 @@ All of them take colours from `CHART_COLORS` and format times with `chartLocale(
 | `general-tab.tsx` | Sections: Panel (company name, base URL, master node IP), Notifications (`panel.settings.notificationLanguage`, Spanish or English), Artificial intelligence (Gemini API key, turn the AI log analysis off for everyone), Sign-up and security (registration, built-in captcha, Turnstile keys), Modpacks (CurseForge key) and Experimental features (`panel.experimental.versionSwitch`, `propertiesEditor`, `serverClone`). |
 | `discord-tab.tsx` | Discord webhooks with test (see [Discord and notifications](../general/16-discord.md)). |
 | `mail-tab.tsx` | Email provider (SMTP, Mailgun, Mailjet, SendGrid or Debug) and test (see [Email](../general/15-email.md)). For Mailjet the fields are **API Key (public)** (`panel.email.domain`) and **Secret Key** (`panel.email.key`); Debug shows no fields. |
-| `offsite-tab.tsx` | Off-site backups to S3-compatible storage (`daemon.backups.s3.*`) with a connection test and the periodic copy's defaults. The values it shares with the server card and the task editor live in `lib/offsite.ts`. |
+| `offsite-tab.tsx` | Off-site backups to S3-compatible storage (`daemon.backups.s3.*`) with a connection test, the periodic copy's defaults and the **Nodes** list (`GET /api/settings/node-sync`: whether each remote node has these settings and the CurseForge key, read on opening, 5 s after a save and on **Refresh status**). The values it shares with the server card and the task editor live in `lib/offsite.ts`. |
 | `domains-tab.tsx` | Cloudflare domain for server subdomains, with status and test. |
 | `api-keys-view.tsx` | Panel API keys. |
 | `products-view.tsx` | Provisioning products (`/api/provision/products`). |

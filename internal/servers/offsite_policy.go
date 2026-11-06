@@ -6,7 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/offsite"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gofrs/uuid/v5"
 )
 
@@ -88,6 +90,32 @@ func OffsiteKeep(v interface{}) (int, error) {
 // ValidPeriodicHours says whether h is an interval the periodic schedule offers (0 = off)
 func ValidPeriodicHours(h int) bool {
 	return periodicHours[h]
+}
+
+// ValidateOffsiteSetting checks the global periodic off-site values: only the intervals the
+// panel offers, and 1-50 copies to keep. Anything that is not a whole number is refused too, so
+// a typo does not turn into 0, which would switch the periodic copy off. Other keys pass. The
+// panel checks its settings page with it and a node the settings the panel hands it, so both
+// refuse the same values.
+func ValidateOffsiteSetting(key string, value interface{}) error {
+	var refusal error
+	var valid func(int) bool
+	switch key {
+	case config.BackupsS3PeriodicHours.Key():
+		refusal, valid = skypanel.ErrOffsitePeriodicHours, ValidPeriodicHours
+	case config.BackupsS3PeriodicKeep.Key():
+		refusal = skypanel.ErrOffsiteKeep
+		valid = func(n int) bool {
+			_, err := OffsiteKeep(n)
+			return err == nil
+		}
+	default:
+		return nil
+	}
+	if n, ok := config.WholeNumber(value); !ok || !valid(n) {
+		return refusal
+	}
+	return nil
 }
 
 // offsiteDue decides whether a run at now should upload, given when the last copy was made

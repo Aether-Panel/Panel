@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -70,6 +69,40 @@ func registerSettings(g *gin.RouterGroup) {
 
 	g.Handle("GET", "/domain-status", middleware.RequiresPermission(scopes.ScopeSettingsEdit), domainStatus)
 	g.Handle("OPTIONS", "/domain-status", response.CreateOptions("GET"))
+
+	g.Handle("GET", "/node-sync", middleware.RequiresPermission(scopes.ScopeSettingsEdit), getNodeSettingsSync)
+	g.Handle("OPTIONS", "/node-sync", response.CreateOptions("GET"))
+}
+
+// requestNodeSettingsSync sends the node settings to the remote nodes in the background; a
+// variable so tests can see a save ask for it without reaching any node
+var requestNodeSettingsSync = services.RequestNodeSettingsSync
+
+// syncNodesIfChanged asks for a pass to the remote nodes when the save touched a setting their
+// daemons use, so no node needs it in its own config.json. The pass runs in the background:
+// the save never waits for a slow or switched-off node.
+func syncNodesIfChanged(keys ...string) {
+	for _, key := range keys {
+		if config.IsSyncedNodeSetting(key) {
+			requestNodeSettingsSync()
+			return
+		}
+	}
+}
+
+// @Summary Node settings on the remote nodes
+// @Description Whether every remote node has the panel's node settings (S3 off-site backups and the CurseForge key): synced, pending (retried by itself), outdated (the node needs updating) or failed (with the node's reason). Never includes a setting's value.
+// @Success 200 {array} services.NodeSyncStatus
+// @Failure 500 {object} ErrorResponse
+// @Tags Panel Settings
+// @Router /api/settings/node-sync [get]
+// @Security OAuth2Application[settings.edit]
+func getNodeSettingsSync(c *gin.Context) {
+	statuses, err := services.NodeSettingsSyncStatuses(middleware.GetDatabase(c))
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	c.JSON(http.StatusOK, statuses)
 }
 
 // @Summary Domain set-up status
@@ -170,6 +203,7 @@ func setSetting(c *gin.Context) {
 	services.SyncNodeToConfig()
 	pushNotificationLanguageIfChanged(previousLanguage)
 	followDNSSettingsChange(db, previousDNS, previousHost)
+	syncNodesIfChanged(key)
 
 	c.Status(http.StatusNoContent)
 }
@@ -197,7 +231,7 @@ func applyEditableSetting(key string, value interface{}) error {
 	if err := setMatchingEntries(editableBoolEntries, key, cast.ToBool(value)); err != nil {
 		return err
 	}
-	number, _ := settingInt(value)
+	number, _ := config.WholeNumber(value)
 	return setMatchingEntries(editableIntEntries, key, number)
 }
 
@@ -267,6 +301,7 @@ func setSettings(c *gin.Context) {
 	services.SyncNodeToConfig()
 	pushNotificationLanguageIfChanged(previousLanguage)
 	followDNSSettingsChange(db, previousDNS, previousHost)
+	syncNodesIfChanged(keys...)
 
 	c.Status(http.StatusNoContent)
 }
@@ -618,50 +653,11 @@ var discordWebhookEntries = []config.StringEntry{
 
 // validateSetting checks a setting's value before anything is saved
 func validateSetting(key string, value interface{}) error {
-	if err := validateIntSetting(key, value); err != nil {
+	// the periodic off-site values follow the same rules a node applies to them
+	if err := servers.ValidateOffsiteSetting(key, value); err != nil {
 		return err
 	}
 	return validateStringSetting(key, cast.ToString(value))
-}
-
-// validateIntSetting checks the number settings: only the periodic off-site intervals the
-// panel offers, and 1-50 copies to keep. Anything that is not a whole number is refused too,
-// so a typo does not turn into 0, which would switch the periodic copy off.
-func validateIntSetting(key string, value interface{}) error {
-	var refusal error
-	var valid func(int) bool
-	switch key {
-	case config.BackupsS3PeriodicHours.Key():
-		refusal, valid = skypanel.ErrOffsitePeriodicHours, servers.ValidPeriodicHours
-	case config.BackupsS3PeriodicKeep.Key():
-		refusal = skypanel.ErrOffsiteKeep
-		valid = func(n int) bool {
-			_, err := servers.OffsiteKeep(n)
-			return err == nil
-		}
-	default:
-		return nil
-	}
-	if n, ok := settingInt(value); !ok || !valid(n) {
-		return refusal
-	}
-	return nil
-}
-
-// settingInt reads a number setting as JSON sends it (a number, or the text of one); false
-// when it is not a whole number. Text is read in base 10, so "010" is 10 and not octal.
-func settingInt(value interface{}) (int, bool) {
-	switch v := value.(type) {
-	case int:
-		return v, true
-	case float64:
-		n := int(v)
-		return n, float64(n) == v
-	case string:
-		n, err := strconv.Atoi(strings.TrimSpace(v))
-		return n, err == nil
-	}
-	return 0, false
 }
 
 func validateStringSetting(key, value string) error {
@@ -691,7 +687,7 @@ var editableStringEntries = []config.StringEntry{
 	config.NodeIP,
 	config.GeminiAPIKey,
 	config.NotificationLanguage,
-	// the node's key for CurseForge modpacks (on remote nodes it is set in their own config)
+	// the node's key for CurseForge modpacks; the panel sends it to every remote node too
 	config.CurseForgeKey,
 	// the OAuth App users connect their GitHub account through
 	config.GitHubClientID,

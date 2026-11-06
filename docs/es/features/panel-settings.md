@@ -25,6 +25,7 @@ Quien no tiene `settings.edit` y abre `/settings` vuelve al panel de inicio. Una
 - **General**, **Discord**, **Correo**, **Copias externas** y **Dominios** comparten una barra de guardado. Los cambios en cualquiera de ellas se conservan hasta pulsar **Guardar cambios**; **Descartar** vuelve a los valores guardados. Todo se envía en una sola petición, `POST /api/settings`.
 - El panel valida antes todos los valores (por ejemplo, las URL de webhooks de Discord, o el intervalo y las copias a conservar de la copia periódica) para que un valor incorrecto no deje la configuración a medio guardar. Después escribe cada clave en el `config.json` del panel (el archivo indicado en `SKYPANEL_CONFIG`, `/etc/SkyPanel/config.json` o `config.json` en el directorio de trabajo) y la aplica al momento; no hace falta reiniciar.
 - Los secretos nunca se devuelven: `GET /api/settings` y `GET /api/settings/:key` responden `********` en lugar de su valor (un secreto vacío sigue vacío, para que la página sepa si está definido). Son `panel.email.key`, `panel.email.password`, `panel.settings.geminiApiKey`, `daemon.curseforge.key`, los cuatro `panel.notifications.discordWebhook*`, `panel.license.key`, `daemon.backups.s3.secretKey`, `panel.dns.cloudflare.token` y `panel.turnstile.secretKey`. La página reenvía `********` cuando no se toca el campo, y el panel lo interpreta como «conservar el valor guardado», tanto al guardar (`POST /api/settings`, `PUT /api/settings/:key`) como en los botones de prueba (correo, Discord, S3 y Cloudflare). Para cambiar un secreto basta con escribir el valor nuevo.
+- Los ajustes de nodo, es decir, las copias externas (`daemon.backups.s3.*`) y la clave de CurseForge (`daemon.curseforge.key`), los usa el daemon de cada nodo. Después de un guardado que cambie alguno, el panel también los envía a todos los nodos remotos en segundo plano (el guardado no espera a los nodos), y vuelve a comprobarlos cada 10 minutos, así que un nodo que estaba apagado, que se acaba de unir o que se acaba de actualizar se pone al día solo. El nodo los aplica sin reiniciar. Véase [Nodos](#nodos) más abajo.
 - **IP global del nodo maestro** es la excepción: se guarda en la base de datos (tabla `panel_settings`, clave `master_node_ip`) para que varios paneles que comparten base de datos lean el mismo valor.
 - **Claves API**, **Productos**, **Extensiones** y **Actualizaciones** guardan con sus propios botones y rutas.
 
@@ -35,7 +36,21 @@ Además del bucket (endpoint, nombre, región, carpeta, claves, prueba de conexi
 - **Intervalo** (`daemon.backups.s3.periodicHours`): **Desactivada** (`0`, el valor por defecto), 12 h, 24 h, 48 h, 72 h, 7 días, 14 días o 30 días. Cada servidor recibe una copia completa que va directa al bucket con esa frecuencia, salvo los que tengan su propio intervalo.
 - **Copias a conservar en S3** (`daemon.backups.s3.periodicKeep`): de 1 a 50, 4 por defecto. Al subir una nueva, se borran del bucket las periódicas más antiguas de ese servidor.
 
-Son números: el panel solo acepta un número entero (o su texto, `"24"`) con uno de esos valores, y rechaza el resto con `ErrOffsitePeriodicHours` o `ErrOffsiteKeep` sin guardar nada, para que un error de escritura no se convierta en `0` y apague la copia. Cada servidor puede cambiar ambos valores en su pestaña **Copias de seguridad**. Como el resto de claves `daemon.backups.s3.*`, se aplican a los servidores del nodo propio del panel; cada nodo remoto las lee de su propia configuración (aviso **Nodos remotos** bajo la sección).
+Son números: el panel solo acepta un número entero (o su texto, `"24"`) con uno de esos valores, y rechaza el resto con `ErrOffsitePeriodicHours` o `ErrOffsiteKeep` sin guardar nada, para que un error de escritura no se convierta en `0` y apague la copia. Cada servidor puede cambiar ambos valores en su pestaña **Copias de seguridad**. Como el resto de claves `daemon.backups.s3.*`, el panel las envía a todos los nodos.
+
+#### Nodos
+
+Al final de la pestaña, **Nodos** enumera cada nodo remoto con cómo recibió estos ajustes y la clave de CurseForge, que el panel envía solo a todos los nodos ([`GET /api/settings/node-sync`](../reference/api/06-panel-admin.md#get-apisettingsnode-sync)). Si no hay nodos remotos, la sección no aparece; el nodo propio del panel comparte su `config.json` y nunca se muestra.
+
+| Qué dice | Significado |
+|---|---|
+| **Al día** | El nodo tiene los mismos valores que el panel |
+| **Comprobando…** | El panel aún no ha comprobado el nodo (acaba de arrancar o el nodo se acaba de unir) |
+| **Pendiente, se reintenta solo** | El nodo no respondió (está apagado o no se llega a él); la siguiente pasada, antes de 10 minutos, lo vuelve a intentar |
+| **Nodo sin actualizar: actualízalo para que reciba los ajustes** | El nodo tiene una versión sin `/daemon/settings`. Actualízalo ([Actualizaciones del panel](./panel-updates.md)); la siguiente pasada le envía los ajustes |
+| **Error: …** | El nodo rechazó al panel (por ejemplo, su secreto no es el que tiene el panel) o los ajustes, con el motivo que da el nodo |
+
+La lista se lee al abrir la pestaña y otra vez unos segundos después de **Guardar cambios**; **Actualizar estado** la vuelve a leer cuando se quiera. Solo muestra lo último que vio el panel: el propio panel comprueba cada nodo cada 10 minutos. Los ajustes son los mismos para todos los nodos y sobrescriben lo que un nodo tuviera puesto a mano.
 
 ### La pestaña General
 
@@ -57,7 +72,7 @@ Son números: el panel solo acepta un número entero (o su texto, `"24"`) con un
 
 **Modpacks**
 
-- **Clave de API de CurseForge**: necesaria para buscar e instalar modpacks de CurseForge (Modrinth no necesita ninguna). La usa el nodo propio del panel; los nodos remotos leen `daemon.curseforge.key` de su propia configuración. Ver [Modpacks y plugins](./modpacks-and-plugins.md).
+- **Clave de API de CurseForge**: necesaria para buscar e instalar modpacks de CurseForge (Modrinth no necesita ninguna). El panel la envía sola a todos los nodos, igual que las copias externas (véase [Nodos](#nodos)). Ver [Modpacks y plugins](./modpacks-and-plugins.md).
 
 **Registro y seguridad**
 
@@ -117,7 +132,7 @@ Las variables de entorno usan el prefijo `SKYPANEL_` y la clave en mayúsculas c
 
 - La API no devuelve los secretos, pero quien tiene `settings.edit` puede sustituirlos (por ejemplo, apuntar el correo o las copias externas a otro servicio). Conviene dar ese permiso solo a administradores de confianza.
 - Al guardar se reescribe `config.json` completo, así que su formato y el orden de las claves pueden cambiar.
-- La **Clave de API de CurseForge** y la pestaña **Copias externas** (incluida la copia periódica por defecto) solo se aplican al nodo propio del panel; los nodos remotos usan su propia configuración. El **Idioma de las notificaciones** llega a los nodos remotos con el sondeo de estado, salvo que un nodo defina el suyo.
+- La **Clave de API de CurseForge** y la pestaña **Copias externas** (incluida la copia periódica por defecto) solo llegan a un nodo remoto cuando tiene una versión con `/daemon/settings`; un nodo anterior conserva sus propios valores hasta que se actualice (véase [Nodos](#nodos)). El **Idioma de las notificaciones** llega a los nodos remotos con el sondeo de estado, salvo que un nodo defina el suyo.
 
 ## Problemas conocidos y soluciones
 

@@ -25,6 +25,7 @@ Users without `settings.edit` who open `/settings` are sent back to the dashboar
 - **General**, **Discord**, **Mail**, **Off-site backups** and **Domains** share one save bar. Changes in any of them are kept until **Save Changes** is pressed; **Discard** returns to the saved values. Everything is sent in one request, `POST /api/settings`.
 - The panel validates every value first (Discord webhook URLs, or the periodic copy's interval and copies to keep, for instance) so a bad value does not leave the settings half saved. Then each key is written to the panel's `config.json` (the file in `SKYPANEL_CONFIG`, `/etc/SkyPanel/config.json` or `config.json` in the working directory) and applied at once; no restart is needed.
 - Secrets are never sent back: `GET /api/settings` and `GET /api/settings/:key` answer `********` instead of their value (an empty secret stays empty, so the page can tell whether it is set). They are `panel.email.key`, `panel.email.password`, `panel.settings.geminiApiKey`, `daemon.curseforge.key`, the four `panel.notifications.discordWebhook*`, `panel.license.key`, `daemon.backups.s3.secretKey`, `panel.dns.cloudflare.token` and `panel.turnstile.secretKey`. The page sends `********` back when the field is not touched, and the panel reads it as "keep the saved value", both when saving (`POST /api/settings`, `PUT /api/settings/:key`) and in the test buttons (email, Discord, S3 and Cloudflare). To change a secret, type the new value.
+- The node settings, that is, the off-site backups (`daemon.backups.s3.*`) and the CurseForge key (`daemon.curseforge.key`), are used by the daemon of every node. After a save that changes one of them, the panel also sends them to every remote node in the background (the save does not wait for the nodes), and checks again every 10 minutes, so a node that was off, just joined or was just updated catches up by itself. The node applies them without restarting. See [Nodes](#nodes) below.
 - **Global Master Node IP** is the exception: it is stored in the database (`panel_settings` table, key `master_node_ip`) so that several panels sharing a database read the same value.
 - **API keys**, **Products**, **Extensions** and **Updates** save through their own buttons and routes.
 
@@ -35,7 +36,21 @@ Besides the bucket (endpoint, name, region, folder, keys, connection test and th
 - **Interval** (`daemon.backups.s3.periodicHours`): **Off** (`0`, the default), 12 h, 24 h, 48 h, 72 h, 7 days, 14 days or 30 days. Every server gets a full copy that goes straight to the bucket that often, except those with an interval of their own.
 - **Copies to keep in S3** (`daemon.backups.s3.periodicKeep`): 1 to 50, default 4. When a new one is uploaded, that server's oldest periodic copies are deleted from the bucket.
 
-They are numbers: the panel only takes a whole number (or its text, `"24"`) with one of those values, and refuses anything else with `ErrOffsitePeriodicHours` or `ErrOffsiteKeep` without saving anything, so a typo does not turn into `0` and switch the copy off. Each server can change both values in its **Backups** tab. Like the other `daemon.backups.s3.*` keys, they apply to the servers on the panel's own node; each remote node reads them from its own configuration (the **Remote nodes** notice under the section).
+They are numbers: the panel only takes a whole number (or its text, `"24"`) with one of those values, and refuses anything else with `ErrOffsitePeriodicHours` or `ErrOffsiteKeep` without saving anything, so a typo does not turn into `0` and switch the copy off. Each server can change both values in its **Backups** tab. Like the other `daemon.backups.s3.*` keys, the panel sends them to every node.
+
+#### Nodes
+
+At the end of the tab, **Nodes** lists every remote node with how it took these settings and the CurseForge key, which the panel sends to every node automatically ([`GET /api/settings/node-sync`](../reference/api/06-panel-admin.md#get-apisettingsnode-sync)). Without remote nodes the section is not shown; the panel's own node shares its `config.json` and is never listed.
+
+| What it says | Meaning |
+|---|---|
+| **Up to date** | The node has the same values as the panel |
+| **Checking…** | The panel has not checked the node yet (it just started or the node just joined) |
+| **Pending, retried automatically** | The node did not answer (it is off or unreachable); the next pass, within 10 minutes, tries again |
+| **Node not updated: update it so it gets the settings** | The node runs a version without `/daemon/settings`. Update it ([Panel updates](./panel-updates.md)); the next pass sends the settings |
+| **Error: …** | The node refused the panel (for example, its secret is not the one the panel has) or the settings, with the node's reason |
+
+The list is read when the tab opens and again a few seconds after **Save Changes**; **Refresh status** reads it again on demand. It only shows what the panel last saw: the panel itself checks every node every 10 minutes. The settings are the same for every node and overwrite what a node had set by hand.
 
 ### The General tab
 
@@ -57,7 +72,7 @@ They are numbers: the panel only takes a whole number (or its text, `"24"`) with
 
 **Modpacks**
 
-- **CurseForge API key**: needed to search and install CurseForge modpacks (Modrinth needs none). The panel's own node uses this value; remote nodes read `daemon.curseforge.key` from their own configuration. See [Modpacks and plugins](./modpacks-and-plugins.md).
+- **CurseForge API key**: needed to search and install CurseForge modpacks (Modrinth needs none). The panel sends it to every node automatically, like the off-site backups (see [Nodes](#nodes)). See [Modpacks and plugins](./modpacks-and-plugins.md).
 
 **Sign-up and security**
 
@@ -117,7 +132,7 @@ Environment variables use the prefix `SKYPANEL_` and the key in upper case with 
 
 - The API does not return the secrets, but anyone with `settings.edit` can replace them (for example, point mail or off-site backups at another service). Give that scope only to trusted administrators.
 - Saving rewrites `config.json` as a whole, so its formatting and key order may change.
-- **CurseForge API key** and the **Off-site backups** tab (the periodic copy's defaults included) only apply to the panel's own node; remote nodes use their own configuration. **Notification language** reaches remote nodes with the status poll, unless a node sets its own.
+- **CurseForge API key** and the **Off-site backups** tab (the periodic copy's defaults included) reach a remote node only when it runs a version with `/daemon/settings`; an older node keeps its own values until it is updated (see [Nodes](#nodes)). **Notification language** reaches remote nodes with the status poll, unless a node sets its own.
 
 ## Troubleshooting
 

@@ -31,6 +31,7 @@ Nodes, panel settings, API keys, templates, game versions, database hosts, exten
 | GET | `/api/settings/update-check` | `settings.edit` | Whether a newer version is available |
 | GET | `/api/settings/update-status` | `settings.edit` | Progress of the last update on each node |
 | GET | `/api/settings/domain-status` | `settings.edit` | What the installer did with the panel domain |
+| GET | `/api/settings/node-sync` | `settings.edit` | Whether every remote node has the panel's node settings |
 | GET | `/api/settings/apikeys` | `admin` | Lists billing API keys |
 | POST | `/api/settings/apikeys` | `admin` | Creates one |
 | DELETE | `/api/settings/apikeys/:id` | `admin` | Deletes one |
@@ -189,11 +190,11 @@ Other configuration keys (for example `panel.backups.maxPerServer`) are only set
 
 ### `POST /api/settings`
 
-An object of keys and values: `{"panel.settings.companyName": "My Hosting", "panel.registrationEnabled": false}`. Every value is checked first (Discord webhooks must be valid Discord webhook URLs, `panel.settings.notificationLanguage` must be `es` or `en`: `400`, with `ErrNotificationLanguage` for the latter, otherwise), so a bad value saves nothing. Text values are trimmed; unknown keys are ignored. A secret sent as `********` (the mask, unchanged) is dropped and keeps its saved value. `204`.
+An object of keys and values: `{"panel.settings.companyName": "My Hosting", "panel.registrationEnabled": false}`. Every value is checked first (Discord webhooks must be valid Discord webhook URLs, `panel.settings.notificationLanguage` must be `es` or `en`: `400`, with `ErrNotificationLanguage` for the latter, otherwise), so a bad value saves nothing. Text values are trimmed; unknown keys are ignored. A secret sent as `********` (the mask, unchanged) is dropped and keeps its saved value. `204`. When the save touches a node setting (`daemon.backups.s3.*` or `daemon.curseforge.key`), the panel then sends them to every remote node in the background, without making the answer wait (see [`GET /api/settings/node-sync`](#get-apisettingsnode-sync)).
 
 ### `GET /api/settings/:key` and `PUT /api/settings/:key`
 
-`GET` answers `{"value": ...}` (secrets masked as above), or `204` for a key that is not editable. `PUT` takes `{"value": ...}` and answers `204`; for a secret key, a value of `********` changes nothing.
+`GET` answers `{"value": ...}` (secrets masked as above), or `204` for a key that is not editable. `PUT` takes `{"value": ...}` and answers `204`; for a secret key, a value of `********` changes nothing. A node setting saved this way also reaches the remote nodes, as with `POST /api/settings`.
 
 ### Tests
 
@@ -221,6 +222,26 @@ Details: [Panel updates](../../features/panel-updates.md).
 ### `GET /api/settings/domain-status`
 
 What the installer's domain service did with the base URL: `{"state": "...", "url": "...", "domain": "...", "https": true, "proxied": false, "serverIp": "...", "message": "...", "updatedAt": "..."}`. `proxied` means the domain does not point at this server (as with Cloudflare's proxy), so game ports and SFTP use `serverIp`.
+
+### `GET /api/settings/node-sync`
+
+Whether every remote node has the panel's node settings: the off-site backups (`daemon.backups.s3.*`, the periodic copy's defaults included) and the CurseForge key (`daemon.curseforge.key`). The panel sends them to each remote node itself (`PUT /daemon/settings`, see [Daemon](./09-daemon.md#put-daemonsettings)) after a save that changes one of them and every 10 minutes, the first time a minute after it starts. The panel's own node shares its `config.json` and is not listed.
+
+```json
+[
+  { "id": 2, "name": "node-2", "state": "synced", "checkedAt": "2026-11-06T10:00:00Z" },
+  { "id": 3, "name": "node-3", "state": "failed", "error": "the off-site copies to keep must be between 1 and 50", "checkedAt": "2026-11-06T10:00:01Z" }
+]
+```
+
+One item per remote node, in id order; `[]` without remote nodes. Never includes a setting's value.
+
+| `state` | Meaning |
+|---------|---------|
+| `synced` | The node has the same values as the panel |
+| `pending` | Not checked yet (`checkedAt` is `null`), or the node did not answer or could not save; the next pass tries again by itself |
+| `outdated` | The node runs a version without `/daemon/settings` (it answered `404`) and needs updating |
+| `failed` | The node refused the panel (wrong secret, clocks off) or the settings; `error` says why |
 
 ## API keys
 

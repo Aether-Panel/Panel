@@ -31,6 +31,7 @@ Nodos, configuración del panel, claves de API, plantillas, versiones de juego, 
 | GET | `/api/settings/update-check` | `settings.edit` | Indica si hay una versión más reciente |
 | GET | `/api/settings/update-status` | `settings.edit` | Progreso de la última actualización en cada nodo |
 | GET | `/api/settings/domain-status` | `settings.edit` | Qué hizo el instalador con el dominio del panel |
+| GET | `/api/settings/node-sync` | `settings.edit` | Si cada nodo remoto tiene los ajustes de nodo del panel |
 | GET | `/api/settings/apikeys` | `admin` | Lista las claves de API de facturación |
 | POST | `/api/settings/apikeys` | `admin` | Crea una |
 | DELETE | `/api/settings/apikeys/:id` | `admin` | Borra una |
@@ -189,11 +190,11 @@ Las demás claves de configuración (por ejemplo `panel.backups.maxPerServer`) s
 
 ### `POST /api/settings`
 
-Un objeto de claves y valores: `{"panel.settings.companyName": "My Hosting", "panel.registrationEnabled": false}`. Todos los valores se comprueban antes de guardar (los webhooks de Discord deben ser URL de webhook de Discord válidas y `panel.settings.notificationLanguage` debe ser `es` o `en`; si no, `400`, con `ErrNotificationLanguage` en el segundo caso), así que un valor incorrecto hace que no se guarde nada. A los valores de texto se les quitan los espacios de los extremos; las claves desconocidas se ignoran. Un secreto enviado como `********` (la máscara, sin cambiar) se descarta y conserva su valor guardado. Responde `204`.
+Un objeto de claves y valores: `{"panel.settings.companyName": "My Hosting", "panel.registrationEnabled": false}`. Todos los valores se comprueban antes de guardar (los webhooks de Discord deben ser URL de webhook de Discord válidas y `panel.settings.notificationLanguage` debe ser `es` o `en`; si no, `400`, con `ErrNotificationLanguage` en el segundo caso), así que un valor incorrecto hace que no se guarde nada. A los valores de texto se les quitan los espacios de los extremos; las claves desconocidas se ignoran. Un secreto enviado como `********` (la máscara, sin cambiar) se descarta y conserva su valor guardado. Responde `204`. Cuando lo guardado incluye un ajuste de nodo (`daemon.backups.s3.*` o `daemon.curseforge.key`), el panel los envía después a todos los nodos remotos en segundo plano, sin hacer esperar la respuesta (véase [`GET /api/settings/node-sync`](#get-apisettingsnode-sync)).
 
 ### `GET /api/settings/:key` y `PUT /api/settings/:key`
 
-`GET` responde `{"value": ...}` (con los secretos enmascarados como se indica arriba), o `204` si la clave no es editable. `PUT` recibe `{"value": ...}` y responde `204`; para una clave secreta, un valor `********` no cambia nada.
+`GET` responde `{"value": ...}` (con los secretos enmascarados como se indica arriba), o `204` si la clave no es editable. `PUT` recibe `{"value": ...}` y responde `204`; para una clave secreta, un valor `********` no cambia nada. Un ajuste de nodo guardado así también llega a los nodos remotos, igual que con `POST /api/settings`.
 
 ### Pruebas
 
@@ -221,6 +222,26 @@ Más detalles: [Actualizaciones del panel](../../features/panel-updates.md).
 ### `GET /api/settings/domain-status`
 
 Qué hizo el servicio de dominio del instalador con la URL base: `{"state": "...", "url": "...", "domain": "...", "https": true, "proxied": false, "serverIp": "...", "message": "...", "updatedAt": "..."}`. `proxied` indica que el dominio no apunta a este servidor (como ocurre con el proxy de Cloudflare), por lo que los puertos de juego y el SFTP usan `serverIp`.
+
+### `GET /api/settings/node-sync`
+
+Si cada nodo remoto tiene los ajustes de nodo del panel: las copias externas (`daemon.backups.s3.*`, incluida la copia periódica por defecto) y la clave de CurseForge (`daemon.curseforge.key`). El panel se los envía él mismo a cada nodo remoto (`PUT /daemon/settings`, véase [Daemon](./09-daemon.md#put-daemonsettings)) después de un guardado que cambie alguno y cada 10 minutos, la primera vez un minuto después de arrancar. El nodo propio del panel comparte su `config.json` y no aparece.
+
+```json
+[
+  { "id": 2, "name": "node-2", "state": "synced", "checkedAt": "2026-11-06T10:00:00Z" },
+  { "id": 3, "name": "node-3", "state": "failed", "error": "the off-site copies to keep must be between 1 and 50", "checkedAt": "2026-11-06T10:00:01Z" }
+]
+```
+
+Un elemento por nodo remoto, por orden de id; `[]` si no hay nodos remotos. Nunca incluye el valor de un ajuste.
+
+| `state` | Significado |
+|---------|-------------|
+| `synced` | El nodo tiene los mismos valores que el panel |
+| `pending` | Aún sin comprobar (`checkedAt` es `null`), o el nodo no respondió o no pudo guardar; la siguiente pasada lo reintenta sola |
+| `outdated` | El nodo tiene una versión sin `/daemon/settings` (respondió `404`) y hay que actualizarlo |
+| `failed` | El nodo rechazó al panel (otro secreto, relojes desfasados) o los ajustes; `error` dice por qué |
 
 ## Claves de API
 

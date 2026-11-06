@@ -1,6 +1,6 @@
 'use client';
-import { useState } from 'react';
-import { CheckCircle2, CloudUpload, Info, Loader2, PlugZap, XCircle } from '@/components/icons';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AlertTriangle, CheckCircle2, Clock, CloudUpload, Hourglass, Loader2, PlugZap, RefreshCw, Server, XCircle } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -37,18 +37,38 @@ const PROVIDERS = [
   { name: 'Wasabi', endpoint: 's3.eu-central-1.wasabisys.com', region: 'eu-central-1' },
 ];
 
+type Translate = (key: string, options?: Record<string, string | number>) => string;
+
 type OffsiteTabProps = {
   localSettings: Record<string, any>;
   handleUpdate: (key: string, value: any) => void;
-  t: (key: string, options?: Record<string, string | number>) => string;
+  /** When the settings were last saved (ms), 0 before any save: the node list reads again after it. */
+  savedAt: number;
+  t: Translate;
 };
+
+/** How one remote node took the panel's node settings (GET /api/settings/node-sync). Never holds a value. */
+type NodeSyncStatus = {
+  id: number;
+  name: string;
+  state: 'synced' | 'pending' | 'outdated' | 'failed';
+  error?: string;
+  /** null until the panel's first check of this node */
+  checkedAt: string | null;
+};
+
+/**
+ * The panel sends the settings to the nodes in the background after a save, so the list reads
+ * again this long after it instead of polling
+ */
+const NODE_SYNC_REFRESH_AFTER_SAVE_MS = 5000;
 
 /**
  * Off-site backups: an S3-compatible bucket that holds each server's periodic copy and the
  * copies of task backup steps that ask for it, so a dead disk does not take every backup with
  * it. Manual backups stay on the node. The test checks the values on screen, saved or not.
  */
-export function OffsiteTab({ localSettings, handleUpdate, t }: Readonly<OffsiteTabProps>) {
+export function OffsiteTab({ localSettings, handleUpdate, savedAt, t }: Readonly<OffsiteTabProps>) {
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   const value = (key: string) => (localSettings[key] ?? '') as string;
@@ -159,10 +179,6 @@ export function OffsiteTab({ localSettings, handleUpdate, t }: Readonly<OffsiteT
                 />
               </SettingsField>
             </div>
-            <p className="flex items-start gap-2 text-pretty text-xs text-muted-foreground">
-              <Info className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              {t('settings.offsite.remoteNodes')}
-            </p>
           </div>
         </SettingsSection>
 
@@ -221,7 +237,112 @@ export function OffsiteTab({ localSettings, handleUpdate, t }: Readonly<OffsiteT
             </SettingRows>
           </div>
         </SettingsSection>
+
+        <NodeSyncSection savedAt={savedAt} t={t} />
       </div>
     </SettingsCard>
+  );
+}
+
+/** What each node state looks like: its icon and colour; the text comes from nodeSyncText. */
+const NODE_SYNC_LOOK: Record<NodeSyncStatus['state'] | 'checking', { icon: typeof CheckCircle2; className: string }> = {
+  synced: { icon: CheckCircle2, className: 'text-success' },
+  pending: { icon: Clock, className: 'text-muted-foreground' },
+  checking: { icon: Hourglass, className: 'text-muted-foreground' },
+  outdated: { icon: AlertTriangle, className: 'text-warning' },
+  failed: { icon: XCircle, className: 'text-destructive-bright' },
+};
+
+function nodeSyncText(node: NodeSyncStatus, t: Translate) {
+  if (node.state === 'failed') return node.error ? t('settings.offsite.nodes.failed', { error: node.error }) : t('settings.offsite.nodes.failedUnknown');
+  if (node.state === 'outdated') return t('settings.offsite.nodes.outdated');
+  if (node.state === 'synced') return t('settings.offsite.nodes.synced');
+  return node.checkedAt ? t('settings.offsite.nodes.pending') : t('settings.offsite.nodes.checking');
+}
+
+/**
+ * Whether every remote node has these settings and the CurseForge key: the panel sends them by
+ * itself, so this only shows how each node took them. Nothing shows without remote nodes.
+ */
+function NodeSyncSection({ savedAt, t }: Readonly<{ savedAt: number; t: Translate }>) {
+  const [nodes, setNodes] = useState<NodeSyncStatus[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  // null: read fine; a string (maybe empty) is the reason the last read failed
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const mounted = useRef(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await api.get<NodeSyncStatus[]>('/api/settings/node-sync');
+      if (!mounted.current) return;
+      setNodes(Array.isArray(data) ? data : []);
+      setLoadError(null);
+    } catch (err) {
+      if (!mounted.current) return;
+      setLoadError(err instanceof ApiError && err.message ? err.message : '');
+    } finally {
+      if (mounted.current) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    mounted.current = true;
+    void load();
+    return () => {
+      mounted.current = false;
+    };
+  }, [load]);
+
+  // one more read a few seconds after a save, once the panel has had time to reach the nodes;
+  // a tab opened long after the save already read on mount
+  useEffect(() => {
+    if (!savedAt) return;
+    const wait = savedAt + NODE_SYNC_REFRESH_AFTER_SAVE_MS - Date.now();
+    if (wait <= 0) return;
+    const timer = setTimeout(() => void load(), wait);
+    return () => clearTimeout(timer);
+  }, [savedAt, load]);
+
+  if (loadError === null && (!nodes || nodes.length === 0)) return null;
+
+  return (
+    <SettingsSection title={t('settings.offsite.nodes.title')} description={t('settings.offsite.nodes.description')}>
+      <div className="space-y-3">
+        {nodes && nodes.length > 0 && (
+          <ul aria-label={t('settings.offsite.nodes.title')} className="divide-y divide-border/50 rounded-xl border border-border/60 bg-background/30">
+            {nodes.map((node) => {
+              const look = NODE_SYNC_LOOK[node.state === 'pending' && !node.checkedAt ? 'checking' : node.state] ?? NODE_SYNC_LOOK.pending;
+              const Icon = look.icon;
+              return (
+                <li key={node.id} className="flex items-start gap-3 px-4 py-3">
+                  <Server className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium" title={node.name}>{node.name || `#${node.id}`}</p>
+                    <p className={cn('mt-0.5 flex items-start gap-1.5 text-pretty text-xs', look.className)}>
+                      <Icon className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span className="min-w-0 [overflow-wrap:anywhere]">{nodeSyncText(node, t)}</span>
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {loadError !== null && (
+          <output className="flex items-start gap-2 text-pretty text-xs text-destructive-bright">
+            <XCircle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span className="min-w-0 [overflow-wrap:anywhere]">
+              {t('settings.offsite.nodes.loadError')}
+              {loadError && ` ${loadError}`}
+            </span>
+          </output>
+        )}
+        <Button variant="ghost" size="sm" onClick={() => void load()} disabled={loading} className="-ml-2">
+          {loading ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
+          {t('settings.offsite.nodes.refresh')}
+        </Button>
+      </div>
+    </SettingsSection>
   );
 }

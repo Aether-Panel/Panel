@@ -63,6 +63,12 @@ func RegisterDaemonRoutes(e *gin.RouterGroup) {
 	e.GET("update-status", middleware.ValidateJWT, daemonUpdateStatus)
 	e.Handle("OPTIONS", "update-status", response.CreateOptions("GET"))
 
+	// the settings the panel hands to every node (S3, CurseForge): only the panel, with a token
+	// signed for this node, may read their hash or change them
+	e.GET("settings", middleware.ValidateJWT, getNodeSettings)
+	e.PUT("settings", middleware.ValidateJWT, putNodeSettings)
+	e.Handle("OPTIONS", "settings", response.CreateOptions("GET", "PUT"))
+
 	RegisterServerRoutes(e)
 }
 

@@ -45,6 +45,8 @@ export default function SettingsPage() {
     const { refresh: refreshConfig } = useConfig();
 
     const [localSettings, setLocalSettings] = useState<Record<string, any>>({});
+    // when the last save went through, so the off-site tab can read the nodes' state again
+    const [savedAt, setSavedAt] = useState(0);
     // ?tab= opens a tab directly (links from elsewhere, and the return after signing in again)
     const [activeTab, setActiveTab] = useState(() => {
         if (typeof window === 'undefined') return 'general';
@@ -97,6 +99,7 @@ export default function SettingsPage() {
     const handleSave = async () => {
         try {
             await saveSettings(localSettings);
+            setSavedAt(Date.now());
             await refreshConfig();
             sileo.success({
                 title: t('common.success'),
@@ -231,7 +234,7 @@ export default function SettingsPage() {
                 </TabsContent>
 
                 <TabsContent value="offsite" className="mt-6">
-                    <OffsiteTab localSettings={localSettings} handleUpdate={handleUpdate} t={t} />
+                    <OffsiteTab localSettings={localSettings} handleUpdate={handleUpdate} savedAt={savedAt} t={t} />
                 </TabsContent>
 
                 <TabsContent value="domains" className="mt-6">
