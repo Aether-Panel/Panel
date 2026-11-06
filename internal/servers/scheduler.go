@@ -177,6 +177,22 @@ func (s *Scheduler) Location() *time.Location {
 	return location
 }
 
+// TaskDueWithin says whether one of the tasks is next due to run within d from now. Tasks
+// only run by hand, and a scheduler not running, have none due.
+func (s *Scheduler) TaskDueWithin(d time.Duration) bool {
+	if s == nil || s.scheduler == nil {
+		return false
+	}
+	limit := time.Now().Add(d)
+	for _, job := range s.scheduler.Jobs() {
+		next, err := job.NextRun()
+		if err == nil && !next.IsZero() && next.Before(limit) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Scheduler) Stop() {
 	if s.scheduler == nil {
 		return

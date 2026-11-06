@@ -28,6 +28,13 @@ const MaxAutoBackupKeep = 50
 // offsiteListTimeout bounds listing the bucket, and the deletions of a prune that follow it
 const offsiteListTimeout = time.Minute
 
+// A task's start, restart and backup steps wait for a backup or restore in progress, checking
+// every backupWaitPoll, for up to backupWaitLimit; variables so the tests can wait less
+var (
+	backupWaitPoll  = 5 * time.Second
+	backupWaitLimit = 60 * time.Minute
+)
+
 var errNotAServer = errors.New("this operation can only run on a server")
 
 func serverFromArgs(args skypanel.RunOperatorArgs) (*Server, error) {
@@ -49,11 +56,35 @@ func (p *Server) Restart() error {
 	return p.Start()
 }
 
+// waitForBackup holds a task step while a backup or restore runs (most often the periodic
+// copy, which the owner did not schedule), telling the console once. A server cannot start
+// meanwhile, so a restart would stop it and fail to start it again, and a stop, backup, start
+// task would fail at its backup and leave the server stopped. It gives up with
+// ErrBackupInProgress after backupWaitLimit.
+func (p *Server) waitForBackup() error {
+	busy := func() bool { return p.IsBackingUp() || p.IsRestoring() }
+	if !busy() {
+		return nil
+	}
+	p.RunningEnvironment.DisplayToConsole(true, "Waiting for a backup in progress to finish\n")
+	deadline := time.Now().Add(backupWaitLimit)
+	for busy() {
+		if !time.Now().Before(deadline) {
+			return skypanel.ErrBackupInProgress
+		}
+		time.Sleep(backupWaitPoll)
+	}
+	return nil
+}
+
 type startOperation struct{}
 
 func (startOperation) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	p, err := serverFromArgs(args)
 	if err != nil {
+		return skypanel.OperationResult{Error: err}
+	}
+	if err := p.waitForBackup(); err != nil {
 		return skypanel.OperationResult{Error: err}
 	}
 	if running, err := p.IsRunning(); err != nil || running {
@@ -76,12 +107,16 @@ func (stopOperation) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 }
 
 // restartOperation only restarts a running server: a scheduled restart must not bring back
-// a server its owner switched off
+// a server its owner switched off. It waits for a backup in progress before stopping the
+// server, never after, so it does not stop a server it cannot start again.
 type restartOperation struct{}
 
 func (restartOperation) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	p, err := serverFromArgs(args)
 	if err != nil {
+		return skypanel.OperationResult{Error: err}
+	}
+	if err := p.waitForBackup(); err != nil {
 		return skypanel.OperationResult{Error: err}
 	}
 	running, err := p.IsRunning()
@@ -108,6 +143,9 @@ type backupOperation struct {
 func (o backupOperation) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	p, err := serverFromArgs(args)
 	if err != nil {
+		return skypanel.OperationResult{Error: err}
+	}
+	if err := p.waitForBackup(); err != nil {
 		return skypanel.OperationResult{Error: err}
 	}
 	_, err = p.RunAutoBackup(o.opts)

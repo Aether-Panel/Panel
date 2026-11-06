@@ -25,6 +25,10 @@ const (
 	// periodicMaxBackoff caps the wait after failures: a bucket down for days still gets
 	// tried once a day
 	periodicMaxBackoff = 24 * time.Hour
+	// periodicTaskMargin leaves a server alone while one of its tasks is due this soon: the
+	// copy could still be running then, and the task's start, restart or backup would have to
+	// wait for it
+	periodicTaskMargin = 60 * time.Minute
 )
 
 // periodicState is what the node remembers of one server's periodic off-site copies. It is
@@ -284,10 +288,13 @@ func (p *Server) periodicPlan() (hours, keep int, ok bool) {
 }
 
 // busyForPeriodic says whether the server must be left alone this pass: being moved to
-// another node, installed, backed up or restored. A running game is no reason; the copy is
-// taken hot, as one made by hand.
+// another node, installed, backed up or restored, or with a task due soon. A running game is
+// no reason; the copy is taken hot, as one made by hand.
 func (p *Server) busyForPeriodic() bool {
 	if p.Scheduler != nil && p.Scheduler.IsPaused() {
+		return true
+	}
+	if p.Scheduler.TaskDueWithin(periodicTaskMargin) {
 		return true
 	}
 	if p.GetEnvironment().IsInstalling() {

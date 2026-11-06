@@ -560,3 +560,25 @@ func TestPeriodic_AServerDeletedDuringItsUploadKeepsItsBucket(t *testing.T) {
 	}
 	assert.False(t, hasPeriodicState(p.ID()))
 }
+
+// dailyAt is a daily schedule at the clock time of when, in the node's timezone
+func dailyAt(when time.Time) string {
+	when = when.In(time.Local)
+	return fmt.Sprintf("%d %d * * *", when.Minute(), when.Hour())
+}
+
+func TestPeriodic_SkipsAServerWithATaskDueSoon(t *testing.T) {
+	fake := useFakeBucket(t)
+	p := newPeriodicTestServer(t)
+	s := newTestScheduler(t)
+	s.Start()
+	p.Scheduler = s
+	// gocron runs on the real clock, whatever the clock the periodic copy is given
+	require.NoError(t, s.SetTask("restart", restartTask(dailyAt(time.Now().Add(30*time.Minute)))))
+
+	assert.False(t, p.runPeriodic(at(periodicNow)), "a restart in half an hour would find the copy under way")
+	assert.Equal(t, 0, fake.uploadCount())
+
+	require.NoError(t, s.SetTask("restart", restartTask(dailyAt(time.Now().Add(3*time.Hour)))))
+	assert.True(t, p.runPeriodic(at(periodicNow)), "a task three hours away leaves time for the copy")
+}
