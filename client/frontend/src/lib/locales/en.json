@@ -3394,7 +3394,7 @@
       },
       "curseforgeKeyLabel": "CurseForge API key",
       "curseforgeKeyPlaceholder": "Paste the API key",
-      "curseforgeKeyDescription": "Create it at console.curseforge.com. The main node uses it; remote nodes read the one in their own configuration (daemon.curseforge.key).",
+      "curseforgeKeyDescription": "Create it at console.curseforge.com. The panel sends it to every node automatically.",
       "experimental": {
         "versionSwitchLabel": "Game version switch",
         "versionSwitchDescription": "Change a server's Minecraft version in one click, with a restore point saved first.",
@@ -3671,7 +3671,18 @@
       "periodicHoursHint": "How often each server gets its copy. \"Off\" turns it off for servers without their own interval.",
       "periodicKeep": "Copies to keep in S3",
       "periodicKeepHint": "1 to 50. When a new one is uploaded, the oldest are deleted.",
-      "remoteNodes": "Remote nodes: these values are saved in the panel's configuration and apply to the servers on its own node. Each remote node reads the daemon.backups.s3.* keys from its own config.json."
+      "nodes": {
+        "title": "Nodes",
+        "description": "These settings and the CurseForge key are sent to every node automatically.",
+        "synced": "Up to date",
+        "pending": "Pending, retried automatically",
+        "checking": "Checking…",
+        "outdated": "Node not updated: update it so it gets the settings",
+        "failed": "Error: {{error}}",
+        "failedUnknown": "Error: the node refused the settings",
+        "loadError": "Could not read the nodes' state.",
+        "refresh": "Refresh status"
+      }
     },
     "domains": {
       "title": "Automatic subdomains",

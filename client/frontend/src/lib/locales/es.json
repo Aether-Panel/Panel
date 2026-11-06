@@ -3394,7 +3394,7 @@
       },
       "curseforgeKeyLabel": "Clave de API de CurseForge",
       "curseforgeKeyPlaceholder": "Pega la clave de API",
-      "curseforgeKeyDescription": "Créala en console.curseforge.com. La usa el nodo principal; los nodos remotos leen la de su propia configuración (daemon.curseforge.key).",
+      "curseforgeKeyDescription": "Créala en console.curseforge.com. El panel la envía sola a todos los nodos.",
       "experimental": {
         "versionSwitchLabel": "Cambio de versión del juego",
         "versionSwitchDescription": "Cambiar la versión de Minecraft de un servidor en un clic, con un punto de restauración antes.",
@@ -3671,7 +3671,18 @@
       "periodicHoursHint": "Cada cuánto recibe cada servidor su copia. «Desactivada» la apaga en los servidores que no tengan su propio intervalo.",
       "periodicKeep": "Copias a conservar en S3",
       "periodicKeepHint": "De 1 a 50. Al subir una nueva, se borran las más antiguas.",
-      "remoteNodes": "Nodos remotos: estos valores se guardan en la configuración del panel y se aplican a los servidores de su propio nodo. Cada nodo remoto lee las claves daemon.backups.s3.* de su propio config.json."
+      "nodes": {
+        "title": "Nodos",
+        "description": "Estos ajustes y la clave de CurseForge se envían solos a todos los nodos.",
+        "synced": "Al día",
+        "pending": "Pendiente, se reintenta solo",
+        "checking": "Comprobando…",
+        "outdated": "Nodo sin actualizar: actualízalo para que reciba los ajustes",
+        "failed": "Error: {{error}}",
+        "failedUnknown": "Error: el nodo rechazó los ajustes",
+        "loadError": "No se pudo leer el estado de los nodos.",
+        "refresh": "Actualizar estado"
+      }
     },
     "domains": {
       "title": "Subdominios automáticos",
