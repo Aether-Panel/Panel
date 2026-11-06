@@ -65,6 +65,23 @@ if grep -qE '^[[:space:]]*- SKYPANEL_PANEL_ENABLE=false' docker-compose.yml 2>/d
     echo "[INFO] Nodo esclavo detectado: se preservará la configuración de daemon en el yml."
 fi
 
+# token.public del config.json del nodo (el mismo archivo que usa install.sh), o nada.
+# Con jq si está; si no, un sed que tolera espacios y saltos de línea.
+config_token_public() {
+    local file="storage/skypanel-data/config.json"
+    if [[ -f "storage/skypanel-config/config.json" ]]; then
+        file="storage/skypanel-config/config.json"
+    fi
+    [[ -r "$file" ]] || return 0
+    if command -v jq &>/dev/null; then
+        jq -r '.token.public // empty | strings' "$file" 2>/dev/null || true
+    else
+        tr -d '\n\r' <"$file" \
+            | sed -n 's/.*"token"[[:space:]]*:[[:space:]]*{[^}]*"public"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+            | head -1
+    fi
+}
+
 # Conservar los archivos propios de este servidor (contraseñas en .env) para que
 # ni el git checkout ni el git pull los reviertan o borren.
 readonly LOCAL_FILES=(.env)
@@ -101,7 +118,13 @@ echo "[✓] Archivos locales del servidor conservados: ${LOCAL_FILES[*]}"
 # Re-aplicar configuración de esclavo sobre el yml recién actualizado
 if [[ "$IS_SLAVE" = "true" ]]; then
     sed -i 's|^[[:space:]]*# - SKYPANEL_PANEL_ENABLE=false|      - SKYPANEL_PANEL_ENABLE=false|' docker-compose.yml
-    if [[ -n "$SLAVE_TOKEN_PUBLIC" ]]; then
+    # La variable gana a config.json: si config.json ya tiene la dirección de la clave del panel
+    # (nodo unido con install.sh --join), una línea vieja dejaría al nodo rechazando al panel.
+    # Igual que enable_node_compose en install.sh: la línea se queda comentada.
+    if [[ -n "$SLAVE_TOKEN_PUBLIC" && -n "$(config_token_public)" ]]; then
+        sed -i 's|^\([[:space:]]*\)- SKYPANEL_TOKEN_PUBLIC=|\1# - SKYPANEL_TOKEN_PUBLIC=|' docker-compose.yml
+        echo "[INFO] No se re-aplica SKYPANEL_TOKEN_PUBLIC: la dirección de la clave del panel sale de config.json (token.public)."
+    elif [[ -n "$SLAVE_TOKEN_PUBLIC" ]]; then
         sed -i "s|^[[:space:]]*# - SKYPANEL_TOKEN_PUBLIC=.*|      - SKYPANEL_TOKEN_PUBLIC=${SLAVE_TOKEN_PUBLIC}|" docker-compose.yml
     fi
     echo "[✓] Configuración de nodo esclavo re-aplicada en docker-compose.yml."
