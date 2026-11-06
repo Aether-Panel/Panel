@@ -37,7 +37,7 @@ export function useTemplates() {
             const data = await api.get(`/api/templates/${repoId}`);
             return Array.isArray(data) ? data : [];
         } catch (e) {
-            console.error(`Failed to fetch templates for repo ${repoId}:`, e);
+            console.error('Failed to fetch templates for repo %s:', repoId, e);
             return [];
         }
     };
@@ -47,7 +47,7 @@ export function useTemplates() {
             const data = await api.get(`/api/templates/${repoId}/${templateName}`);
             return data;
         } catch (e) {
-            console.error(`Failed to fetch details for template ${templateName}:`, e);
+            console.error('Failed to fetch details for template %s:', templateName, e);
             return null;
         }
     };
@@ -57,7 +57,7 @@ export function useTemplates() {
             await api.put(`/api/templates/0/${templateName}`, templateData);
             return true;
         } catch (e) {
-            console.error(`Failed to save template ${templateName}:`, e);
+            console.error('Failed to save template %s:', templateName, e);
             throw e;
         }
     };
@@ -79,7 +79,7 @@ export function useTemplates() {
             await api.delete(`/api/templates/0/${encodeURIComponent(templateName)}`);
             return true;
         } catch (e) {
-            console.error(`Failed to delete template ${templateName}:`, e);
+            console.error('Failed to delete template %s:', templateName, e);
             throw e;
         }
     };
