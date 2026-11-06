@@ -252,17 +252,7 @@ func applyNodeBackups(bs *services.Backup, server *models.Server, onNode []skypa
 		return nil, err
 	}
 
-	present := make(map[string]skypanel.BackupFile, len(onNode))
-	finished := make([]skypanel.BackupFile, 0, len(onNode))
-	failed := make([]string, 0)
-	for _, f := range onNode {
-		if f.Location == servers.BackupFailedLocation {
-			failed = append(failed, f.FileName)
-			continue
-		}
-		present[f.FileName] = f
-		finished = append(finished, f)
-	}
+	present, finished, failed := splitNodeBackups(onNode)
 	isFailed := make(map[string]bool, len(failed))
 	for _, name := range failed {
 		isFailed[name] = true
@@ -272,30 +262,53 @@ func applyNodeBackups(bs *services.Backup, server *models.Server, onNode []skypa
 	for _, r := range records {
 		known[r.FileName] = true
 		file, onDisk := present[r.FileName]
-		if !bucketListed && !isFailed[r.FileName] {
-			var keep bool
-			if file, keep = withUnlistedBucket(r.Location, file, onDisk); keep {
-				continue
-			}
-		}
-		// a backup made by hand is recorded when it is asked for, before its archive is
-		// written; when writing it failed there is no file behind the record
-		if (isSystemBackup(r.FileName) && !onDisk) || isFailed[r.FileName] {
-			if err := bs.Delete(r.ID); err != nil {
-				logging.Error.Printf("Error removing the record of deleted backup %s: %s", r.FileName, err)
-			}
-			continue
-		}
-		if onDisk && (file.Size != r.FileSize || file.Location != r.Location) {
-			r.FileSize = file.Size
-			r.Location = file.Location
-			if err := bs.Update(r); err != nil {
-				logging.Error.Printf("Error recording the size of backup %s: %s", r.FileName, err)
-			}
-		}
+		syncBackupRecord(bs, r, file, onDisk, isFailed[r.FileName], bucketListed)
 	}
 	addSystemBackups(bs, server, finished, known)
 	return failed, nil
+}
+
+// splitNodeBackups sorts the node's list into the finished backups (by name, and in order)
+// and the names of the backups it reports as failed
+func splitNodeBackups(onNode []skypanel.BackupFile) (present map[string]skypanel.BackupFile, finished []skypanel.BackupFile, failed []string) {
+	present = make(map[string]skypanel.BackupFile, len(onNode))
+	finished = make([]skypanel.BackupFile, 0, len(onNode))
+	failed = make([]string, 0)
+	for _, f := range onNode {
+		if f.Location == servers.BackupFailedLocation {
+			failed = append(failed, f.FileName)
+			continue
+		}
+		present[f.FileName] = f
+		finished = append(finished, f)
+	}
+	return present, finished, failed
+}
+
+// syncBackupRecord brings one record in line with the node's entry for it: removed when the
+// backup is gone or failed, its size and location updated when the node has it
+func syncBackupRecord(bs *services.Backup, r *models.Backup, file skypanel.BackupFile, onDisk, failed, bucketListed bool) {
+	if !bucketListed && !failed {
+		var keep bool
+		if file, keep = withUnlistedBucket(r.Location, file, onDisk); keep {
+			return
+		}
+	}
+	// a backup made by hand is recorded when it is asked for, before its archive is
+	// written; when writing it failed there is no file behind the record
+	if (isSystemBackup(r.FileName) && !onDisk) || failed {
+		if err := bs.Delete(r.ID); err != nil {
+			logging.Error.Printf("Error removing the record of deleted backup %s: %s", r.FileName, err)
+		}
+		return
+	}
+	if onDisk && (file.Size != r.FileSize || file.Location != r.Location) {
+		r.FileSize = file.Size
+		r.Location = file.Location
+		if err := bs.Update(r); err != nil {
+			logging.Error.Printf("Error recording the size of backup %s: %s", r.FileName, err)
+		}
+	}
 }
 
 // withUnlistedBucket reads the node's entry for a record when the node could not list its
