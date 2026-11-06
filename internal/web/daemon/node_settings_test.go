@@ -90,7 +90,14 @@ func TestNodeSettings_GetAnswersOnlyTheHash(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	var body map[string]interface{}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	assert.Equal(t, map[string]interface{}{"hash": config.NodeSettingsHash(config.NodeSettingsValues())}, body)
+	keys := make([]interface{}, 0, len(config.SyncedNodeSettings))
+	for _, setting := range config.SyncedNodeSettings {
+		keys = append(keys, setting.Key())
+	}
+	assert.Equal(t, map[string]interface{}{
+		"hash": config.NodeSettingsHash(config.NodeSettingsValues()),
+		"keys": keys,
+	}, body)
 	assert.NotContains(t, w.Body.String(), "very-secret")
 }
 
@@ -116,7 +123,9 @@ func TestNodeSettings_PutAppliesAndSavesEveryValue(t *testing.T) {
 	// the node now reports the hash the panel computes from its own values
 	w = callNodeSettings(router, http.MethodGet, token, nil)
 	require.Equal(t, http.StatusOK, w.Code)
-	assert.JSONEq(t, `{"hash":"`+config.NodeSettingsHash(panelNodeSettings())+`"}`, w.Body.String())
+	var state skypanel.NodeSettingsState
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &state))
+	assert.Equal(t, config.NodeSettingsHashFor(panelNodeSettings(), state.Keys), state.Hash)
 }
 
 func TestNodeSettings_PutRefusesTheWholePackageOnABadValue(t *testing.T) {
@@ -130,14 +139,14 @@ func TestNodeSettings_PutRefusesTheWholePackageOnABadValue(t *testing.T) {
 		edit func(map[string]interface{})
 		code string
 	}{
-		"unknown key": {func(p map[string]interface{}) { p["panel.token"] = "x" }, "ErrNodeSettingInvalid"},
-		"missing key": {func(p map[string]interface{}) { delete(p, config.CurseForgeKey.Key()) }, "ErrNodeSettingInvalid"},
-		"wrong type":  {func(p map[string]interface{}) { p[config.BackupsS3Enabled.Key()] = "yes" }, "ErrNodeSettingInvalid"},
-		"hours 25":    {func(p map[string]interface{}) { p[config.BackupsS3PeriodicHours.Key()] = 25 }, "ErrOffsitePeriodicHours"},
-		"keep 0":      {func(p map[string]interface{}) { p[config.BackupsS3PeriodicKeep.Key()] = 0 }, "ErrOffsiteKeep"},
+		"wrong type": {func(p map[string]interface{}) { p[config.BackupsS3Enabled.Key()] = "yes" }, "ErrNodeSettingInvalid"},
+		"hours 25":   {func(p map[string]interface{}) { p[config.BackupsS3PeriodicHours.Key()] = 25 }, "ErrOffsitePeriodicHours"},
+		"keep 0":     {func(p map[string]interface{}) { p[config.BackupsS3PeriodicKeep.Key()] = 0 }, "ErrOffsiteKeep"},
 	}
 	for name, tc := range cases {
 		payload := panelNodeSettings()
+		// next to a key this node does not know, which alone would be ignored
+		payload["daemon.future.setting"] = "x"
 		tc.edit(payload)
 
 		w := callNodeSettings(router, http.MethodPut, token, payload)
@@ -155,6 +164,49 @@ func TestNodeSettings_PutRefusesTheWholePackageOnABadValue(t *testing.T) {
 
 	w := callNodeSettings(router, http.MethodPut, token, []string{"not", "an", "object"})
 	assert.Equal(t, http.StatusBadRequest, w.Code, "not an object")
+}
+
+// a newer panel sends keys this node does not know yet: they are ignored and the rest applied
+func TestNodeSettings_PutIgnoresKeysThisNodeDoesNotKnow(t *testing.T) {
+	router := nodeSettingsRouter(t)
+	payload := panelNodeSettings()
+	payload["daemon.future.setting"] = "x"
+	payload["panel.token"] = "not-for-nodes"
+
+	w := callNodeSettings(router, http.MethodPut, panelToken(t, nil), payload)
+
+	require.Equal(t, http.StatusNoContent, w.Code, w.Body.String())
+	assert.Equal(t, "copies", config.BackupsS3Bucket.Value())
+	assert.Equal(t, 24, config.BackupsS3PeriodicHours.Value())
+	assert.Nil(t, viper.Get("daemon.future.setting"), "an unknown key is not stored")
+	assert.NotEqual(t, "not-for-nodes", config.PrivateKey.Value())
+}
+
+// an older panel sends fewer keys: only those change, the rest stay as they are
+func TestNodeSettings_PutAppliesOnlyTheKeysSent(t *testing.T) {
+	router := nodeSettingsRouter(t)
+	token := panelToken(t, nil)
+	require.NoError(t, config.CurseForgeKey.Set("node-own-key", false))
+	require.NoError(t, config.BackupsS3PeriodicKeep.Set(9, false))
+
+	w := callNodeSettings(router, http.MethodPut, token, map[string]interface{}{
+		config.BackupsS3Bucket.Key():        "copies",
+		config.BackupsS3PeriodicHours.Key(): 48,
+	})
+
+	require.Equal(t, http.StatusNoContent, w.Code, w.Body.String())
+	assert.Equal(t, "copies", config.BackupsS3Bucket.Value())
+	assert.Equal(t, 48, config.BackupsS3PeriodicHours.Value())
+	assert.Equal(t, "node-own-key", config.CurseForgeKey.Value(), "a key not sent is left alone")
+	assert.Equal(t, 9, config.BackupsS3PeriodicKeep.Value())
+
+	// nothing this node knows: nothing changes, and that is not an error
+	for _, body := range []map[string]interface{}{{}, {"daemon.future.setting": "x"}} {
+		w = callNodeSettings(router, http.MethodPut, token, body)
+		assert.Equal(t, http.StatusNoContent, w.Code, "%v", body)
+	}
+	assert.Equal(t, "copies", config.BackupsS3Bucket.Value())
+	assert.Equal(t, "node-own-key", config.CurseForgeKey.Value())
 }
 
 // only the panel, with a token signed for this node, reads or writes these settings

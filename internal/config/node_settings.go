@@ -68,6 +68,16 @@ func NodeSettingsValues() map[string]interface{} {
 	return values
 }
 
+// NodeSettingsKeys are the keys of SyncedNodeSettings, in the list's order. A node answers
+// them next to its hash, so a panel of another version knows which keys the hash covers.
+func NodeSettingsKeys() []string {
+	keys := make([]string, 0, len(SyncedNodeSettings))
+	for _, setting := range SyncedNodeSettings {
+		keys = append(keys, setting.Key())
+	}
+	return keys
+}
+
 // NodeSettingsHash is the sha256 (hex) of the values as canonical JSON: encoding/json writes a
 // map's keys sorted, so the hash does not depend on the order they were added in. A node
 // answers it instead of the values, which include secrets, and the panel compares it with its
@@ -82,6 +92,20 @@ func NodeSettingsHash(values map[string]interface{}) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// NodeSettingsHashFor is NodeSettingsHash of only the given keys; a key the values lack is
+// skipped. A panel and a node on different versions may each know keys the other does not:
+// the node hashes the keys it knows and lists them, and the panel hashes its own values for
+// those same keys, so both compare the settings they share.
+func NodeSettingsHashFor(values map[string]interface{}, keys []string) string {
+	subset := make(map[string]interface{}, len(keys))
+	for _, key := range keys {
+		if value, ok := values[key]; ok {
+			subset[key] = value
+		}
+	}
+	return NodeSettingsHash(subset)
+}
+
 // NodeSettingError refuses one key of the settings the panel sent. It names the key and the
 // problem but never the value, which may be a secret.
 type NodeSettingError struct {
@@ -93,29 +117,28 @@ func (e *NodeSettingError) Error() string {
 	return fmt.Sprintf("node setting %s %s", e.Key, e.Problem)
 }
 
-// ParseNodeSettings checks the settings the panel sent a node, as decoded from JSON: exactly
-// the keys of SyncedNodeSettings, each with a value of its entry's type. It answers them with
-// the entries' own types (numbers as int), ready for ApplyNodeSettings. The first problem
-// found is returned and nothing is applied, so a bad package never leaves a node half set.
-func ParseNodeSettings(raw map[string]interface{}) (map[string]interface{}, error) {
-	for key := range raw {
-		if !IsSyncedNodeSetting(key) {
-			return nil, &NodeSettingError{Key: key, Problem: "is not one the panel hands to its nodes"}
-		}
-	}
-	values := make(map[string]interface{}, len(SyncedNodeSettings))
-	for _, setting := range SyncedNodeSettings {
-		value, ok := raw[setting.Key()]
-		if !ok {
-			return nil, &NodeSettingError{Key: setting.Key(), Problem: "is missing"}
+// ParseNodeSettings checks the settings the panel sent a node, as decoded from JSON, and
+// answers them with the entries' own types (numbers as int), ready for ApplyNodeSettings. Any
+// subset of SyncedNodeSettings is taken, so an older panel that sends fewer keys still works
+// and the keys it leaves out stay as they are. A key this node does not know, sent by a newer
+// panel, is skipped and only counted in ignored. A known key with a value of the wrong type is
+// the first problem returned and nothing is applied, so a bad package never leaves a node half
+// set.
+func ParseNodeSettings(raw map[string]interface{}) (values map[string]interface{}, ignored int, err error) {
+	values = make(map[string]interface{}, len(raw))
+	for key, value := range raw {
+		setting := syncedNodeSetting(key)
+		if setting == nil {
+			ignored++
+			continue
 		}
 		typed, problem := parseNodeSetting(setting, value)
 		if problem != "" {
-			return nil, &NodeSettingError{Key: setting.Key(), Problem: problem}
+			return nil, 0, &NodeSettingError{Key: key, Problem: problem}
 		}
-		values[setting.Key()] = typed
+		values[key] = typed
 	}
-	return values, nil
+	return values, ignored, nil
 }
 
 func parseNodeSetting(setting NodeSetting, value interface{}) (interface{}, string) {
@@ -141,12 +164,16 @@ func parseNodeSetting(setting NodeSetting, value interface{}) (interface{}, stri
 
 // ApplyNodeSettings sets the values ParseNodeSettings checked, in memory first, so every
 // reader sees them at once without a restart, and then writes the config file a single time.
-// A key outside SyncedNodeSettings is refused before anything changes.
+// A key outside SyncedNodeSettings is refused before anything changes. With no values there
+// is nothing to save and the file is not touched.
 func ApplyNodeSettings(values map[string]interface{}) error {
 	for key := range values {
 		if !IsSyncedNodeSetting(key) {
 			return &NodeSettingError{Key: key, Problem: "is not one the panel hands to its nodes"}
 		}
+	}
+	if len(values) == 0 {
+		return nil
 	}
 	viperLock.Lock()
 	defer viperLock.Unlock()

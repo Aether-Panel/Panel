@@ -116,10 +116,8 @@ func TestNodeSettingsHash_StableAndFollowsEveryValue(t *testing.T) {
 	}
 }
 
-// the hash of what a node decoded from JSON matches the hash of the panel's typed values, so
-// a node that took the panel's settings reports the panel's own hash
-func TestNodeSettingsHash_SameAfterAJSONRoundTrip(t *testing.T) {
-	values := sampleNodeSettings()
+// jsonDecoded is what a node gets after the values travelled as JSON: numbers as float64
+func jsonDecoded(values map[string]interface{}) map[string]interface{} {
 	decoded := map[string]interface{}{}
 	for key, value := range values {
 		if n, ok := value.(int); ok {
@@ -128,26 +126,86 @@ func TestNodeSettingsHash_SameAfterAJSONRoundTrip(t *testing.T) {
 		}
 		decoded[key] = value
 	}
-	parsed, err := ParseNodeSettings(decoded)
+	return decoded
+}
+
+// the hash of what a node decoded from JSON matches the hash of the panel's typed values, so
+// a node that took the panel's settings reports the panel's own hash
+func TestNodeSettingsHash_SameAfterAJSONRoundTrip(t *testing.T) {
+	values := sampleNodeSettings()
+	parsed, ignored, err := ParseNodeSettings(jsonDecoded(values))
 	require.NoError(t, err)
+	assert.Zero(t, ignored)
 	assert.Equal(t, NodeSettingsHash(values), NodeSettingsHash(parsed))
 }
 
-func TestParseNodeSettings_RefusesAnythingButTheFullList(t *testing.T) {
+func TestNodeSettingsKeys_AreTheSyncedList(t *testing.T) {
+	keys := NodeSettingsKeys()
+	require.Len(t, keys, len(SyncedNodeSettings))
+	for i, setting := range SyncedNodeSettings {
+		assert.Equal(t, setting.Key(), keys[i])
+	}
+}
+
+// a panel and a node on different versions compare only the keys both know
+func TestNodeSettingsHashFor_CoversOnlyTheGivenKeys(t *testing.T) {
+	values := sampleNodeSettings()
+	shared := []string{BackupsS3Bucket.Key(), BackupsS3PeriodicHours.Key(), CurseForgeKey.Key()}
+	hash := NodeSettingsHashFor(values, shared)
+	assert.Len(t, hash, 64)
+
+	// typed panel values and JSON-decoded node values agree
+	parsed, _, err := ParseNodeSettings(jsonDecoded(values))
+	require.NoError(t, err)
+	assert.Equal(t, hash, NodeSettingsHashFor(parsed, shared))
+
+	// all the keys is the plain hash
+	assert.Equal(t, NodeSettingsHash(values), NodeSettingsHashFor(values, NodeSettingsKeys()))
+
+	// a key the values do not have is skipped, not hashed as empty
+	assert.Equal(t, hash, NodeSettingsHashFor(values, append([]string{"daemon.future.setting"}, shared...)))
+
+	// a value outside the given keys does not change it; one inside does
+	outside := sampleNodeSettings()
+	outside[BackupsS3SecretKey.Key()] = "other-secret"
+	outside[BackupsS3Enabled.Key()] = false
+	assert.Equal(t, hash, NodeSettingsHashFor(outside, shared))
+	for _, key := range shared {
+		inside := sampleNodeSettings()
+		switch inside[key].(type) {
+		case int:
+			inside[key] = 48
+		default:
+			inside[key] = "changed"
+		}
+		assert.NotEqual(t, hash, NodeSettingsHashFor(inside, shared), key)
+	}
+}
+
+func TestParseNodeSettings_TakesAnySubsetOfKnownKeys(t *testing.T) {
+	// a newer panel's key is ignored and counted, the known ones are kept
+	newer := sampleNodeSettings()
+	newer["daemon.future.setting"] = "x"
+	newer["daemon.future.other"] = 3.0
+	parsed, ignored, err := ParseNodeSettings(newer)
+	require.NoError(t, err)
+	assert.Equal(t, 2, ignored)
+	assert.Equal(t, sampleNodeSettings(), parsed)
+
+	// an older panel that sends fewer keys: only those are taken
+	parsed, ignored, err = ParseNodeSettings(map[string]interface{}{BackupsS3Bucket.Key(): "copies"})
+	require.NoError(t, err)
+	assert.Zero(t, ignored)
+	assert.Equal(t, map[string]interface{}{BackupsS3Bucket.Key(): "copies"}, parsed)
+
+	parsed, ignored, err = ParseNodeSettings(map[string]interface{}{})
+	require.NoError(t, err)
+	assert.Zero(t, ignored)
+	assert.Empty(t, parsed)
+}
+
+func TestParseNodeSettings_RefusesAKnownKeyOfTheWrongType(t *testing.T) {
 	var settingErr *NodeSettingError
-
-	unknown := sampleNodeSettings()
-	unknown["panel.settings.companyName"] = "x"
-	_, err := ParseNodeSettings(unknown)
-	require.True(t, errors.As(err, &settingErr), "unknown key")
-	assert.Equal(t, "panel.settings.companyName", settingErr.Key)
-
-	missing := sampleNodeSettings()
-	delete(missing, BackupsS3Bucket.Key())
-	_, err = ParseNodeSettings(missing)
-	require.True(t, errors.As(err, &settingErr), "missing key")
-	assert.Equal(t, BackupsS3Bucket.Key(), settingErr.Key)
-
 	for key, wrong := range map[string]interface{}{
 		BackupsS3Enabled.Key():       "yes",
 		BackupsS3Endpoint.Key():      12,
@@ -156,16 +214,13 @@ func TestParseNodeSettings_RefusesAnythingButTheFullList(t *testing.T) {
 		CurseForgeKey.Key():          nil,
 	} {
 		bad := sampleNodeSettings()
+		bad["daemon.future.setting"] = "x"
 		bad[key] = wrong
-		_, err = ParseNodeSettings(bad)
+		_, _, err := ParseNodeSettings(bad)
 		require.True(t, errors.As(err, &settingErr), key)
 		assert.Equal(t, key, settingErr.Key)
 		assert.NotContains(t, err.Error(), "very-secret", "the message never carries a value")
 	}
-
-	parsed, err := ParseNodeSettings(sampleNodeSettings())
-	require.NoError(t, err)
-	assert.Equal(t, sampleNodeSettings(), parsed)
 }
 
 func TestApplyNodeSettings_SavesToTheConfigFile(t *testing.T) {
@@ -185,6 +240,11 @@ func TestApplyNodeSettings_SavesToTheConfigFile(t *testing.T) {
 	bad["panel.token"] = "x"
 	assert.Error(t, ApplyNodeSettings(bad))
 	assert.Equal(t, "copies", BackupsS3Bucket.Value())
+
+	// nothing to take writes nothing: not even a config file that cannot be written fails it
+	viper.SetConfigFile(filepath.Join(t.TempDir(), "missing", "config.json"))
+	assert.NoError(t, ApplyNodeSettings(map[string]interface{}{}))
+	assert.NoFileExists(t, viper.ConfigFileUsed())
 }
 
 func TestWholeNumber_ReadsNumbersAsJSONSendsThem(t *testing.T) {
