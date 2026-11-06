@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -874,7 +875,9 @@ func (m *serverMove) extractArchive() error {
 
 // copyBackups copies every backup the old node keeps for the server to the new one, so the
 // panel's records, which follow the server, find their files there. A backup only kept
-// off-site needs nothing: the bucket is the same wherever the server runs.
+// off-site needs nothing: the bucket is the same wherever the server runs. Nor does a periodic
+// copy, whose place is the bucket: one still on the old node is being uploaded, and its
+// archive goes as soon as the upload ends, maybe in the middle of the copy.
 func (m *serverMove) copyBackups() error {
 	res, err := m.source(http.MethodGet, daemonServerPrefix+m.id+"/backup", nil, nil)
 	if err != nil {
@@ -891,6 +894,9 @@ func (m *serverMove) copyBackups() error {
 	for _, b := range backups {
 		// "local" and "both" have an archive on the node; "offsite" and "failed" do not
 		if b.Location != "local" && b.Location != "both" {
+			continue
+		}
+		if strings.HasPrefix(b.FileName, servers.OffsiteBackupPrefix) {
 			continue
 		}
 		if err = m.copyBackup(b); err != nil {
