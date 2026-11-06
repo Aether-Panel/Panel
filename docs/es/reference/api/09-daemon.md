@@ -45,6 +45,8 @@ Un token que no supera la comprobación suele indicar que el `daemon.auth.client
 | GET | `/daemon/servers/status` | Token del panel | Estado (en marcha / instalando) de todos los servidores del nodo; la petición también lleva el idioma de las notificaciones del panel | El sondeo de disponibilidad del panel y el informe de nodos de Discord |
 | POST | `/daemon/update` | Token del panel | Inicia una actualización de este nodo | `POST /api/settings/update-panel` |
 | GET | `/daemon/update-status` | Token del panel | Estado de la última actualización de este nodo | `GET /api/settings/update-status` |
+| GET | `/daemon/settings` | Token del panel | Claves y hash de los ajustes de nodo que reparte el panel (nunca sus valores) | El reparto de ajustes de nodo del panel ([`GET /api/settings/node-sync`](./06-panel-admin.md#get-apisettingsnode-sync)) |
+| PUT | `/daemon/settings` | Token del panel | Guarda y aplica esos ajustes sin reiniciar | El reparto de ajustes de nodo del panel |
 
 ### Servidores
 
@@ -163,6 +165,31 @@ Inicia una actualización de la máquina en la que se ejecuta el nodo, en un con
 ```
 
 El estado de la última actualización iniciada en este nodo: si sigue en marcha, su código de salida y el final de su registro.
+
+### `GET /daemon/settings`
+
+```json
+{ "hash": "9b1c…e4", "keys": ["daemon.backups.s3.enabled", "daemon.backups.s3.endpoint", "…", "daemon.curseforge.key"] }
+```
+
+Los ajustes de nodo que el panel reparte a todos los nodos, es decir, las copias externas (`daemon.backups.s3.*`: `enabled`, `endpoint`, `region`, `bucket`, `accessKey`, `secretKey`, `prefix`, `insecure`, `periodicHours`, `periodicKeep`) y la clave de CurseForge (`daemon.curseforge.key`). `keys` enumera las que conoce este nodo y `hash` es el sha256 (hex) del JSON canónico de sus valores actuales. Los valores nunca se devuelven, porque incluyen secretos. El panel calcula el hash de sus propios valores para las claves que conocen los dos y los compara, así que un panel y un nodo de versiones distintas coinciden igualmente en los ajustes que comparten; si los hashes no coinciden, envía `PUT /daemon/settings`.
+
+Autenticación: el token del panel para este nodo, como el resto de rutas de aquí, así que solo el panel puede leer o cambiar estos ajustes. Un nodo anterior a esta ruta responde `404`, y la página de configuración lo muestra como sin actualizar.
+
+### `PUT /daemon/settings`
+
+```json
+{ "daemon.backups.s3.enabled": true, "daemon.backups.s3.bucket": "mis-copias", "daemon.backups.s3.periodicHours": 24, "daemon.curseforge.key": "…" }
+```
+
+El nodo comprueba primero todo el cuerpo y después guarda cada valor en su `config.json` y lo aplica sin reiniciar (los ajustes de S3 se leen en cada uso y la copia periódica lee sus valores por defecto en cada vuelta). Responde `204`.
+
+- El cuerpo lleva **cualquier subconjunto** de las claves anteriores: una clave que no venga se queda como está, así que un panel antiguo que envía menos claves sigue funcionando.
+- Una clave que este nodo no conoce (de un panel más nuevo) se ignora.
+- Una clave conocida con un valor de tipo incorrecto (`400 ErrNodeSettingInvalid`, que nombra la clave, nunca el valor), un `periodicHours` que el panel no ofrece (`400 ErrOffsitePeriodicHours`) o un `periodicKeep` fuera de 1-50 (`400 ErrOffsiteKeep`) rechaza todo el cuerpo: **no se aplica nada**.
+- Un cuerpo sin ninguna clave conocida no cambia nada y también responde `204`.
+
+El panel la llama después de un guardado en **Configuración** que cambie alguna de estas claves y en su pasada cada 10 minutos; los valores que envía sobrescriben lo que el nodo tuviera puesto a mano. Véase [Copias de seguridad → Requisitos y configuración](../../features/backups.md#requisitos-y-configuración).
 
 ## Rutas de servidor
 

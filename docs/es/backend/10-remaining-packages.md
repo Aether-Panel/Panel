@@ -254,7 +254,7 @@ Lleva copias de seguridad a un bucket compatible con S3 (AWS S3, Backblaze B2, C
 | `daemon.backups.s3.periodicHours` | `0` | Intervalo por defecto de la copia periódica (`0`, `12`, `24`, `48`, `72`, `168`, `336` o `720`; `0` = desactivada) |
 | `daemon.backups.s3.periodicKeep` | `4` | Copias periódicas que se conservan por servidor (1-50) |
 
-`FromSettings()` devuelve la configuración y si está activada **y** completa (endpoint, bucket y ambas claves).
+`FromSettings()` devuelve la configuración y si está activada **y** completa (endpoint, bucket y ambas claves). Lee las claves en cada llamada, así que un cambio se aplica sin reiniciar; en un nodo remoto vienen del panel, que las envía con `PUT /daemon/settings` ([API del daemon](../reference/api/09-daemon.md#put-daemonsettings)).
 
 | Función | Para qué se usa |
 |---|---|

@@ -254,7 +254,7 @@ Takes backups to an S3-compatible bucket (AWS S3, Backblaze B2, Cloudflare R2, W
 | `daemon.backups.s3.periodicHours` | `0` | Default interval of the periodic copy (`0`, `12`, `24`, `48`, `72`, `168`, `336` or `720`; `0` = off) |
 | `daemon.backups.s3.periodicKeep` | `4` | Periodic copies kept per server (1-50) |
 
-`FromSettings()` returns the config and whether it is enabled **and** complete (endpoint, bucket, both keys).
+`FromSettings()` returns the config and whether it is enabled **and** complete (endpoint, bucket, both keys). It reads the keys on every call, so a change takes effect without a restart; on a remote node they come from the panel, which sends them with `PUT /daemon/settings` ([Daemon API](../reference/api/09-daemon.md#put-daemonsettings)).
 
 | Function | Used for |
 |---|---|

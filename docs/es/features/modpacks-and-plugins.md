@@ -102,11 +102,11 @@ Los scopes se explican en la [referencia de scopes](../general/scopes-reference.
 ## Requisitos y configuración
 
 - **Modrinth** no necesita clave. El nodo debe poder conectar con `api.modrinth.com` y con los servidores de descarga indicados más arriba.
-- **CurseForge** necesita una clave de API, creada en console.curseforge.com, en el nodo que ejecuta el servidor:
+- **CurseForge** necesita una clave de API, creada en console.curseforge.com, en el nodo que ejecuta el servidor. Se pone una vez en el panel y el panel la envía a todos los nodos:
 
 | Clave | Valor por defecto | Variable de entorno | Notas |
 |-------|-------------------|---------------------|-------|
-| `daemon.curseforge.key` | vacía (una compilación puede incluir una mediante el argumento de compilación `curseforgeKey` del Dockerfile) | `SKYPANEL_DAEMON_CURSEFORGE_KEY` | La lee el daemon. Para el nodo principal se puede indicar en **Configuración › General › Modpacks › Clave de API de CurseForge**. Los nodos remotos leen el valor de su propia configuración. |
+| `daemon.curseforge.key` | vacía (una compilación puede incluir una mediante el argumento de compilación `curseforgeKey` del Dockerfile) | `SKYPANEL_DAEMON_CURSEFORGE_KEY` | La lee el daemon. Se indica en **Configuración › General › Modpacks › Clave de API de CurseForge**: el panel la envía sola a todos los nodos remotos y sobrescribe un valor puesto a mano en un nodo. Para recibirla, el nodo debe tener una versión con `/daemon/settings` (véase [Configuración del panel → Nodos](./panel-settings.md#nodos)). |
 
 - El servidor debe ser de tipo `minecraft-java` para que aparezca la pestaña Modpacks, y tener memoria suficiente para el modpack (el panel recomienda al menos 4096 MB).
 - Espacio en disco suficiente: el límite de disco del servidor se aplica a todo lo que se escribe.
@@ -130,7 +130,7 @@ Véase [Configuración](../backend/02-configuration.md) para saber cómo se leen
 
 | Mensaje | Causa y solución |
 |---------|------------------|
-| `CurseForge needs an API key; an administrator can add it in the panel settings` | El nodo no tiene `daemon.curseforge.key`. Añadirla en **Configuración › General** (nodo principal) o en la configuración del nodo remoto. |
+| `CurseForge needs an API key; an administrator can add it in the panel settings` | El nodo no tiene `daemon.curseforge.key`. Añadirla en **Configuración › General**. En un nodo remoto, comprobar en **Configuración › Copias externas › Nodos** que el nodo está al día; un nodo sin actualizar no recibe la clave hasta que se actualice. |
 | `CurseForge: refused the request (check the API key)` | La clave es incorrecta o se ha revocado. Sustituirla. |
 | `<sitio>: too many requests, try again in a minute` | Límite de peticiones de Modrinth o CurseForge. Esperar y reintentar. |
 | `a modpack install is already running` / `a backup or restore is running; try again when it finishes` / `a version change is already running` | Otra tarea ocupa el servidor. Esperar a que termine. |
