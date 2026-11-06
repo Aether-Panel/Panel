@@ -12,19 +12,25 @@ export type EditorStart =
       originalName?: string;
       /** False for a copy or an import, which only exist in the editor until saved. */
       saved: boolean;
-      takenNames: string[];
+      /** The local templates' names; null when they could not be read (see localTemplateNames). */
+      takenNames: string[] | null;
     }
   | { ok: false; problem: 'notFound' | 'importMissing' | 'loadFailed'; detail?: string };
 
 const templateUrl = (repoId: number, name: string) => `/api/templates/${repoId}/${encodeURIComponent(name)}`;
 
-/** Names of the local templates; empty when they cannot be read (then nothing is reported taken). */
-async function localTemplateNames(): Promise<string[]> {
+/**
+ * Names of the local templates, or null when they cannot be read. Null is not "none": without
+ * them a new name cannot be checked against the existing ones, so the editor blocks saving until
+ * a retry reads them (a save under an existing name would replace that template).
+ */
+export async function localTemplateNames(): Promise<string[] | null> {
   try {
     const list: unknown = await api.get('/api/templates/0');
-    return Array.isArray(list) ? list.flatMap((t) => (isPlainObject(t) && typeof t.name === 'string' ? [t.name] : [])) : [];
+    if (!Array.isArray(list)) return null;
+    return list.flatMap((t) => (isPlainObject(t) && typeof t.name === 'string' ? [t.name] : []));
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -57,7 +63,8 @@ export async function loadEditorStart(source: EditorSource, copyLabel: string): 
       case 'copy': {
         const raw = await fetchTemplate(source.repoId, source.name);
         if (raw === 'notFound') return { ok: false, problem: 'notFound', detail: source.name };
-        return { ok: true, template: duplicateTemplate(raw, source.name, takenNames, copyLabel), saved: false, takenNames };
+        // unknown names: the copy keeps its source's name, and saving waits for a successful check
+        return { ok: true, template: duplicateTemplate(raw, source.name, takenNames ?? [], copyLabel), saved: false, takenNames };
       }
     }
   } catch (e) {

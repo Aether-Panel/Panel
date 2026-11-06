@@ -3374,7 +3374,8 @@
           "label": "Name (unique ID)",
           "placeholder": "e.g. paper",
           "hint": "It appears in links and is unique among local templates. Lowercase letters, digits and hyphens work best.",
-          "hintRename": "If you change it, a new template is saved under that name and \"{{name}}\" stays as it is."
+          "hintRename": "If you change it, a new template is saved under that name and \"{{name}}\" stays as it is.",
+          "recheck": "Check again"
         },
         "display": {
           "label": "Display name",
@@ -3934,7 +3935,8 @@
         "nameDots": "The name cannot be \".\" or \"..\".",
         "nameWhitespace": "The name cannot start or end with spaces.",
         "nameControl": "The name has characters that cannot be used.",
-        "nameTaken": "There is already a local template with this name."
+        "nameTaken": "There is already a local template with this name.",
+        "namesUnchecked": "Couldn't read the local templates, so there is no telling whether this name exists. Check again to save."
       },
       "warnings": {
         "integerVariableValue": "Not a whole number: the node will change it without warning (text, for example, becomes 0).",

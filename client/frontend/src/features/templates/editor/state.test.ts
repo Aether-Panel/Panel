@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createDocument, isDirty, markSaved, removeAt, setJsonText, updateAt } from './document';
 import { copyName, duplicateTemplate, editorSource, importTemplate, prepareLoadedTemplate } from './initial';
 import { deleteIn, getIn, moveIn, renameKeyIn, setIn, type JsonObject } from './paths';
-import { templateNameProblem } from './template-name';
+import { sameTemplateName, templateNameProblem } from './template-name';
 import { countIssues, isUnderPath, validateTemplate, type EditorIssue } from './validation';
 import { defaultEnvironment, integerVariableValue } from './warnings';
 
@@ -51,6 +51,21 @@ describe('setIn', () => {
 
   it('appends to a list at its length', () => {
     expect(setIn(template, ['install', 1], { type: 'fabricdl' }).install).toHaveLength(2);
+  });
+
+  it('refuses list indexes that are negative, fractional or past the end', () => {
+    expect(setIn(template, ['install', 2], { type: 'mkdir' })).toBe(template);
+    expect(setIn(template, ['install', -1], { type: 'mkdir' })).toBe(template);
+    expect(setIn(template, ['install', 0.5], { type: 'mkdir' })).toBe(template);
+    expect(setIn({}, ['run', 'pre', 3, 'type'], 'mkdir')).toEqual({});
+    expect(JSON.stringify(setIn(template, ['install', 1, 'target'], 'x'))).not.toContain('null');
+  });
+
+  it('reads a number on an object as a key, never turning the object into a list', () => {
+    const next = setIn(template, ['data', 0], { type: 'string' });
+    expect(next.data).toEqual({ 0: { type: 'string' } });
+    expect(Array.isArray(next.data)).toBe(false);
+    expect(Object.keys(setIn({ data: { port: {} } }, ['data', 0], 1).data)).toEqual(['0', 'port']);
   });
 });
 
@@ -178,6 +193,20 @@ describe('template name', () => {
     expect(templateNameProblem('paper', { takenNames: ['paper'] })).toBe('nameTaken');
     expect(templateNameProblem('paper', { takenNames: ['paper'], originalName: 'paper' })).toBeUndefined();
   });
+
+  it('compares names as the database does, ignoring case and accents', () => {
+    // MariaDB's default collation finds the row "paper" for "Paper" or "pàper" and replaces it
+    for (const name of ['Paper', 'PAPER', 'pàper', 'Pápér']) {
+      expect(templateNameProblem(name, { takenNames: ['paper'] }), name).toBe('nameTaken');
+      expect(sameTemplateName(name, 'paper'), name).toBe(true);
+    }
+    expect(sameTemplateName('paper-1', 'paper')).toBe(false);
+  });
+
+  it('counts a case or accent change of the opened name as the same template', () => {
+    expect(templateNameProblem('Paper', { takenNames: ['paper', 'velocity'], originalName: 'paper' })).toBeUndefined();
+    expect(templateNameProblem('Velocity', { takenNames: ['paper', 'velocity'], originalName: 'paper' })).toBe('nameTaken');
+  });
 });
 
 describe('validation', () => {
@@ -196,6 +225,12 @@ describe('validation', () => {
       'environment.type: templates.editor.warnings.noDefaultEnvironment [warning]',
     ]);
     expect(countIssues(issues)).toEqual({ errors: 4, warnings: 2 });
+  });
+
+  it('blocks saving while the local names are unknown', () => {
+    const unknown = validateTemplate({ name: 'paper', environment: { type: 'host' } }, { takenNames: null });
+    expect(describeIssues(unknown)).toEqual(['name: templates.editor.validation.namesUnchecked [error, blocking]']);
+    expect(validateTemplate({ name: 'paper', environment: { type: 'host' } }, { takenNames: [] })).toEqual([]);
   });
 
   it('finds no errors in any community template', () => {
@@ -249,6 +284,9 @@ describe('starting points', () => {
     expect(copyName('paper', ['paper'])).toBe('paper-copy');
     expect(copyName('paper', ['paper', 'paper-copy'])).toBe('paper-copy-2');
     expect(copyName('a'.repeat(100), ['a'.repeat(100)])).toHaveLength(100);
+    // taken the way the database compares names
+    expect(copyName('paper', ['Paper'])).toBe('paper-copy');
+    expect(copyName('paper', ['PÀPER', 'Paper-Copy'])).toBe('paper-copy-2');
   });
 
   it('marks a renamed copy in its display name only', () => {

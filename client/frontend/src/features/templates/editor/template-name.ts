@@ -16,9 +16,23 @@ const CONTROL_CHARACTER = /[\u0000-\u001f\u007f-\u009f]/;
 export type TemplateNameProblem = 'nameRequired' | 'nameTooLong' | 'nameSlash' | 'nameDots' | 'nameWhitespace' | 'nameControl' | 'nameTaken';
 
 /**
+ * Whether two names reach the same stored template. The panel's MariaDB compares the name column
+ * with its default collation, which ignores case and accents: PUT .../Paper finds the row "paper"
+ * and replaces it. So names are told apart the way the database does, not character by character.
+ */
+export function sameTemplateName(a: string, b: string): boolean {
+  return a.localeCompare(b, undefined, { sensitivity: 'base' }) === 0;
+}
+
+/** Whether a local template in `names` would be reached by saving under `name`. */
+export function nameIsTaken(name: string, names: readonly string[]): boolean {
+  return names.some((taken) => sameTemplateName(taken, name));
+}
+
+/**
  * The first problem with `name`, or undefined when it can be saved. `takenNames` are the local
  * templates that already exist; saving under one of them would overwrite it, so a name is taken
- * unless it is the one the editor opened (`originalName`).
+ * unless it reaches the template the editor opened (`originalName`): the save updates that row.
  */
 export function templateNameProblem(
   name: unknown,
@@ -30,6 +44,7 @@ export function templateNameProblem(
   if (name === '.' || name === '..') return 'nameDots';
   if (name.trim() !== name) return 'nameWhitespace';
   if (CONTROL_CHARACTER.test(name)) return 'nameControl';
-  if (name !== originalName && takenNames.includes(name)) return 'nameTaken';
+  if (originalName !== undefined && sameTemplateName(name, originalName)) return undefined;
+  if (nameIsTaken(name, takenNames)) return 'nameTaken';
   return undefined;
 }

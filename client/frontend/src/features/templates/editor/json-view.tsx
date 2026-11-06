@@ -13,17 +13,22 @@ const TEMPLATE_MODEL_URI = 'inmemory://aether-panel/template.json';
 type Monaco = typeof import('monaco-editor');
 type Editor = import('monaco-editor').editor.IStandaloneCodeEditor;
 
+/**
+ * Adds the template schema to Monaco's JSON settings. They are global (the file manager's JSON
+ * editor shares them), so the other options and schemas stay as they are; only this schema's
+ * entry is replaced, which also keeps reopening the view from piling up copies.
+ */
 function configureJson(monaco: Monaco) {
+  const options = monaco.json.jsonDefaults.diagnosticsOptions;
+  const others = (options.schemas ?? []).filter((schema) => schema.uri !== TEMPLATE_JSON_SCHEMA_URI);
   monaco.json.jsonDefaults.setDiagnosticsOptions({
+    ...options,
     validate: true,
-    allowComments: false,
-    // the schema is inline; nothing is fetched
-    enableSchemaRequest: false,
-    schemas: [{ uri: TEMPLATE_JSON_SCHEMA_URI, fileMatch: [TEMPLATE_MODEL_URI], schema: templateJsonSchema() }],
+    schemas: [...others, { uri: TEMPLATE_JSON_SCHEMA_URI, fileMatch: [TEMPLATE_MODEL_URI], schema: templateJsonSchema() }],
   });
 }
 
-export default function TemplateJsonView() {
+export default function TemplateJsonView({ ariaLabel }: Readonly<{ ariaLabel: string }>) {
   const { jsonText, setJsonText, setInsertTarget, releaseInsertTarget } = useTemplateEditor();
   const target = useRef<InsertTarget | null>(null);
 
@@ -60,6 +65,7 @@ export default function TemplateJsonView() {
       onChange={(value) => setJsonText(value ?? '')}
       onBeforeMount={configureJson}
       onEditorReady={onEditorReady}
+      ariaLabel={ariaLabel}
     />
   );
 }

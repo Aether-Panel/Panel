@@ -30,30 +30,58 @@ export function getIn(root: unknown, path: Path): unknown {
 }
 
 /**
- * A copy of `root` with `value` at `path`. Missing parents are created (a list for a numeric
- * step, an object otherwise); a parent that is null or of another type is replaced, which is
- * what the form means when it writes into `"run": null`. An existing key keeps its position,
- * a new key goes last. Writing the value already there returns `root` itself.
+ * Whether every numeric step of `path` that indexes a list (or a missing parent, which becomes
+ * one) is a whole number from 0 to the list's length: past the end would leave holes that JSON
+ * writes as null, and a negative index is no position at all. A numeric step into an object is
+ * a key ("0") and always fine.
  */
-export function setIn<T>(root: T, path: Path, value: unknown): T {
+function indexesFit(root: unknown, path: Path): boolean {
+  let current = root;
+  for (const segment of path) {
+    if (typeof segment === 'number' && !isPlainObject(current)) {
+      const list = Array.isArray(current) ? current : [];
+      if (!Number.isInteger(segment) || segment < 0 || segment > list.length) return false;
+      current = list[segment];
+    } else {
+      current = isPlainObject(current) && Object.hasOwn(current, segment) ? current[String(segment)] : undefined;
+    }
+  }
+  return true;
+}
+
+function setUnchecked<T>(root: T, path: Path, value: unknown): T {
   if (path.length === 0) return value as T;
   const [head, ...rest] = path;
 
-  if (typeof head === 'number') {
+  // a number indexes a list; on an object it is a key, so writing data.0 never turns the
+  // variables into a list
+  if (typeof head === 'number' && !isPlainObject(root)) {
     const list = Array.isArray(root) ? root : [];
-    const next = setIn(list[head], rest, value);
+    const next = setUnchecked(list[head], rest, value);
     if (Array.isArray(root) && head < list.length && Object.is(next, list[head])) return root;
     const copy = list.slice();
     copy[head] = next;
     return copy as T;
   }
 
+  const key = String(head);
   const object: JsonObject = isPlainObject(root) ? root : {};
   // a missing child is built by the recursion: a list for a numeric step, an object otherwise
-  const next = setIn(Object.hasOwn(object, head) ? object[head] : undefined, rest, value);
-  if (isPlainObject(root) && Object.hasOwn(root, head) && Object.is(next, root[head])) return root;
+  const next = setUnchecked(Object.hasOwn(object, key) ? object[key] : undefined, rest, value);
+  if (isPlainObject(root) && Object.hasOwn(root, key) && Object.is(next, root[key])) return root;
   // spreading keeps the key order and assigning an existing key does not move it
-  return { ...object, [head]: next } as T;
+  return { ...object, [key]: next } as T;
+}
+
+/**
+ * A copy of `root` with `value` at `path`. Missing parents are created (a list for a numeric
+ * step, an object otherwise); a parent that is null or of another type is replaced, which is
+ * what the form means when it writes into `"run": null`. An existing key keeps its position,
+ * a new key goes last. Writing the value already there, or a list index that does not fit (see
+ * indexesFit), returns `root` itself.
+ */
+export function setIn<T>(root: T, path: Path, value: unknown): T {
+  return indexesFit(root, path) ? setUnchecked(root, path, value) : root;
 }
 
 /**

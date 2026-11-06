@@ -22,8 +22,11 @@ export interface EditorIssue {
 }
 
 export interface ValidationContext {
-  /** Local templates that already exist, so a new name does not overwrite one of them. */
-  takenNames?: readonly string[];
+  /**
+   * Local templates that already exist, so a new name does not overwrite one of them; null when
+   * they could not be read, which blocks saving (any name might overwrite one).
+   */
+  takenNames?: readonly string[] | null;
   /** The name the editor opened the template under; keeping it is not taking a name. */
   originalName?: string;
   warningRules?: readonly WarningRule[];
@@ -46,8 +49,10 @@ function schemaSeverity(messageKey: string): Pick<EditorIssue, 'severity' | 'blo
 export function validateTemplate(template: JsonObject, context: ValidationContext = {}): EditorIssue[] {
   const issues: EditorIssue[] = [];
 
-  const nameProblem = templateNameProblem(template.name, context);
+  const { takenNames, originalName } = context;
+  const nameProblem = templateNameProblem(template.name, { takenNames: takenNames ?? [], originalName });
   if (nameProblem) issues.push({ path: 'name', messageKey: msg(nameProblem), severity: 'error', blocking: true });
+  else if (takenNames === null) issues.push({ path: 'name', messageKey: msg('namesUnchecked'), severity: 'error', blocking: true });
 
   const result = templateSchema.safeParse(template);
   if (!result.success) {

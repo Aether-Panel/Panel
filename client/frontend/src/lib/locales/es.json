@@ -3374,7 +3374,8 @@
           "label": "Nombre (ID único)",
           "placeholder": "p. ej. paper",
           "hint": "Aparece en los enlaces y no se repite entre las plantillas locales. Mejor en minúsculas, con números y guiones.",
-          "hintRename": "Si lo cambias, se guarda una plantilla nueva con ese nombre y «{{name}}» se queda como está."
+          "hintRename": "Si lo cambias, se guarda una plantilla nueva con ese nombre y «{{name}}» se queda como está.",
+          "recheck": "Volver a comprobar"
         },
         "display": {
           "label": "Nombre visible",
@@ -3934,7 +3935,8 @@
         "nameDots": "El nombre no puede ser «.» ni «..».",
         "nameWhitespace": "El nombre no puede empezar ni acabar con espacios.",
         "nameControl": "El nombre lleva caracteres que no se pueden usar.",
-        "nameTaken": "Ya hay una plantilla local con este nombre."
+        "nameTaken": "Ya hay una plantilla local con este nombre.",
+        "namesUnchecked": "No se pudieron leer las plantillas locales, así que no se sabe si este nombre ya existe. Vuelve a comprobarlo para poder guardar."
       },
       "warnings": {
         "integerVariableValue": "No es un número entero: el nodo lo cambiará sin avisar (un texto, por ejemplo, pasa a ser 0).",

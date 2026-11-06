@@ -134,9 +134,11 @@ interface CodeEditorProps {
   path?: string;
   /** Runs before the editor is created, to configure the language services. */
   onBeforeMount?: (monaco: any) => void;
+  /** What screen readers call the editor. */
+  ariaLabel?: string;
 }
 
-export default function CodeEditor({ language, value, onChange, onSave, onEditorReady, path, onBeforeMount }: Readonly<CodeEditorProps>) {
+export default function CodeEditor({ language, value, onChange, onSave, onEditorReady, path, onBeforeMount, ariaLabel }: Readonly<CodeEditorProps>) {
   const editorRef = useRef<any>(null);
   // Monaco keeps the command it was given at mount, so it reads the latest save handler from here
   const onSaveRef = useRef(onSave);
@@ -210,6 +212,7 @@ export default function CodeEditor({ language, value, onChange, onSave, onEditor
         onMount={handleOnMount}
         loading={loadingFallback}
         options={{
+            ariaLabel,
             automaticLayout: true,
             fontSize: 14,
             fontFamily: EDITOR_FONT_FAMILY,

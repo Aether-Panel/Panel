@@ -1,7 +1,9 @@
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TemplateLogo } from '@/components/template-logo';
-import { LayoutTemplate } from '@/components/icons';
+import { LayoutTemplate, Loader2, RefreshCw } from '@/components/icons';
 import { SettingsSection } from '@/features/settings/general-tab';
 import { useTranslations } from '@/contexts/translations-context';
 import { TEMPLATE_LOGO_KEYS, templateLogo } from '@/lib/template-logos';
@@ -52,10 +54,36 @@ function IconPicker() {
   );
 }
 
+/** Shown while the local templates' names are unknown: saving waits until they are read again. */
+function RecheckNames() {
+  const { t } = useTranslations();
+  const { recheckNames } = useTemplateEditor();
+  const [checking, setChecking] = useState(false);
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      disabled={checking}
+      onClick={async () => {
+        setChecking(true);
+        try {
+          await recheckNames();
+        } finally {
+          setChecking(false);
+        }
+      }}
+    >
+      {checking ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
+      {t('templates.editor.info.name.recheck')}
+    </Button>
+  );
+}
+
 /** Información: the template's name (its id), what users see, its category and its icon. */
 export function InfoSection() {
   const { t } = useTranslations();
-  const { originalName } = useTemplateEditor();
+  const { originalName, namesUnchecked } = useTemplateEditor();
   const name = useTemplateField<string>(['name']);
   const display = useTemplateField<string>(['display']);
   const type = useTemplateField<string>(['type']);
@@ -82,6 +110,7 @@ export function InfoSection() {
               />
             )}
           </TemplateField>
+          {namesUnchecked && <RecheckNames />}
           <TemplateField id={display.id} label={t('templates.editor.info.display.label')} hint={t('templates.editor.info.display.hint')} issues={display.issues}>
             {(props) => (
               <Input

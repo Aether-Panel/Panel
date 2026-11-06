@@ -28,7 +28,13 @@ function ViewSwitcher({ view, splitAvailable }: Readonly<{ view: EditorView; spl
   );
 }
 
-/** One line on the state of the template: what blocks saving, else how many issues are left. */
+/** The status line's id, which the Save button points to for why it is disabled. */
+const STATUS_ID = 'template-editor-status';
+
+/**
+ * One line on the state of the template: what blocks saving, else how many issues are left. A
+ * polite live region, so the reason Save turns off is announced.
+ */
 function StatusLine({ className }: Readonly<{ className?: string }>) {
   const { t } = useTranslations();
   const { issues, jsonProblem, blocked } = useTemplateEditor();
@@ -52,7 +58,7 @@ function StatusLine({ className }: Readonly<{ className?: string }>) {
   }
 
   return (
-    <p className={cn('flex min-w-0 items-center gap-1.5 text-sm', tone, className)}>
+    <p id={STATUS_ID} aria-live="polite" className={cn('flex min-w-0 items-center gap-1.5 text-sm', tone, className)}>
       <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
       <span className="truncate">{text}</span>
     </p>
@@ -82,7 +88,7 @@ export function EditorToolbar({ view, splitAvailable, saving, canSave, onSave, o
           <Download aria-hidden="true" />
           <span className="hidden md:inline">{t('templates.editor.download')}</span>
         </Button>
-        <Button onClick={onSave} disabled={!canSave}>
+        <Button onClick={onSave} disabled={!canSave} aria-describedby={STATUS_ID}>
           {saving ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}
           {saving ? t('common.saving') : t('templates.editor.save')}
         </Button>

@@ -1,6 +1,6 @@
 import { parseTemplateJson, type JsonProblem } from './document';
 import { isPlainObject, type JsonObject } from './paths';
-import { TEMPLATE_NAME_MAX_LENGTH } from './template-name';
+import { nameIsTaken, TEMPLATE_NAME_MAX_LENGTH } from './template-name';
 
 // Where a template in the editor comes from: a blank one, a saved one, a copy or a .json file.
 
@@ -39,13 +39,13 @@ export function prepareLoadedTemplate(raw: JsonObject, name: string): JsonObject
  * template copied to local keeps its name), else name-copy, name-copy-2… cut to fit the column.
  */
 export function copyName(name: string, takenNames: readonly string[]): string {
-  const taken = new Set(takenNames);
-  if (name !== '' && !taken.has(name)) return name;
+  // taken as the database sees it: ignoring case and accents
+  if (name !== '' && !nameIsTaken(name, takenNames)) return name;
   const base = name || 'template';
   for (let n = 1; ; n++) {
     const suffix = n === 1 ? '-copy' : `-copy-${n}`;
     const candidate = [...base].slice(0, TEMPLATE_NAME_MAX_LENGTH - suffix.length).join('') + suffix;
-    if (!taken.has(candidate)) return candidate;
+    if (!nameIsTaken(candidate, takenNames)) return candidate;
   }
 }
 

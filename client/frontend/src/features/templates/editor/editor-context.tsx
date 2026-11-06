@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as Document from './document';
+import { localTemplateNames } from './load';
 import { getIn, pathKey, type JsonObject, type Path } from './paths';
 import { issuesByPath, validateTemplate, type EditorIssue } from './validation';
 import type { EditorSectionId } from './sections';
@@ -22,6 +23,10 @@ export interface TemplateEditorValue {
   dirty: boolean;
   /** The name the template was opened or last saved under; undefined until a new one is saved. */
   originalName: string | undefined;
+  /** The local templates' names could not be read, so saving waits for recheckNames(). */
+  namesUnchecked: boolean;
+  /** Reads the local templates' names again; resolves to whether it worked. */
+  recheckNames: () => Promise<boolean>;
 
   /** Writes `value` at `path` (a key or index list); undefined removes the key. */
   update: (path: Path, value: unknown) => void;
@@ -74,8 +79,8 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
   saved?: boolean;
   /** The local template being edited; undefined for a new one. */
   originalName?: string;
-  /** Names of the local templates, so a new name cannot overwrite one. */
-  takenNames: readonly string[];
+  /** Names of the local templates, so a new name cannot overwrite one; null when unknown. */
+  takenNames: readonly string[] | null;
   children: ReactNode;
 }>) {
   const [doc, setDoc] = useState(() => Document.createDocument(initialTemplate, saved));
@@ -93,7 +98,12 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
     setDoc((d) => Document.markSaved(d, saved));
     setOriginalName(name);
     // saved under a new name, the template opened before still exists under its old one
-    setTakenNames((names) => (names.includes(name) ? names : [...names, name]));
+    setTakenNames((names) => (names === null || names.includes(name) ? names : [...names, name]));
+  }, []);
+  const recheckNames = useCallback(async () => {
+    const names = await localTemplateNames();
+    if (names) setTakenNames(names);
+    return names !== null;
   }, []);
 
   const issues = useMemo(
@@ -134,6 +144,8 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
       jsonProblem: doc.jsonProblem,
       dirty: Document.isDirty(doc),
       originalName,
+      namesUnchecked: takenNames === null,
+      recheckNames,
       update,
       remove,
       change,
@@ -150,7 +162,7 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
       releaseInsertTarget,
       insertIntoField,
     }),
-    [doc, originalName, update, remove, change, setJsonText, markSaved, issues, issuesAt, view, section, goTo, setInsertTarget, releaseInsertTarget, insertIntoField],
+    [doc, originalName, takenNames, recheckNames, update, remove, change, setJsonText, markSaved, issues, issuesAt, view, section, goTo, setInsertTarget, releaseInsertTarget, insertIntoField],
   );
 
   return <TemplateEditorContext.Provider value={value}>{children}</TemplateEditorContext.Provider>;

@@ -27,12 +27,13 @@ export function FieldIssues({ id, issues }: Readonly<{ id: string; issues: reado
   const { t } = useTranslations();
   return (
     <ul id={id} aria-live="polite" className="space-y-1 empty:!mt-0">
-      {issues.map((issue) => {
+      {issues.map((issue, index) => {
         const isError = issue.severity === 'error';
         const Icon = isError ? AlertCircle : AlertTriangle;
         return (
           <li
-            key={`${issue.messageKey}-${issue.path}`}
+            // one path can carry the same message twice (two schema branches), hence the index
+            key={`${index}-${issue.messageKey}`}
             className={cn('flex items-start gap-1.5 text-pretty text-xs', isError ? 'text-destructive-bright' : 'text-warning')}
           >
             <Icon className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
