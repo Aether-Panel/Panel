@@ -1,6 +1,7 @@
 package api
 
 import (
+	"net/http"
 	"path/filepath"
 	"testing"
 
@@ -33,7 +34,7 @@ func TestApplyNodeBackups_DropsFailedManualBackups(t *testing.T) {
 		{FileName: "broken.tar.gz", Location: servers.BackupFailedLocation},
 		{FileName: "unknown.tar.gz", Location: servers.BackupFailedLocation},
 		{FileName: servers.AutoBackupPrefix + "new.tar.gz", Size: 5, Location: "local"},
-	})
+	}, true)
 	require.NoError(t, err)
 
 	// every failed one is cleared on the node, recorded or not
@@ -71,7 +72,7 @@ func TestSyncBackups_RecordsPeriodicCopies(t *testing.T) {
 	// the node deletes the local archive once uploaded, so the copy is only in the bucket
 	_, err = applyNodeBackups(bs, server, []skypanel.BackupFile{
 		{FileName: periodic, Size: 42, Location: "offsite"},
-	})
+	}, true)
 	require.NoError(t, err)
 
 	records, err := bs.GetAllForServer(server.Identifier)
@@ -85,7 +86,7 @@ func TestSyncBackups_RecordsPeriodicCopies(t *testing.T) {
 	// a later sync where it is still only in the bucket keeps it
 	_, err = applyNodeBackups(bs, server, []skypanel.BackupFile{
 		{FileName: periodic, Size: 42, Location: "offsite"},
-	})
+	}, true)
 	require.NoError(t, err)
 	records, err = bs.GetAllForServer(server.Identifier)
 	require.NoError(t, err)
@@ -96,12 +97,12 @@ func TestSyncBackups_RecordsPeriodicCopies(t *testing.T) {
 	_, err = applyNodeBackups(bs, server, []skypanel.BackupFile{
 		{FileName: periodic, Size: 42, Location: "offsite"},
 		{FileName: next, Size: 50, Location: "local"},
-	})
+	}, true)
 	require.NoError(t, err)
 	_, err = applyNodeBackups(bs, server, []skypanel.BackupFile{
 		{FileName: periodic, Size: 42, Location: "offsite"},
 		{FileName: next, Size: 50, Location: "offsite"},
-	})
+	}, true)
 	require.NoError(t, err)
 	records, err = bs.GetAllForServer(server.Identifier)
 	require.NoError(t, err)
@@ -115,9 +116,80 @@ func TestSyncBackups_RecordsPeriodicCopies(t *testing.T) {
 	}
 
 	// once the retention removes it from the bucket the node stops listing it
-	_, err = applyNodeBackups(bs, server, []skypanel.BackupFile{})
+	_, err = applyNodeBackups(bs, server, []skypanel.BackupFile{}, true)
 	require.NoError(t, err)
 	records, err = bs.GetAllForServer(server.Identifier)
 	require.NoError(t, err)
 	assert.Empty(t, records)
+}
+
+// newBackupSyncDB opens an empty panel database for one test
+func newBackupSyncDB(t *testing.T) *gorm.DB {
+	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "backups.db")), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	require.NoError(t, db.AutoMigrate(&models.User{}, &models.Node{}, &models.Server{}, &models.Backup{}))
+	return db
+}
+
+// When the node could not list the bucket its list lacks the copies only the bucket has: the
+// panel keeps their records, and does not take a copy in both places for a local one
+func TestApplyNodeBackups_KeepsOffsiteRecordsWhenTheBucketIsUnknown(t *testing.T) {
+	server := &models.Server{Identifier: "srv01"}
+	bs := &services.Backup{DB: newBackupSyncDB(t)}
+	periodic := servers.OffsiteBackupPrefix + "0b5c9a1e-3f2d-4c8e-9a7b-6d1e2f3a4b5c.tar.gz"
+	both := servers.AutoBackupPrefix + "both.tar.gz"
+	pruned := servers.AutoBackupPrefix + "pruned.tar.gz"
+	gone := servers.AutoBackupPrefix + "gone.tar.gz"
+	require.NoError(t, bs.Create(&models.Backup{Name: "Periodic backup (S3)", FileName: periodic, FileSize: 42, Location: "offsite", ServerID: server.Identifier}))
+	require.NoError(t, bs.Create(&models.Backup{Name: "Automatic backup", FileName: both, FileSize: 7, Location: "both", ServerID: server.Identifier}))
+	require.NoError(t, bs.Create(&models.Backup{Name: "Automatic backup", FileName: pruned, FileSize: 8, Location: "both", ServerID: server.Identifier}))
+	require.NoError(t, bs.Create(&models.Backup{Name: "Automatic backup", FileName: gone, FileSize: 9, Location: "local", ServerID: server.Identifier}))
+	byName := func() map[string]*models.Backup {
+		records, err := bs.GetAllForServer(server.Identifier)
+		require.NoError(t, err)
+		result := map[string]*models.Backup{}
+		for _, r := range records {
+			result[r.FileName] = r
+		}
+		return result
+	}
+	before := byName()
+
+	_, err := applyNodeBackups(bs, server, []skypanel.BackupFile{
+		{FileName: both, Size: 7, Location: "local"},
+	}, false)
+	require.NoError(t, err)
+
+	records := byName()
+	if assert.Contains(t, records, periodic, "a copy only the bucket has keeps its record") {
+		assert.Equal(t, before[periodic].ID, records[periodic].ID, "and its id, so open links still work")
+		assert.Equal(t, "offsite", records[periodic].Location)
+	}
+	if assert.Contains(t, records, both) {
+		assert.Equal(t, "both", records[both].Location, "the bucket's copy is not known to be gone")
+	}
+	assert.Contains(t, records, pruned, "its local copy was pruned, the bucket's may still be there")
+	assert.NotContains(t, records, gone, "a copy that was only on the node is gone")
+
+	// a node that listed its bucket fine (or an older one) is taken at its word, as before
+	_, err = applyNodeBackups(bs, server, []skypanel.BackupFile{
+		{FileName: both, Size: 7, Location: "local"},
+	}, true)
+	require.NoError(t, err)
+	records = byName()
+	assert.NotContains(t, records, periodic)
+	assert.NotContains(t, records, pruned)
+	if assert.Contains(t, records, both) {
+		assert.Equal(t, "local", records[both].Location)
+	}
+}
+
+func TestNodeListedBucket_OnlyTheUnavailableMarkCounts(t *testing.T) {
+	assert.True(t, nodeListedBucket(http.Header{}), "an older node never sets the header")
+	header := http.Header{}
+	header.Set(servers.BackupsOffsiteHeader, servers.BackupsOffsiteUnavailable)
+	assert.False(t, nodeListedBucket(header))
 }

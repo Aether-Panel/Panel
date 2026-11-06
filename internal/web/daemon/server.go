@@ -1263,7 +1263,9 @@ func createBackup(c *gin.Context) {
 
 // @Summary List backup files
 // @Description Lists the finished backup archives in the server's backup folder, newest first,
-// @Description then the backups made by hand whose archive could not be written, with location "failed"
+// @Description then the backups made by hand whose archive could not be written, with location "failed".
+// @Description When the bucket is set up but could not be listed, the header X-Backups-Offsite: unavailable
+// @Description says the copies only the bucket has are missing from the list
 // @Success 200 {object} []skypanel.BackupFile
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
@@ -1272,9 +1274,13 @@ func createBackup(c *gin.Context) {
 func listBackups(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	backups, err := server.ListBackups()
+	backups, bucketListed, err := server.ListBackupsChecked()
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
+	}
+	if !bucketListed {
+		// the list lacks the copies only the bucket has; the panel keeps their records
+		c.Header(servers.BackupsOffsiteHeader, servers.BackupsOffsiteUnavailable)
 	}
 	// the panel recorded those when they were asked for, and drops them when it sees them here
 	failed, err := server.FailedBackups()
