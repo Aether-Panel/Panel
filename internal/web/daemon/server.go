@@ -129,6 +129,9 @@ func RegisterServerRoutes(e *gin.RouterGroup) {
 		l.GET("/:serverId/notifications", middleware.ResolveServerNode, getNotifications)
 		l.PUT("/:serverId/notifications", middleware.ResolveServerNode, putNotifications)
 		l.POST("/:serverId/notifications/test", middleware.ResolveServerNode, testNotifications)
+		l.GET("/:serverId/offsite", middleware.ResolveServerNode, getOffsiteSettings)
+		l.PUT("/:serverId/offsite", middleware.ResolveServerNode, putOffsiteSettings)
+		l.OPTIONS("/:serverId/offsite", response.CreateOptions("GET", "PUT"))
 
 		l.GET("/:serverId/plugins", middleware.ResolveServerNode, getPlugins)
 		l.DELETE("/:serverId/plugins", middleware.ResolveServerNode, deletePlugin)
@@ -2045,6 +2048,49 @@ func putNotifications(c *gin.Context) {
 	}
 	err := server.SetNotifications(n)
 	if errors.Is(err, services.ErrInvalidDiscordWebhook) || errors.Is(err, services.ErrInvalidTelegram) || errors.Is(err, services.ErrInvalidWebhook) {
+		response.HandleError(c, err, http.StatusBadRequest)
+		return
+	}
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
+		c.Status(http.StatusNoContent)
+	}
+}
+
+// @Summary Get the periodic off-site copy settings
+// @Description The server's own periodic off-site copy setting (null follows the panel's), what it ends up using, whether the bucket is set up, and when its last periodic copy was made (null when none is known)
+// @Success 200 {object} servers.OffsiteStatus
+// @Param id path string true "Server ID"
+// @Tags Daemon Server
+// @Router /api/servers/{id}/offsite [get]
+// @Security OAuth2Application[server.backup.view]
+func getOffsiteSettings(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	status, err := server.OffsiteStatus()
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	c.JSON(http.StatusOK, status)
+}
+
+// @Summary Save the periodic off-site copy settings
+// @Description Sets how often the server gets a periodic copy in the bucket (0 = never) and how many of those copies stay there; null goes back to the panel's setting
+// @Success 204 {object} nil
+// @Failure 400 {object} skypanel.ErrorResponse "An interval the panel does not offer, or copies to keep out of 1-50"
+// @Param id path string true "Server ID"
+// @Param settings body servers.OffsiteSettings true "Periodic off-site copy settings"
+// @Tags Daemon Server
+// @Router /api/servers/{id}/offsite [put]
+// @Security OAuth2Application[server.backup.create]
+func putOffsiteSettings(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	var settings servers.OffsiteSettings
+	if response.HandleError(c, c.ShouldBindJSON(&settings), http.StatusBadRequest) {
+		return
+	}
+	err := server.SetOffsiteSettings(settings)
+	if errors.Is(err, skypanel.ErrOffsitePeriodicHours) || errors.Is(err, skypanel.ErrOffsiteKeep) {
 		response.HandleError(c, err, http.StatusBadRequest)
 		return
 	}

@@ -112,7 +112,7 @@ Yes. An administrator moves it between nodes of the same panel from the **Admini
 
 ### Is there a limit on backups?
 
-Each server's users can keep up to `panel.backups.maxPerServer` backups (10 by default; administrators are not limited). Delete an old one to make another. See [Backups](../features/backups.md).
+Each server's users can keep up to `panel.backups.maxPerServer` backups on the node (10 by default; administrators are not limited). Those kept only in the S3 bucket (periodic copies, and task copies already deleted from the node) do not count. Delete an old one to make another. See [Backups](../features/backups.md).
 
 ## Privacy and integrations
 

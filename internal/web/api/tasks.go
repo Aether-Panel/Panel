@@ -35,14 +35,16 @@ type userTaskOperation struct {
 
 // userTaskOperations is what a task made by someone without admin may do. Everything else
 // (shell commands, downloads, file writes) stays with administrators, since a task runs on
-// the node with nobody watching and those reach beyond the game.
+// the node with nobody watching and those reach beyond the game. A backup step never takes
+// taskId: only the scheduler sets it, or a user could name another task and prune its copies
+// in the bucket.
 var userTaskOperations = map[string]userTaskOperation{
 	"stdin":   {keys: []string{"command"}, scopes: []*scopes.Scope{scopes.ScopeServerSendCommand}},
 	"sleep":   {keys: []string{"duration"}},
 	"start":   {scopes: []*scopes.Scope{scopes.ScopeServerStart}},
 	"stop":    {scopes: []*scopes.Scope{scopes.ScopeServerStop}},
 	"restart": {scopes: []*scopes.Scope{scopes.ScopeServerStart, scopes.ScopeServerStop}},
-	"backup":  {keys: []string{"keep"}, scopes: []*scopes.Scope{scopes.ScopeServerBackupCreate}},
+	"backup":  {keys: []string{"keep", "offsite", "offsiteKeep"}, scopes: []*scopes.Scope{scopes.ScopeServerBackupCreate}},
 }
 
 const (
@@ -144,6 +146,12 @@ func validateUserTaskStep(op skypanel.ConditionalMetadataType) error {
 		if _, err := servers.AutoBackupKeep(op.Metadata["keep"]); err != nil {
 			return err
 		}
+		if _, err := servers.ParseOffsiteFrequency(op.Metadata["offsite"]); err != nil {
+			return err
+		}
+		if _, err := servers.OffsiteKeep(op.Metadata["offsiteKeep"]); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -186,11 +194,12 @@ func putServerTask(c *gin.Context) {
 // syncAutomaticBackupsLock keeps two requests for the same list from adding a backup twice
 var syncAutomaticBackupsLock sync.Mutex
 
-// syncAutomaticBackups brings the panel's list in line with the node: backups scheduled tasks
-// made are added and ones removed by retention are dropped, and every backup gets its size
-// once its archive is written. Backups made by hand are recorded when they are made, so only
-// automatic ones are added, and one made by hand is only removed when the node reports that
-// its archive could not be written. It is best effort: when the node cannot be reached the
+// syncAutomaticBackups brings the panel's list in line with the node: the backups of scheduled
+// tasks, restore points and periodic off-site copies (which only the bucket keeps) are added,
+// ones removed by retention are dropped, and every backup gets its size once its archive is
+// written. Backups made by hand are recorded when they are made,
+// so only automatic ones are added, and one made by hand is only removed when the node reports
+// that its archive could not be written. It is best effort: when the node cannot be reached the
 // stored list is shown as it is.
 func syncAutomaticBackups(ctx context.Context, db *gorm.DB, server *models.Server) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -281,8 +290,11 @@ func addSystemBackups(bs *services.Backup, server *models.Server, onNode []skypa
 			continue
 		}
 		name := "Automatic backup"
-		if strings.HasPrefix(f.FileName, servers.RestorePointPrefix) {
+		switch {
+		case strings.HasPrefix(f.FileName, servers.RestorePointPrefix):
 			name = "Restore point"
+		case strings.HasPrefix(f.FileName, servers.OffsiteBackupPrefix):
+			name = "Periodic backup (S3)"
 		}
 		record := &models.Backup{Name: name, FileName: f.FileName, FileSize: f.Size, Location: f.Location, ServerID: server.Identifier, CreatedAt: f.ModTime}
 		if err := bs.Create(record); err != nil {
@@ -291,8 +303,12 @@ func addSystemBackups(bs *services.Backup, server *models.Server, onNode []skypa
 	}
 }
 
-// isSystemBackup tells backups the node makes by itself (scheduled tasks, restore points), which
-// the panel adds and removes as they come and go, from those made by hand
+// isSystemBackup tells backups the node makes by itself (scheduled tasks, restore points, the
+// periodic off-site copy), which the panel adds and removes as they come and go, from those made
+// by hand. The node lists the periodic copy with Location "offsite" once only the bucket has it,
+// so it stays recorded until the retention removes it there.
 func isSystemBackup(fileName string) bool {
-	return strings.HasPrefix(fileName, servers.AutoBackupPrefix) || strings.HasPrefix(fileName, servers.RestorePointPrefix)
+	return strings.HasPrefix(fileName, servers.AutoBackupPrefix) ||
+		strings.HasPrefix(fileName, servers.RestorePointPrefix) ||
+		strings.HasPrefix(fileName, servers.OffsiteBackupPrefix)
 }

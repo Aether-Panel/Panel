@@ -76,8 +76,8 @@ El aviso de disco bajo procede de `features/nodes/node-disk-alert.tsx`: una lín
 | Propiedades | `properties-view.tsx`, `server-properties.ts`, `server-properties-catalog.ts` | Editor en formulario de `server.properties` con un catálogo de claves conocidas y un editor de MOTD (experimental, Minecraft Java). |
 | Usuarios | `users-view.tsx` | Subusuarios y sus permisos; el dueño solo puede conceder los scopes que tiene (los `OwnerScopes` del backend). `server.view` siempre se incluye. |
 | Base de datos | `database-view.tsx` | Bases de datos en los hosts de bases de datos disponibles para el servidor. |
-| Copias de seguridad | `backups-view.tsx` | Listar, crear (con nombre opcional), restaurar, descargar y eliminar; las copias hechas por tareas programadas se identifican como tales. |
-| Tareas | `tasks-view.tsx`, `task-dialog.tsx`, `task-schedule.ts` | Tareas programadas: editor de horario y lista ordenada de pasos (comando `stdin`, `sleep`, `restart`, `stop`, `start`, `backup`), ejecutar ahora. |
+| Copias de seguridad | `backups-view.tsx`, `offsite-card.tsx` | Listar, crear (con nombre opcional), restaurar, descargar y eliminar; las copias hechas por tareas programadas y las copias periódicas se identifican como tales. `offsite-card.tsx` es la tarjeta **Copia al S3**: intervalo y copias a conservar de la copia periódica del servidor. |
+| Tareas | `tasks-view.tsx`, `task-dialog.tsx`, `task-schedule.ts` | Tareas programadas: editor de horario y lista ordenada de pasos (comando `stdin`, `sleep`, `restart`, `stop`, `start`, `backup`, este con su frecuencia de subida al S3), ejecutar ahora. |
 | Actividad | `activity-view.tsx` | Registro de actividad paginado (`GET /api/servers/:id/activity?limit=&before=&type=`), filtrable por familia. |
 | Acceso SFTP | `sftp-view.tsx` | Datos de conexión con botones de copiar. |
 | Migración | `external-transfer-view.tsx` | Traer un servidor desde otro panel o llevarlo a otro (crear, descargar, estado, cancelar). El estado de la importación llega como códigos (`STEP_*`, `ERROR_*`, `DONE`...) que la vista traduce en `servers.extransfer.progress`, con el `message` en inglés de la API como respaldo. |
@@ -147,7 +147,7 @@ Todos toman los colores de `CHART_COLORS` y formatean las horas con `chartLocale
 | `general-tab.tsx` | Secciones: Panel (nombre de la empresa, URL base, IP del nodo maestro), Notificaciones (`panel.settings.notificationLanguage`, español o inglés), Inteligencia artificial (clave de API de Gemini, desactivar el análisis de registros con IA para todos), Registro y seguridad (registro, captcha integrado, claves de Turnstile), Modpacks (clave de CurseForge) y Funciones experimentales (`panel.experimental.versionSwitch`, `propertiesEditor`, `serverClone`). |
 | `discord-tab.tsx` | Webhooks de Discord con prueba (ver [Discord y notificaciones](../general/16-discord.md)). |
 | `mail-tab.tsx` | Proveedor de correo (SMTP, Mailgun, Mailjet, SendGrid o Depuración) y prueba (ver [Correo](../general/15-email.md)). En Mailjet los campos son **Clave API (pública)** (`panel.email.domain`) y **Clave secreta** (`panel.email.key`); Depuración no muestra campos. |
-| `offsite-tab.tsx` | Copias externas en almacenamiento compatible con S3 (`daemon.backups.s3.*`) con prueba de conexión. |
+| `offsite-tab.tsx` | Copias externas en almacenamiento compatible con S3 (`daemon.backups.s3.*`) con prueba de conexión y los valores por defecto de la copia periódica. Los valores que comparte con la tarjeta del servidor y el editor de tareas están en `lib/offsite.ts`. |
 | `domains-tab.tsx` | Dominio de Cloudflare para los subdominios de los servidores, con estado y prueba. |
 | `api-keys-view.tsx` | Claves de API del panel. |
 | `products-view.tsx` | Productos de aprovisionamiento (`/api/provision/products`). |

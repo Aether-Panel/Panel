@@ -1000,7 +1000,31 @@
         "both": "Off-site",
         "bothHint": "Also kept in off-site storage.",
         "only": "Off-site only",
-        "onlyHint": "The local copy is gone; it is fetched from off-site storage when restored or downloaded."
+        "onlyHint": "The local copy is gone; it is fetched from off-site storage when restored or downloaded.",
+        "title": "Copy to S3",
+        "description": "A full copy of the server that goes straight to S3 every so often, without taking space on the node.",
+        "interval": "How often",
+        "defaultOption": "Default ({{value}})",
+        "defaultPlain": "Default",
+        "intervalOff": "Off",
+        "intervalHours": "{{count}} h",
+        "intervalDays": "{{count}} days",
+        "keep": "Keep in S3",
+        "keepHint": "1 to 50. Empty uses the default. The oldest are deleted from S3.",
+        "useDefault": "Default",
+        "last": "Last periodic copy: {{date}}",
+        "none": "No periodic copy yet.",
+        "notConfigured": "This node has no S3 set up.",
+        "readOnly": "Changing this takes the permission to create backups.",
+        "save": "Save",
+        "saved": "Saved",
+        "saveError": "The copy to S3 could not be saved.",
+        "periodic": {
+          "name": "Periodic backup (S3)",
+          "badge": "Periodic",
+          "hint": "Automatic copy of the whole server, kept in S3 only."
+        },
+        "loadError": "This server's copy to S3 could not be read: the node did not answer."
       },
       "usage": {
         "label": "Space used by backups:",
@@ -1098,7 +1122,18 @@
           "backup": "Backup (keeps {{count}})",
           "restartNote": "Only if it is running"
         },
-        "adminOnly": "Administrator step: {{type}}"
+        "adminOnly": "Administrator step: {{type}}",
+        "offsite": "Upload to S3",
+        "offsiteKeep": "Keep in S3",
+        "offsiteHelp": "Other runs keep the backup on the server only.",
+        "offsiteFrequencies": {
+          "never": "Never",
+          "always": "Always",
+          "weekend": "Every weekend",
+          "weekly": "Every week",
+          "biweekly": "Every 15 days",
+          "monthly": "Every month"
+        }
       },
       "dialog": {
         "createTitle": "New task",
@@ -3603,15 +3638,15 @@
     },
     "offsite": {
       "title": "Off-site backups",
-      "description": "Keep a copy of every backup in S3-compatible storage. If the node's disk fails, the backups are still safe.",
+      "description": "Keep backups away from the node, in S3-compatible storage. If the node's disk fails, those copies are still safe.",
       "test": "Test connection",
       "testOk": "Connected: a file was written to and deleted from the bucket.",
       "testError": "Could not connect to the storage.",
       "statusTitle": "Status",
-      "statusDescription": "Local backups are kept; the bucket is a second copy.",
+      "statusDescription": "The node's backups are kept; the bucket is a separate place where copies stay safe.",
       "enabled": "Upload backups to the bucket",
-      "enabledDescription": "Each finished backup is uploaded right away. Deleting it removes it from both places.",
-      "onHint": "On: new backups will be uploaded to the bucket.",
+      "enabledDescription": "The bucket gets each server's periodic copy and the backups of tasks that ask for it. Manual backups stay on the node. Deleting a backup removes it from both places.",
+      "onHint": "On: periodic copies and the copies of tasks that ask for it upload to the bucket.",
       "offHint": "Off: backups are only kept on the node.",
       "bucketTitle": "Bucket",
       "bucketDescription": "Works with AWS S3, Backblaze B2, Cloudflare R2, Wasabi, MinIO and any S3-compatible service.",
@@ -3628,7 +3663,14 @@
       "accessKey": "Access key",
       "secretKey": "Secret key",
       "insecure": "Unencrypted connection (http)",
-      "insecureDescription": "Only for a MinIO on your own network. Public providers use https."
+      "insecureDescription": "Only for a MinIO on your own network. Public providers use https.",
+      "periodicTitle": "Periodic copy of each server",
+      "periodicDescription": "Each server gets a full copy that goes straight to the bucket, without taking space on the node. Each server can change this in its Backups tab.",
+      "periodicHours": "Interval",
+      "periodicHoursHint": "How often each server gets its copy. \"Off\" turns it off for servers without their own interval.",
+      "periodicKeep": "Copies to keep in S3",
+      "periodicKeepHint": "1 to 50. When a new one is uploaded, the oldest are deleted.",
+      "remoteNodes": "Remote nodes: these values are saved in the panel's configuration and apply to the servers on its own node. Each remote node reads the daemon.backups.s3.* keys from its own config.json."
     },
     "domains": {
       "title": "Automatic subdomains",
@@ -3792,6 +3834,8 @@
     "ErrDiscordNoWebhooks": "There are no Discord webhooks configured.",
     "ErrDiscordTestFailed": "The test message did not reach these webhooks: {{webhooks}}. Check that they still exist in Discord.",
     "ErrNotificationLanguage": "The notification language must be Spanish or English.",
+    "ErrOffsitePeriodicHours": "The periodic off-site copy can only run every 12, 24, 48, 72, 168, 336 or 720 hours, or be turned off (0).",
+    "ErrOffsiteKeep": "The off-site copies to keep must be between 1 and 50.",
     "ErrAIConfirmationInvalid": "This request expired, was already answered or belongs to someone else. Ask again.",
     "ErrAccountPending": "Your account is waiting for approval. An administrator has to approve it before you can sign in.",
     "ErrGitHubNotConfigured": "GitHub is not set up on this panel. An administrator has to add the Client ID in Settings → GitHub.",

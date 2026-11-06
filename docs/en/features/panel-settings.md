@@ -11,7 +11,7 @@ The page has one tab per area. On phones and tablets the tabs become a drop-down
 | **General** | Name, Base URL, master node IP, notification language, AI, CurseForge key, sign-up and anti-bot, experimental features | `settings.edit` | This page |
 | **Discord** | Discord webhooks for alerts, reports, node status and transfers | `settings.edit` | [Discord](../general/16-discord.md) |
 | **Mail** | Mail provider and sender, with a test button | `settings.edit` | [Email](../general/15-email.md) |
-| **Off-site backups** | S3-compatible storage for copies of the backups | `settings.edit` | [Backups](./backups.md) |
+| **Off-site backups** | S3-compatible storage for backups and each server's periodic copy (default interval and copies to keep) | `settings.edit` | [Backups](./backups.md#off-site-copies) |
 | **Domains** | Cloudflare token, zone and base domain for automatic subdomains | `settings.edit` | [Subdomains](./subdomains.md) |
 | **API keys** | Keys for the provisioning API | `admin` | [Provisioning and SSO](./provisioning-and-sso.md) |
 | **Products** | Plans the billing system sells | `admin` | [Provisioning and SSO](./provisioning-and-sso.md) |
@@ -23,10 +23,19 @@ Users without `settings.edit` who open `/settings` are sent back to the dashboar
 ## How it works
 
 - **General**, **Discord**, **Mail**, **Off-site backups** and **Domains** share one save bar. Changes in any of them are kept until **Save Changes** is pressed; **Discard** returns to the saved values. Everything is sent in one request, `POST /api/settings`.
-- The panel validates every value first (Discord webhook URLs, for instance) so a bad value does not leave the settings half saved. Then each key is written to the panel's `config.json` (the file in `SKYPANEL_CONFIG`, `/etc/SkyPanel/config.json` or `config.json` in the working directory) and applied at once; no restart is needed.
+- The panel validates every value first (Discord webhook URLs, or the periodic copy's interval and copies to keep, for instance) so a bad value does not leave the settings half saved. Then each key is written to the panel's `config.json` (the file in `SKYPANEL_CONFIG`, `/etc/SkyPanel/config.json` or `config.json` in the working directory) and applied at once; no restart is needed.
 - Secrets are never sent back: `GET /api/settings` and `GET /api/settings/:key` answer `********` instead of their value (an empty secret stays empty, so the page can tell whether it is set). They are `panel.email.key`, `panel.email.password`, `panel.settings.geminiApiKey`, `daemon.curseforge.key`, the four `panel.notifications.discordWebhook*`, `panel.license.key`, `daemon.backups.s3.secretKey`, `panel.dns.cloudflare.token` and `panel.turnstile.secretKey`. The page sends `********` back when the field is not touched, and the panel reads it as "keep the saved value", both when saving (`POST /api/settings`, `PUT /api/settings/:key`) and in the test buttons (email, Discord, S3 and Cloudflare). To change a secret, type the new value.
 - **Global Master Node IP** is the exception: it is stored in the database (`panel_settings` table, key `master_node_ip`) so that several panels sharing a database read the same value.
 - **API keys**, **Products**, **Extensions** and **Updates** save through their own buttons and routes.
+
+### The Off-site backups tab
+
+Besides the bucket (endpoint, name, region, folder, keys, connection test and the **Upload backups to the bucket** switch, described in [Backups](./backups.md#in-the-panel)), the **Periodic copy of each server** section sets the defaults of the [periodic copy](./backups.md#periodic-copy):
+
+- **Interval** (`daemon.backups.s3.periodicHours`): **Off** (`0`, the default), 12 h, 24 h, 48 h, 72 h, 7 days, 14 days or 30 days. Every server gets a full copy that goes straight to the bucket that often, except those with an interval of their own.
+- **Copies to keep in S3** (`daemon.backups.s3.periodicKeep`): 1 to 50, default 4. When a new one is uploaded, that server's oldest periodic copies are deleted from the bucket.
+
+They are numbers: the panel only takes a whole number (or its text, `"24"`) with one of those values, and refuses anything else with `ErrOffsitePeriodicHours` or `ErrOffsiteKeep` without saving anything, so a typo does not turn into `0` and switch the copy off. Each server can change both values in its **Backups** tab. Like the other `daemon.backups.s3.*` keys, they apply to the servers on the panel's own node; each remote node reads them from its own configuration (the **Remote nodes** notice under the section).
 
 ### The General tab
 
@@ -108,7 +117,7 @@ Environment variables use the prefix `SKYPANEL_` and the key in upper case with 
 
 - The API does not return the secrets, but anyone with `settings.edit` can replace them (for example, point mail or off-site backups at another service). Give that scope only to trusted administrators.
 - Saving rewrites `config.json` as a whole, so its formatting and key order may change.
-- **CurseForge API key** only applies to the panel's own node; remote nodes use their own configuration. **Notification language** reaches remote nodes with the status poll, unless a node sets its own.
+- **CurseForge API key** and the **Off-site backups** tab (the periodic copy's defaults included) only apply to the panel's own node; remote nodes use their own configuration. **Notification language** reaches remote nodes with the status poll, unless a node sets its own.
 
 ## Troubleshooting
 
@@ -116,6 +125,7 @@ Environment variables use the prefix `SKYPANEL_` and the key in upper case with 
 |---|---|---|
 | Sent back to the dashboard when opening `/settings` | No `settings.edit` | Ask an administrator for the scope |
 | `Failed to save settings` or a validation message | A value was refused (for example a Discord URL that is not a webhook) | Fix the value; nothing was saved |
+| "The periodic off-site copy can only run every 12, 24, 48, 72, 168, 336 or 720 hours, or be turned off (0)." (`ErrOffsitePeriodicHours`) or "The off-site copies to keep must be between 1 and 50." (`ErrOffsiteKeep`) | A value that is not allowed, or not a whole number, was sent for `daemon.backups.s3.periodicHours` or `daemon.backups.s3.periodicKeep` | Send one of the allowed values |
 | "The notification language must be Spanish or English." (`ErrNotificationLanguage`) | A value other than `es` or `en` was sent for `panel.settings.notificationLanguage` | Send `es` or `en` |
 | Discord test: "The test message did not reach these webhooks: …" (`422`, `ErrDiscordTestFailed`) | The listed webhooks (named after the Discord tab's sections: **Server alerts**, **System reports**, **Node status**, **ExTransfer**) were deleted or are wrong | Create the webhook again in Discord and paste the new URL. See [Discord](../general/16-discord.md) |
 | Saving fails with a file error | The panel cannot write `config.json` | Check the file's owner and permissions |

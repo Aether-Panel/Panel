@@ -88,7 +88,7 @@ The panel writes the current day to `skypanel.log` inside `logs`. When the day c
 | `panel.registrationEnabled` | bool | `true` | Yes | Allows public sign-up (`POST /auth/register`). Administrators can still create accounts. |
 | `panel.registrationApproval` | bool | `true` | Yes | Accounts from public sign-up cannot sign in until an administrator approves them in **Users**; the welcome email goes out on approval. |
 | `panel.servers.autoInstall` | bool | `true` | | Runs the template's installation right after a server is created (also from billing), so it can be started without pressing Install. |
-| `panel.backups.maxPerServer` | int | `10` | | Backups a server's users can keep; creating one more answers `409`. Administrators are not limited. `0` turns the cap off. Backups do not count against the server's disk. |
+| `panel.backups.maxPerServer` | int | `10` | | Backups a server's users can keep on the node (those only in the bucket do not count); creating one more answers `409`. Administrators are not limited. `0` turns the cap off. Backups do not count against the server's disk. |
 | `panel.web.files` | string | `www` | | Folder layered over the web client embedded in the binary: a file found here replaces the embedded one. Themes are read from its `theme/` subfolder (`*.tar`). The shipped configs use `/var/www/SkyPanel`. |
 | `panel.extensions.folder` | data folder | `extensions` | | Where installed extensions keep their files, one folder per extension. See [Extensions](../reference/15-extensions.md). |
 
@@ -236,7 +236,7 @@ See [Subdomain (Cloudflare)](./04-servers.md#subdomain-cloudflare) and [Subdomai
 
 | Key | Type | Default | Settings | Description |
 |---|---|---|---|---|
-| `daemon.backups.s3.enabled` | bool | `false` | Yes | Copies every finished backup to an S3-compatible bucket (AWS S3, Backblaze B2, Cloudflare R2, Wasabi, MinIO…). The local copy stays. |
+| `daemon.backups.s3.enabled` | bool | `false` | Yes | Turns on the S3-compatible bucket (AWS S3, Backblaze B2, Cloudflare R2, Wasabi, MinIO…) that gets each server's periodic copy and the backups of the tasks whose turn it is to upload. Manual backups are not uploaded. |
 | `daemon.backups.s3.endpoint` | string | — | Yes | Endpoint: `s3.example.com`, `host:port` or a full URL. |
 | `daemon.backups.s3.region` | string | — | Yes | Region. |
 | `daemon.backups.s3.bucket` | string | — | Yes | Bucket. |
@@ -244,8 +244,10 @@ See [Subdomain (Cloudflare)](./04-servers.md#subdomain-cloudflare) and [Subdomai
 | `daemon.backups.s3.secretKey` | string | — | Yes | Secret key. |
 | `daemon.backups.s3.prefix` | string | `aether-backups` | Yes | Prefix of the objects in the bucket. |
 | `daemon.backups.s3.insecure` | bool | `false` | Yes | Plain HTTP to the endpoint (for a MinIO on the local network). |
+| `daemon.backups.s3.periodicHours` | int | `0` | Yes | Default interval of each server's periodic copy, in hours. Only `0` (off), `12`, `24`, `48`, `72`, `168`, `336` and `720` are accepted; the Settings page and `POST`/`PUT /api/settings` refuse any other value with `ErrOffsitePeriodicHours`, and a value not allowed written by hand in the file turns the copy off. |
+| `daemon.backups.s3.periodicKeep` | int | `4` | Yes | Periodic copies kept in the bucket per server, 1 to 50 (out of range: `ErrOffsiteKeep`; written by hand in the file, 4 is used). |
 
-The copy is made only when it is enabled and endpoint, bucket, access key and secret key are all set. These are daemon keys: Settings changes them on the machine running the panel (its local node); a remote node reads them from its own configuration. `POST /api/settings/test/s3` checks that the bucket exists, then writes and deletes a small object (reading is not tried, so a key that may write but not read still passes). See [Backups](../features/backups.md).
+Off-site backups only work when they are enabled and endpoint, bucket, access key and secret key are all set. Each server can change `periodicHours` and `periodicKeep` in its Backups tab; that setting is stored on the node, in `<daemon.data.servers>/<id>.offsite`, and takes precedence over these keys. These are daemon keys: Settings changes them on the machine running the panel (its local node); a remote node reads them from its own configuration. `POST /api/settings/test/s3` checks that the bucket exists, then writes and deletes a small object (reading is not tried, so a key that may write but not read still passes). See [Backups](../features/backups.md).
 
 ### Docker
 

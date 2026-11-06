@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
@@ -49,7 +50,9 @@ func ValidateTask(id string, task skypanel.Task) error {
 }
 
 type Scheduler struct {
-	scheduler gocron.Scheduler
+	// scheduler is the gocron scheduler, nil once stopped. It is atomic because the periodic
+	// copy worker reads it while Delete stops it; use executor() to read it.
+	scheduler atomic.Pointer[gocron.Scheduler]
 	serverID  string
 	// lock guards Tasks, which HTTP handlers edit while scheduled jobs read it
 	lock sync.RWMutex
@@ -113,23 +116,28 @@ func (s *Scheduler) save() error {
 	return writeFileAtomic(filepath.Join(config.ServersFolder.Value(), s.serverID+".cron"), append(data, '\n'), 0600)
 }
 
+// errSchedulerStopped is returned for a change to the tasks of a scheduler already stopped
+var errSchedulerStopped = errors.New("the task scheduler is stopped")
+
+// executor is the gocron scheduler, or nil once it is stopped (or before Init)
+func (s *Scheduler) executor() gocron.Scheduler {
+	if gs := s.scheduler.Load(); gs != nil {
+		return *gs
+	}
+	return nil
+}
+
 func (s *Scheduler) Init() error {
-	if s.scheduler != nil {
-		err := s.scheduler.StopJobs()
+	if gs := s.executor(); gs != nil {
+		err := gs.StopJobs()
 		if err != nil {
 			return err
 		}
 	}
 
-	var timezone *time.Location
-	var err error
-	if s.Timezone != "" {
-		timezone, err = time.LoadLocation(s.Timezone)
-		if err != nil {
-			return err
-		}
-	} else {
-		timezone = time.Local
+	timezone, err := s.loadLocation()
+	if err != nil {
+		return err
 	}
 
 	opts := []gocron.SchedulerOption{
@@ -149,7 +157,7 @@ func (s *Scheduler) Init() error {
 		return err
 	}
 
-	s.scheduler = gs
+	s.scheduler.Store(&gs)
 
 	for k, v := range s.Tasks {
 		err = s.addTask(k, v)
@@ -161,21 +169,71 @@ func (s *Scheduler) Init() error {
 	return nil
 }
 
+// loadLocation is the timezone the tasks run in; none set means the node's
+func (s *Scheduler) loadLocation() (*time.Location, error) {
+	if s.Timezone == "" {
+		return time.Local, nil
+	}
+	return time.LoadLocation(s.Timezone)
+}
+
+// Location is the timezone the tasks run in, so calendar periods (a week, a month) start
+// when the tasks' own schedules see them start. A server without a scheduler, or with a
+// timezone that cannot be loaded (Init refuses it), uses the node's.
+func (s *Scheduler) Location() *time.Location {
+	if s == nil {
+		return time.Local
+	}
+	location, err := s.loadLocation()
+	if err != nil {
+		return time.Local
+	}
+	return location
+}
+
+// TaskDueWithin says whether one of the tasks that counts (as the caller decides) is next due
+// to run within d from now. Tasks only run by hand, and a scheduler not running, have none due.
+func (s *Scheduler) TaskDueWithin(d time.Duration, counts func(skypanel.Task) bool) bool {
+	if s == nil {
+		return false
+	}
+	gs := s.executor()
+	if gs == nil {
+		return false
+	}
+	limit := time.Now().Add(d)
+	for _, job := range gs.Jobs() {
+		task, ok := s.GetTask(job.Name())
+		if !ok || !counts(task) {
+			continue
+		}
+		next, err := job.NextRun()
+		if err == nil && !next.IsZero() && next.Before(limit) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Scheduler) Stop() {
-	if s.scheduler == nil {
+	current := s.scheduler.Load()
+	if current == nil {
 		return
 	}
-	if s.scheduler.Shutdown() == nil {
-		s.scheduler = nil
+	if (*current).Shutdown() == nil {
+		// unless Init replaced it meanwhile
+		s.scheduler.CompareAndSwap(current, nil)
 	}
 }
 
 func (s *Scheduler) Start() {
-	s.scheduler.Start()
+	if gs := s.executor(); gs != nil {
+		gs.Start()
+	}
 }
 
 func (s *Scheduler) IsRunning() bool {
-	return s.scheduler != nil
+	return s.executor() != nil
 }
 
 // SetTask creates the task or replaces the one with the same id
@@ -207,7 +265,11 @@ func (s *Scheduler) addTask(id string, task skypanel.Task) error {
 		opt = gocron.OneTimeJob(gocron.OneTimeJobStartDateTime(time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)))
 	}
 
-	_, err := s.scheduler.NewJob(opt, gocron.NewTask(runScheduledTask, s.serverID, id), gocron.WithName(id))
+	gs := s.executor()
+	if gs == nil {
+		return errSchedulerStopped
+	}
+	_, err := gs.NewJob(opt, gocron.NewTask(runScheduledTask, s.serverID, id), gocron.WithName(id))
 	if err != nil {
 		return err
 	}
@@ -230,16 +292,23 @@ func (s *Scheduler) RemoveTask(id string) error {
 }
 
 func (s *Scheduler) removeJob(id string) {
-	for _, v := range s.scheduler.Jobs() {
+	gs := s.executor()
+	if gs == nil {
+		return
+	}
+	for _, v := range gs.Jobs() {
 		if v.Name() == id {
-			_ = s.scheduler.RemoveJob(v.ID())
+			_ = gs.RemoveJob(v.ID())
 		}
 	}
 }
 
 func (s *Scheduler) RunTask(id string) error {
-	jobs := s.scheduler.Jobs()
-	for _, v := range jobs {
+	gs := s.executor()
+	if gs == nil {
+		return errSchedulerStopped
+	}
+	for _, v := range gs.Jobs() {
 		if v.Name() == id {
 			return v.RunNow()
 		}
@@ -286,7 +355,7 @@ func runScheduledTask(serverID, id string) {
 		return
 	}
 
-	ops := task.Operations
+	ops := withTaskID(id, task.Operations)
 	if len(ops) > 0 {
 		p.RunningEnvironment.DisplayToConsole(true, "Running task %s\n", task.Name)
 		var process OperationProcess
@@ -309,6 +378,27 @@ func runScheduledTask(serverID, id string) {
 	}
 }
 
+// withTaskID gives each backup step the id of the task it runs in, which names its copies and
+// lets it find them in the bucket. The scheduler always sets it over whatever the stored
+// arguments say: a user could otherwise put another task's id there and prune its copies. The
+// steps are copied, so the stored task is left as it was.
+func withTaskID(id string, ops []skypanel.ConditionalMetadataType) []skypanel.ConditionalMetadataType {
+	result := make([]skypanel.ConditionalMetadataType, len(ops))
+	for i, op := range ops {
+		result[i] = op
+		if op.Type != "backup" {
+			continue
+		}
+		metadata := make(map[string]interface{}, len(op.Metadata))
+		for k, v := range op.Metadata {
+			metadata[k] = v
+		}
+		metadata["taskId"] = id
+		result[i].Metadata = metadata
+	}
+	return result
+}
+
 func (s *Scheduler) GetExecutor() gocron.Scheduler {
-	return s.scheduler
+	return s.executor()
 }

@@ -274,7 +274,7 @@ Every path is checked by `security` before anything is called, in the tool, agai
 
 On the node every operation goes through the server's `files.FileServer`, which opens each path beneath the server folder with `openat2` and `RESOLVE_BENEATH` (or, with `security.forceOpenat`, one folder at a time with `O_NOFOLLOW`): a path or a symlink that would leave the folder is refused by the kernel, not by string checks. See [Security → File access](./09-security.md#file-access).
 
-The panel's internal files of a server (`.cron`, `.history`, `.crashes`, `.notify`, `.metrics`, `.worldmap`, `.modpack`) live next to the server folder, outside its root, so no tool can reach them. A path that leaves the root comes back as `the path must stay inside the server folder`.
+The panel's internal files of a server (`.cron`, `.history`, `.crashes`, `.notify`, `.offsite`, `.metrics`, `.worldmap`, `.modpack`) live next to the server folder, outside its root, so no tool can reach them. A path that leaves the root comes back as `the path must stay inside the server folder`.
 
 ### Symlinks
 

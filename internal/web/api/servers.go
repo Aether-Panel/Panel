@@ -162,6 +162,9 @@ func registerServers(g *gin.RouterGroup) {
 	g.OPTIONS("/:serverId/notifications", response.CreateOptions("GET", "PUT"))
 	g.POST("/:serverId/notifications/test", middleware.RequiresPermission(scopes.ScopeServerEditFlags), middleware.ResolveServerPanel, proxyServerRequest)
 	g.OPTIONS("/:serverId/notifications/test", response.CreateOptions("POST"))
+	g.GET("/:serverId/offsite", middleware.RequiresPermission(scopes.ScopeServerBackupView), middleware.ResolveServerPanel, proxyServerRequest)
+	g.PUT("/:serverId/offsite", middleware.RequiresPermission(scopes.ScopeServerBackupCreate), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/offsite", response.CreateOptions("GET", "PUT"))
 
 	g.POST("/:serverId/reload", middleware.RequiresPermission(scopes.ScopeServerReload), middleware.ResolveServerPanel, proxyServerRequest)
 	g.OPTIONS("/:serverId/reload", response.CreateOptions("POST"))
@@ -1656,6 +1659,24 @@ func getBackup(c *gin.Context) {
 	c.JSON(http.StatusOK, records)
 }
 
+// overBackupLimit says whether the server already keeps as many backups on the node as its
+// users may. The cap is there so one customer cannot fill the node's backup disk, so a copy
+// kept only in the bucket (a periodic copy once uploaded, a task's copy pruned on the node) does
+// not count; one whose location is not known yet may be on the node, so it does.
+func overBackupLimit(bs *services.Backup, serverID string, limit int) (bool, error) {
+	records, err := bs.GetAllForServer(serverID)
+	if err != nil {
+		return false, err
+	}
+	onNode := 0
+	for _, r := range records {
+		if r.Location != "offsite" {
+			onNode++
+		}
+	}
+	return onNode >= limit, nil
+}
+
 // @Summary Create backup
 // @Description Creates a full backup of the server
 // @Success 204 {object} nil
@@ -1677,11 +1698,11 @@ func createBackup(c *gin.Context) {
 		return
 	}
 	if limit := config.BackupsMaxPerServer.Value(); limit > 0 && !callerIsAdmin(c) {
-		existing, err := bs.GetAllForServer(server.Identifier)
+		full, err := overBackupLimit(bs, server.Identifier, limit)
 		if response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
-		if len(existing) >= limit {
+		if full {
 			response.HandleError(c, skypanel.ErrBackupLimit, http.StatusConflict)
 			return
 		}

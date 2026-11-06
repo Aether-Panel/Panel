@@ -83,7 +83,7 @@ The server page (`features/servers/[id]/`) calls the API directly from each tab.
 | Tasks | `GET /api/servers/:id/tasks`, `PUT/DELETE /api/servers/:id/tasks/:taskId`, `POST /api/servers/:id/tasks/:taskId/run` |
 | Sub-users | `GET /api/servers/:id/user`, `PUT/DELETE /api/servers/:id/user/:email` |
 | Databases | `GET/POST /api/servers/:id/databases`, `DELETE /api/servers/:id/databases/:dbId`, `GET /api/servers/:id/databasehosts` |
-| Other | `/notifications`, `/subdomain`, `/version`, `/modpacks`, `/map`, `/clone`, `/transfer`, `/extransfer/*`, `/port-settings`, `/owner/:userId`, `/ai/analyze`, `/ai/chat` |
+| Other | `/notifications`, `/offsite`, `/subdomain`, `/version`, `/modpacks`, `/map`, `/clone`, `/transfer`, `/extransfer/*`, `/port-settings`, `/owner/:userId`, `/ai/analyze`, `/ai/chat` |
 
 ### Console WebSocket
 

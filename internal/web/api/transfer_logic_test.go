@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -178,6 +179,7 @@ func newTransferSource(id string, running bool) *fakeTransferNode {
 	answers := map[string]fakeAnswer{}
 	answers[prefix+"/definition"] = fakeAnswer{status: http.StatusOK, body: `{"type":"minecraft"}`}
 	answers[prefix+"/tasks"] = fakeAnswer{status: http.StatusOK, body: `{"tasks":{"restart":{"name":"Daily restart","cronSchedule":"0 5 * * *"}}}`}
+	answers[prefix+"/offsite"] = fakeAnswer{status: http.StatusOK, body: `{"periodicHours":null,"periodicKeep":null,"effectiveHours":24,"effectiveKeep":4,"configured":true,"lastPeriodic":null}`}
 	answers[prefix+"/file/transfer.tar.gz"] = fakeAnswer{status: http.StatusOK, body: "ARCHIVE"}
 	answers[prefix+"/backup"] = fakeAnswer{status: http.StatusOK, body: `[
 		{"fileName":"a.tar.gz","location":"local","modTime":"2026-03-01T12:00:00Z"},
@@ -238,6 +240,89 @@ func TestMoveServers_CopiesFilesAndBackupsBeforeTheRecordMoves(t *testing.T) {
 
 	assert.Equal(t, "DELETE /daemon/server/srv01", source.calls[len(source.calls)-1], "removed from the old node with its backups, last")
 	assert.Empty(t, callsWithPrefix(source.calls, "POST /daemon/server/srv01/start?wait=true"))
+}
+
+func TestServerMove_LeavesPeriodicCopiesToTheBucket(t *testing.T) {
+	noKillWait(t)
+	source := newTransferSource("srv01", false)
+	// a periodic copy the old node is still uploading: its archive is there until the upload ends
+	source.answers["GET /daemon/server/srv01/backup"] = fakeAnswer{status: http.StatusOK, body: `[
+		{"fileName":"a.tar.gz","location":"local","modTime":"2026-03-01T12:00:00Z"},
+		{"fileName":"` + servers.OffsiteBackupPrefix + `x.tar.gz","location":"local"},
+		{"fileName":"` + servers.OffsiteBackupPrefix + `y.tar.gz","location":"both"}]`}
+	target := &fakeTransferNode{}
+
+	err := moveServers([]*serverMove{{id: "srv01", source: source.call, target: target.call}}, func() error { return nil })
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"PUT /daemon/server/srv01/backup/file?fileName=a.tar.gz&modTime=2026-03-01T12%3A00%3A00Z"},
+		callsWithPrefix(target.calls, "PUT /daemon/server/srv01/backup/file"),
+		"a periodic copy belongs in the bucket, which both nodes share, and could vanish mid-copy")
+	assert.Empty(t, callsWithPrefix(source.calls, "GET /daemon/server/srv01/backup/download?fileName="+servers.OffsiteBackupPrefix))
+}
+
+func TestServerMove_CopiesOffsiteSettings(t *testing.T) {
+	noKillWait(t)
+	source := newTransferSource("srv01", false)
+	source.answers["GET /daemon/server/srv01/offsite"] = fakeAnswer{status: http.StatusOK, body: `{"periodicHours":168,"periodicKeep":null,"effectiveHours":168,"effectiveKeep":4,"configured":true,"lastPeriodic":"2026-11-01T03:00:00Z"}`}
+	target := &fakeTransferNode{}
+
+	err := moveServers([]*serverMove{{id: "srv01", source: source.call, target: target.call}}, func() error { return nil })
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{
+		"PUT /daemon/server/srv01",
+		"POST /daemon/server/srv01/scheduler/pause",
+		"PUT /daemon/server/srv01/tasks/restart",
+		"PUT /daemon/server/srv01/offsite",
+	}, target.calls[:4], "its periodic off-site setting goes with its tasks")
+	assert.JSONEq(t, `{"periodicHours":168,"periodicKeep":null}`, target.uploads["PUT /daemon/server/srv01/offsite"], "only what the server set, not what the old node reports")
+}
+
+func TestServerMove_AnOldNodeWithoutOffsiteSettingsStillMoves(t *testing.T) {
+	noKillWait(t)
+	source := newTransferSource("srv01", false)
+	source.answers["GET /daemon/server/srv01/offsite"] = fakeAnswer{status: http.StatusNotFound, body: "404 page not found"}
+	target := &fakeTransferNode{}
+	committed := false
+
+	err := moveServers([]*serverMove{{id: "srv01", source: source.call, target: target.call}}, func() error {
+		committed = true
+		return nil
+	})
+
+	require.NoError(t, err)
+	assert.True(t, committed)
+	assert.Contains(t, source.calls, "GET /daemon/server/srv01/offsite")
+	assert.Empty(t, callsWithPrefix(target.calls, "PUT /daemon/server/srv01/offsite"), "nothing to copy")
+}
+
+func TestServerMove_NothingSetLeavesTheNewNodeOnItsDefaults(t *testing.T) {
+	noKillWait(t)
+	source := newTransferSource("srv01", false)
+	target := &fakeTransferNode{}
+
+	err := moveServers([]*serverMove{{id: "srv01", source: source.call, target: target.call}}, func() error { return nil })
+
+	require.NoError(t, err)
+	assert.Contains(t, source.calls, "GET /daemon/server/srv01/offsite")
+	assert.Empty(t, callsWithPrefix(target.calls, "PUT /daemon/server/srv01/offsite"))
+}
+
+func TestServerMove_AnOffsiteSettingThatCannotBeReadStopsTheMove(t *testing.T) {
+	noKillWait(t)
+	source := newTransferSource("srv01", false)
+	source.answers["GET /daemon/server/srv01/offsite"] = fakeAnswer{status: http.StatusInternalServerError, body: "disk error"}
+	target := &fakeTransferNode{}
+
+	err := moveServers([]*serverMove{{id: "srv01", source: source.call, target: target.call}}, func() error {
+		t.Fatal("the panel must not change")
+		return nil
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "off-site")
+	assert.Contains(t, target.calls, "DELETE /daemon/server/srv01?keepBackups=true", "the copy begun on the new node goes")
 }
 
 func TestMoveServers_AFailedBackupCopyUndoesTheTransfer(t *testing.T) {

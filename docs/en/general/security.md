@@ -258,7 +258,7 @@ Each game server container is hardened like this:
 
 Other limits that protect the node:
 
-- `panel.backups.maxPerServer` (`10`): backups a server's users can keep; administrators are not capped. Backups do not count against the server's disk.
+- `panel.backups.maxPerServer` (`10`): backups a server's users can keep on the node (those only in the bucket do not count); administrators are not capped. Backups do not count against the server's disk.
 - `daemon.minFreeDiskMB` (`2048`): an install that would start with less free space in the servers folder is refused, before a game download fills the disk.
 - The server's disk limit is enforced; a server that already filled it does not start until files are deleted.
 

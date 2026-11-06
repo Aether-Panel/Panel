@@ -76,8 +76,8 @@ The low-disk warning comes from `features/nodes/node-disk-alert.tsx`: one line p
 | Properties | `properties-view.tsx`, `server-properties.ts`, `server-properties-catalog.ts` | Form editor for `server.properties` with a catalogue of known keys and a MOTD editor (experimental, Minecraft Java). |
 | Users | `users-view.tsx` | Sub-users and their permissions; the owner can only grant scopes they hold (the backend's `OwnerScopes`). `server.view` is always included. |
 | Database | `database-view.tsx` | Databases on the database hosts available to the server. |
-| Backups | `backups-view.tsx` | List, create (optional name), restore, download, delete; backups made by scheduled tasks are labelled as such. |
-| Tasks | `tasks-view.tsx`, `task-dialog.tsx`, `task-schedule.ts` | Scheduled tasks: schedule editor and an ordered list of steps (`stdin` command, `sleep`, `restart`, `stop`, `start`, `backup`), run now. |
+| Backups | `backups-view.tsx`, `offsite-card.tsx` | List, create (optional name), restore, download, delete; backups made by scheduled tasks and periodic copies are labelled as such. `offsite-card.tsx` is the **Copy to S3** card: interval and copies to keep of the server's periodic copy. |
+| Tasks | `tasks-view.tsx`, `task-dialog.tsx`, `task-schedule.ts` | Scheduled tasks: schedule editor and an ordered list of steps (`stdin` command, `sleep`, `restart`, `stop`, `start`, `backup`, the latter with its S3 upload frequency), run now. |
 | Activity | `activity-view.tsx` | Paginated activity log (`GET /api/servers/:id/activity?limit=&before=&type=`), filterable by family. |
 | SFTP Access | `sftp-view.tsx` | Connection details with copy buttons. |
 | Migration | `external-transfer-view.tsx` | Move a server from or to another panel (create, pull, status, cancel). The import status arrives as codes (`STEP_*`, `ERROR_*`, `DONE`...) that the view translates under `servers.extransfer.progress`, falling back to the API's English `message`. |
@@ -147,7 +147,7 @@ All of them take colours from `CHART_COLORS` and format times with `chartLocale(
 | `general-tab.tsx` | Sections: Panel (company name, base URL, master node IP), Notifications (`panel.settings.notificationLanguage`, Spanish or English), Artificial intelligence (Gemini API key, turn the AI log analysis off for everyone), Sign-up and security (registration, built-in captcha, Turnstile keys), Modpacks (CurseForge key) and Experimental features (`panel.experimental.versionSwitch`, `propertiesEditor`, `serverClone`). |
 | `discord-tab.tsx` | Discord webhooks with test (see [Discord and notifications](../general/16-discord.md)). |
 | `mail-tab.tsx` | Email provider (SMTP, Mailgun, Mailjet, SendGrid or Debug) and test (see [Email](../general/15-email.md)). For Mailjet the fields are **API Key (public)** (`panel.email.domain`) and **Secret Key** (`panel.email.key`); Debug shows no fields. |
-| `offsite-tab.tsx` | Off-site backups to S3-compatible storage (`daemon.backups.s3.*`) with a connection test. |
+| `offsite-tab.tsx` | Off-site backups to S3-compatible storage (`daemon.backups.s3.*`) with a connection test and the periodic copy's defaults. The values it shares with the server card and the task editor live in `lib/offsite.ts`. |
 | `domains-tab.tsx` | Cloudflare domain for server subdomains, with status and test. |
 | `api-keys-view.tsx` | Panel API keys. |
 | `products-view.tsx` | Provisioning products (`/api/provision/products`). |

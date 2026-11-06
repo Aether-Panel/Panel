@@ -8,10 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslations } from '@/contexts/translations-context';
+import { MAX_KEEP, MIN_KEEP, OFFSITE_FREQUENCIES, clampKeep, type OffsiteFrequency } from '@/lib/offsite';
 import { cn } from '@/lib/utils';
 import { INTERVAL_HOURS, fromCron, localTimeZone, toCron, weekdayLabels, type Schedule, type ScheduleKind } from './task-schedule';
 
 export type TaskStep = { type: string; [key: string]: unknown };
+
+type Translate = ReturnType<typeof useTranslations>['t'];
 
 export type Task = {
   name: string;
@@ -34,7 +37,25 @@ export const EDITABLE_STEPS = ['stdin', 'sleep', 'restart', 'stop', 'start', 'ba
 
 export const SLEEP_MINUTES = [1, 5, 10, 15, 30, 60];
 export const DEFAULT_BACKUP_KEEP = 5;
-const MAX_BACKUP_KEEP = 50;
+
+/** What a new backup step starts with: a copy to S3 once a week, 4 of them kept there. */
+const DEFAULT_OFFSITE: OffsiteFrequency = 'weekly';
+const DEFAULT_OFFSITE_KEEP = 4;
+
+/** A step saved before the frequency existed uploaded every copy, so that is what it still does. */
+function offsiteFrequency(step: TaskStep): OffsiteFrequency {
+  return (OFFSITE_FREQUENCIES as readonly string[]).includes(String(step.offsite)) ? (step.offsite as OffsiteFrequency) : 'always';
+}
+
+/**
+ * Copies of the step kept in S3, as the node counts them: a step saved before the S3 options
+ * existed kept as many there as on the server, so it keeps at least that many.
+ */
+function offsiteKeepOf(step: TaskStep): number {
+  if (step.offsiteKeep !== undefined && step.offsiteKeep !== null) return Number(step.offsiteKeep);
+  if (step.offsite !== undefined && step.offsite !== null) return DEFAULT_OFFSITE_KEEP;
+  return Math.max(Number(step.keep ?? DEFAULT_BACKUP_KEEP), DEFAULT_OFFSITE_KEEP);
+}
 
 export function sleepMinutes(step: TaskStep): number | null {
   const match = /^(\d+)m$/.exec(typeof step.duration === 'string' ? step.duration : '');
@@ -48,7 +69,7 @@ export function newStep(type: string): TaskStep {
     case 'sleep':
       return { type, duration: '5m' };
     case 'backup':
-      return { type, keep: DEFAULT_BACKUP_KEEP };
+      return { type, keep: DEFAULT_BACKUP_KEEP, offsite: DEFAULT_OFFSITE, offsiteKeep: DEFAULT_OFFSITE_KEEP };
     default:
       return { type };
   }
@@ -182,7 +203,7 @@ export default function TaskDialog({ open, onOpenChange, initial, isEditing, all
             {shown.name && <p id={`${ids}-name-error`} className="text-xs text-destructive-bright">{shown.name}</p>}
           </div>
 
-          <fieldset className="space-y-3">
+          <fieldset className="min-w-0 space-y-3">
             <legend className="mb-3 text-sm font-semibold">{t('servers.tasks.schedule.label')}</legend>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
@@ -275,11 +296,11 @@ export default function TaskDialog({ open, onOpenChange, initial, isEditing, all
             )}
           </fieldset>
 
-          <fieldset className="space-y-3">
+          <fieldset className="min-w-0 space-y-3">
             <legend className="mb-3 text-sm font-semibold">{t('servers.tasks.steps.label')}</legend>
 
             {steps.length > 0 && (
-              <ol className="space-y-2">
+              <ol className="min-w-0 space-y-2">
                 {rows.map(({ key, step }, index) => {
                   const Icon = STEP_ICONS[step.type] ?? Terminal;
                   const editable = (EDITABLE_STEPS as readonly string[]).includes(step.type);
@@ -287,14 +308,14 @@ export default function TaskDialog({ open, onOpenChange, initial, isEditing, all
                   const minutes = sleepMinutes(step);
                   const hasFields = ['stdin', 'sleep', 'backup', 'restart'].includes(step.type);
                   return (
-                    <li key={key} className="space-y-2 rounded-lg border border-border/60 bg-background/30 p-3">
-                      <div className="flex items-center gap-3">
+                    <li key={key} className="min-w-0 space-y-2 rounded-lg border border-border/60 bg-background/30 p-3">
+                      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-secondary text-xs font-semibold tabular-nums text-muted-foreground">
                           {index + 1}
                         </span>
                         <div className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium">
                           <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                          <span className="truncate">{editable ? t(`servers.tasks.steps.${step.type}`) : t('servers.tasks.steps.adminOnly', { type: step.type })}</span>
+                          <span className="min-w-0 break-words sm:truncate">{editable ? t(`servers.tasks.steps.${step.type}`) : t('servers.tasks.steps.adminOnly', { type: step.type })}</span>
                         </div>
                         <div className="flex shrink-0 items-center">
                           <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" disabled={index === 0}
@@ -313,7 +334,7 @@ export default function TaskDialog({ open, onOpenChange, initial, isEditing, all
                       </div>
 
                       {hasFields && (
-                        <div className="space-y-2 pl-9">
+                        <div className="min-w-0 space-y-2 sm:pl-9">
                           {step.type === 'stdin' && (
                             <div className="space-y-1.5">
                               <Input
@@ -345,27 +366,7 @@ export default function TaskDialog({ open, onOpenChange, initial, isEditing, all
                           )}
 
                           {step.type === 'backup' && (
-                            <div className="space-y-1.5">
-                              <div className="flex items-center gap-2">
-                                <Label htmlFor={`${ids}-keep-${index}`} className="text-xs font-normal text-muted-foreground">
-                                  {t('servers.tasks.steps.keep')}
-                                </Label>
-                                <Input
-                                  id={`${ids}-keep-${index}`}
-                                  type="number"
-                                  inputMode="numeric"
-                                  min={1}
-                                  max={MAX_BACKUP_KEEP}
-                                  className="h-9 w-20 tabular-nums"
-                                  value={String(step.keep ?? DEFAULT_BACKUP_KEEP)}
-                                  onChange={(e) => {
-                                    const value = Math.min(MAX_BACKUP_KEEP, Math.max(1, Number.parseInt(e.target.value, 10) || 1));
-                                    updateStep(index, { keep: value });
-                                  }}
-                                />
-                              </div>
-                              <p className="text-xs text-muted-foreground">{t('servers.tasks.steps.keepHelp')}</p>
-                            </div>
+                            <BackupStepFields step={step} id={`${ids}-${index}`} t={t} onChange={(patch) => updateStep(index, patch)} />
                           )}
 
                           {step.type === 'restart' && (
@@ -418,5 +419,79 @@ export default function TaskDialog({ open, onOpenChange, initial, isEditing, all
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** A backup step's fields: copies kept on the server, how often one also goes to S3, and how many stay there. */
+function BackupStepFields({ step, id, t, onChange }: Readonly<{ step: TaskStep; id: string; t: Translate; onChange: (patch: Partial<TaskStep>) => void }>) {
+  const frequency = offsiteFrequency(step);
+  return (
+    <div className="min-w-0 space-y-1.5">
+      {/* on a phone each label sits above its field; from sm, label and field side by side */}
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-2">
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+          <Label htmlFor={`${id}-keep`} className="text-xs font-normal text-muted-foreground">
+            {t('servers.tasks.steps.keep')}
+          </Label>
+          <KeepInput id={`${id}-keep`} value={Number(step.keep ?? DEFAULT_BACKUP_KEEP)} onChange={(keep) => onChange({ keep })} />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+          <Label htmlFor={`${id}-offsite`} className="shrink-0 text-xs font-normal text-muted-foreground">
+            {t('servers.tasks.steps.offsite')}
+          </Label>
+          <Select value={frequency} onValueChange={(value) => onChange({ offsite: value })}>
+            <SelectTrigger id={`${id}-offsite`} className="h-9 w-full min-w-0 sm:w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {OFFSITE_FREQUENCIES.map((option) => (
+                <SelectItem key={option} value={option}>{t(`servers.tasks.steps.offsiteFrequencies.${option}`)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {frequency !== 'never' && (
+          <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+            <Label htmlFor={`${id}-offsite-keep`} className="text-xs font-normal text-muted-foreground">
+              {t('servers.tasks.steps.offsiteKeep')}
+            </Label>
+            <KeepInput id={`${id}-offsite-keep`} value={offsiteKeepOf(step)} onChange={(offsiteKeep) => onChange({ offsiteKeep })} />
+          </div>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">{t('servers.tasks.steps.keepHelp')}</p>
+      {frequency !== 'never' && frequency !== 'always' && (
+        <p className="text-xs text-muted-foreground">{t('servers.tasks.steps.offsiteHelp')}</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A copies-to-keep field. What is typed stays as typed while the field has focus, so an emptied
+ * field stays empty instead of turning into 1 (and typing 3 then gave 13); leaving it, or Enter,
+ * shows the number the step holds. The step is updated on every keystroke with the typed number
+ * held to 1-50, so the dialog saves what was typed even when the field never lost focus.
+ */
+function KeepInput({ id, value, onChange }: Readonly<{ id: string; value: number; onChange: (keep: number) => void }>) {
+  const [text, setText] = useState<string | null>(null);
+  const edit = (raw: string) => {
+    setText(raw);
+    if (raw.trim() !== '') onChange(clampKeep(raw));
+  };
+  const commit = () => setText(null);
+  return (
+    <Input
+      id={id}
+      type="number"
+      inputMode="numeric"
+      min={MIN_KEEP}
+      max={MAX_KEEP}
+      className="h-9 w-20 shrink-0 tabular-nums"
+      value={text ?? String(value)}
+      onChange={(e) => edit(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === 'Enter' && commit()}
+    />
   );
 }

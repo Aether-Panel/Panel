@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
+	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
@@ -654,6 +656,9 @@ func (m *serverMove) prepare() error {
 	if err := m.copyTasks(); err != nil {
 		return err
 	}
+	if err := m.copyOffsite(); err != nil {
+		return err
+	}
 	m.reach(stepStopping)
 	if err := m.stop(); err != nil {
 		return fmt.Errorf("stopping it: %w", err)
@@ -715,6 +720,39 @@ func (m *serverMove) copyTasks() error {
 		}
 	}
 	return nil
+}
+
+// copyOffsite copies the server's own periodic off-site copy setting to the new node: like its
+// tasks, it lives apart from its definition. An old node without the setting answers 404, and
+// one that has nothing set leaves the new node on the panel's setting: nothing to copy.
+func (m *serverMove) copyOffsite() error {
+	res, err := m.source(http.MethodGet, daemonServerPrefix+m.id+"/offsite", nil, nil)
+	if err != nil {
+		return fmt.Errorf("reading its off-site settings: %w", err)
+	}
+	defer utils.CloseResponse(res)
+	if res.StatusCode == http.StatusNotFound {
+		return nil
+	}
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("reading its off-site settings: the node answered %d: %s", res.StatusCode, readFailureBody(res))
+	}
+	// only what the server set: the rest of the answer is what the old node uses and knows
+	var settings servers.OffsiteSettings
+	if err = json.NewDecoder(res.Body).Decode(&settings); err != nil {
+		return fmt.Errorf("reading its off-site settings: %w", err)
+	}
+	if settings.PeriodicHours == nil && settings.PeriodicKeep == nil {
+		return nil
+	}
+	body, err := json.Marshal(settings)
+	if err != nil {
+		return err
+	}
+	headers := http.Header{}
+	headers.Set(headerContentType, contentTypeJSON)
+	answer, err := m.target(http.MethodPut, daemonServerPrefix+m.id+"/offsite", io.NopCloser(bytes.NewReader(body)), headers)
+	return daemonStepError("copying its off-site settings", answer, err)
 }
 
 // copyDefinition reads the server definition from the old node and creates the server with
@@ -837,7 +875,9 @@ func (m *serverMove) extractArchive() error {
 
 // copyBackups copies every backup the old node keeps for the server to the new one, so the
 // panel's records, which follow the server, find their files there. A backup only kept
-// off-site needs nothing: the bucket is the same wherever the server runs.
+// off-site needs nothing: the bucket is the same wherever the server runs. Nor does a periodic
+// copy, whose place is the bucket: one still on the old node is being uploaded, and its
+// archive goes as soon as the upload ends, maybe in the middle of the copy.
 func (m *serverMove) copyBackups() error {
 	res, err := m.source(http.MethodGet, daemonServerPrefix+m.id+"/backup", nil, nil)
 	if err != nil {
@@ -854,6 +894,9 @@ func (m *serverMove) copyBackups() error {
 	for _, b := range backups {
 		// "local" and "both" have an archive on the node; "offsite" and "failed" do not
 		if b.Location != "local" && b.Location != "both" {
+			continue
+		}
+		if strings.HasPrefix(b.FileName, servers.OffsiteBackupPrefix) {
 			continue
 		}
 		if err = m.copyBackup(b); err != nil {

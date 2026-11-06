@@ -190,7 +190,7 @@ En Docker, con el panel como root (así funciona `docker-compose.yml`), las inst
 
 ### No se puede crear otra copia: «this server already has as many backups as it may keep»
 
-`ErrBackupLimit` (HTTP 409): el servidor ya tiene `panel.backups.maxPerServer` copias (10 por defecto). Las copias no cuentan en el disco del servidor, así que sin límite un cliente podría llenar el disco de copias del nodo. Borre una copia antigua. Los administradores no tienen límite, y `0` lo desactiva para todos.
+`ErrBackupLimit` (HTTP 409): el servidor ya tiene `panel.backups.maxPerServer` copias en el nodo (10 por defecto; las que solo están en el bucket S3 no cuentan). Las copias no cuentan en el disco del servidor, así que sin límite un cliente podría llenar el disco de copias del nodo. Borre una copia antigua. Los administradores no tienen límite, y `0` lo desactiva para todos.
 
 ### La restauración de una copia falla: «cannot backup server, is running»
 

@@ -11,7 +11,7 @@ La página tiene una pestaña por área. En móviles y tabletas las pestañas se
 | **General** | Nombre, URL principal, IP del nodo maestro, idioma de las notificaciones, IA, clave de CurseForge, registro y anti-bots, funciones experimentales | `settings.edit` | Esta página |
 | **Discord** | Webhooks de Discord para alertas, informes, estado de nodos y transferencias | `settings.edit` | [Discord](../general/16-discord.md) |
 | **Correo** | Proveedor y remitente del correo, con botón de prueba | `settings.edit` | [Correo electrónico](../general/15-email.md) |
-| **Copias externas** | Almacenamiento compatible con S3 para copiar las copias de seguridad | `settings.edit` | [Copias de seguridad](./backups.md) |
+| **Copias externas** | Almacenamiento compatible con S3 para las copias de seguridad y la copia periódica de cada servidor (intervalo y copias a conservar por defecto) | `settings.edit` | [Copias de seguridad](./backups.md#copias-externas) |
 | **Dominios** | Token, zona y dominio base de Cloudflare para los subdominios automáticos | `settings.edit` | [Subdominios](./subdomains.md) |
 | **Claves API** | Claves de la API de aprovisionamiento | `admin` | [Aprovisionamiento y SSO](./provisioning-and-sso.md) |
 | **Productos** | Planes que vende el sistema de facturación | `admin` | [Aprovisionamiento y SSO](./provisioning-and-sso.md) |
@@ -23,10 +23,19 @@ Quien no tiene `settings.edit` y abre `/settings` vuelve al panel de inicio. Una
 ## Cómo funciona
 
 - **General**, **Discord**, **Correo**, **Copias externas** y **Dominios** comparten una barra de guardado. Los cambios en cualquiera de ellas se conservan hasta pulsar **Guardar cambios**; **Descartar** vuelve a los valores guardados. Todo se envía en una sola petición, `POST /api/settings`.
-- El panel valida antes todos los valores (por ejemplo, las URL de webhooks de Discord) para que un valor incorrecto no deje la configuración a medio guardar. Después escribe cada clave en el `config.json` del panel (el archivo indicado en `SKYPANEL_CONFIG`, `/etc/SkyPanel/config.json` o `config.json` en el directorio de trabajo) y la aplica al momento; no hace falta reiniciar.
+- El panel valida antes todos los valores (por ejemplo, las URL de webhooks de Discord, o el intervalo y las copias a conservar de la copia periódica) para que un valor incorrecto no deje la configuración a medio guardar. Después escribe cada clave en el `config.json` del panel (el archivo indicado en `SKYPANEL_CONFIG`, `/etc/SkyPanel/config.json` o `config.json` en el directorio de trabajo) y la aplica al momento; no hace falta reiniciar.
 - Los secretos nunca se devuelven: `GET /api/settings` y `GET /api/settings/:key` responden `********` en lugar de su valor (un secreto vacío sigue vacío, para que la página sepa si está definido). Son `panel.email.key`, `panel.email.password`, `panel.settings.geminiApiKey`, `daemon.curseforge.key`, los cuatro `panel.notifications.discordWebhook*`, `panel.license.key`, `daemon.backups.s3.secretKey`, `panel.dns.cloudflare.token` y `panel.turnstile.secretKey`. La página reenvía `********` cuando no se toca el campo, y el panel lo interpreta como «conservar el valor guardado», tanto al guardar (`POST /api/settings`, `PUT /api/settings/:key`) como en los botones de prueba (correo, Discord, S3 y Cloudflare). Para cambiar un secreto basta con escribir el valor nuevo.
 - **IP global del nodo maestro** es la excepción: se guarda en la base de datos (tabla `panel_settings`, clave `master_node_ip`) para que varios paneles que comparten base de datos lean el mismo valor.
 - **Claves API**, **Productos**, **Extensiones** y **Actualizaciones** guardan con sus propios botones y rutas.
+
+### La pestaña Copias externas
+
+Además del bucket (endpoint, nombre, región, carpeta, claves, prueba de conexión e interruptor **Subir las copias al bucket**, descritos en [Copias de seguridad](./backups.md#desde-el-panel)), la sección **Copia periódica de cada servidor** fija los valores por defecto de la [copia periódica](./backups.md#copia-periódica):
+
+- **Intervalo** (`daemon.backups.s3.periodicHours`): **Desactivada** (`0`, el valor por defecto), 12 h, 24 h, 48 h, 72 h, 7 días, 14 días o 30 días. Cada servidor recibe una copia completa que va directa al bucket con esa frecuencia, salvo los que tengan su propio intervalo.
+- **Copias a conservar en S3** (`daemon.backups.s3.periodicKeep`): de 1 a 50, 4 por defecto. Al subir una nueva, se borran del bucket las periódicas más antiguas de ese servidor.
+
+Son números: el panel solo acepta un número entero (o su texto, `"24"`) con uno de esos valores, y rechaza el resto con `ErrOffsitePeriodicHours` o `ErrOffsiteKeep` sin guardar nada, para que un error de escritura no se convierta en `0` y apague la copia. Cada servidor puede cambiar ambos valores en su pestaña **Copias de seguridad**. Como el resto de claves `daemon.backups.s3.*`, se aplican a los servidores del nodo propio del panel; cada nodo remoto las lee de su propia configuración (aviso **Nodos remotos** bajo la sección).
 
 ### La pestaña General
 
@@ -108,7 +117,7 @@ Las variables de entorno usan el prefijo `SKYPANEL_` y la clave en mayúsculas c
 
 - La API no devuelve los secretos, pero quien tiene `settings.edit` puede sustituirlos (por ejemplo, apuntar el correo o las copias externas a otro servicio). Conviene dar ese permiso solo a administradores de confianza.
 - Al guardar se reescribe `config.json` completo, así que su formato y el orden de las claves pueden cambiar.
-- La **Clave de API de CurseForge** solo se aplica al nodo propio del panel; los nodos remotos usan su propia configuración. El **Idioma de las notificaciones** llega a los nodos remotos con el sondeo de estado, salvo que un nodo defina el suyo.
+- La **Clave de API de CurseForge** y la pestaña **Copias externas** (incluida la copia periódica por defecto) solo se aplican al nodo propio del panel; los nodos remotos usan su propia configuración. El **Idioma de las notificaciones** llega a los nodos remotos con el sondeo de estado, salvo que un nodo defina el suyo.
 
 ## Problemas conocidos y soluciones
 
@@ -116,6 +125,7 @@ Las variables de entorno usan el prefijo `SKYPANEL_` y la clave en mayúsculas c
 |---|---|---|
 | Al abrir `/settings` se vuelve al panel de inicio | Falta `settings.edit` | Pedir el permiso a un administrador |
 | `No se pudo guardar la configuración` o un mensaje de validación | Se ha rechazado un valor (por ejemplo, una URL de Discord que no es un webhook) | Corregir el valor; no se ha guardado nada |
+| «La copia periódica externa solo puede hacerse cada 12, 24, 48, 72, 168, 336 o 720 horas, o desactivarse (0).» (`ErrOffsitePeriodicHours`) o «Las copias externas que se conservan deben ser entre 1 y 50.» (`ErrOffsiteKeep`) | Se envió para `daemon.backups.s3.periodicHours` o `daemon.backups.s3.periodicKeep` un valor que no está permitido o que no es un número entero | Enviar uno de los valores permitidos |
 | «El idioma de las notificaciones debe ser español o inglés.» (`ErrNotificationLanguage`) | Se envió para `panel.settings.notificationLanguage` un valor distinto de `es` o `en` | Enviar `es` o `en` |
 | Prueba de Discord: «El mensaje de prueba no llegó a estos webhooks: …» (`422`, `ErrDiscordTestFailed`) | Los webhooks indicados (con el nombre de las secciones de la pestaña Discord: **Alertas de servidores**, **Informes del sistema**, **Estado de los nodos**, **ExTransfer**) se borraron o son incorrectos | Volver a crear el webhook en Discord y pegar la URL nueva. Ver [Discord](../general/16-discord.md) |
 | El guardado falla con un error de archivo | El panel no puede escribir `config.json` | Revisar el propietario y los permisos del archivo |

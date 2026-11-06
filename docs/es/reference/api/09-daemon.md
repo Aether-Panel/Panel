@@ -106,6 +106,7 @@ Salvo que la última columna diga otra cosa, la ruta del panel es la misma bajo 
 | GET | `/backup/busy` | Si se está escribiendo una copia, un punto de restauración o una restauración | Transferencia entre nodos |
 | PUT | `/backup/file?fileName=&modTime=` | Recibe el archivo de una copia copiado desde otro nodo | Transferencia entre nodos |
 | DELETE | `/backup/file?fileName=` | Quita la copia de este nodo y deja la del almacenamiento externo | Transferencia entre nodos (deshacer) |
+| GET, PUT | `/offsite` | Ajuste de copia periódica al S3 del servidor (`<id>.offsite`) | La misma (`/api/servers/:serverId/offsite`); también la transferencia entre nodos, que lo copia al nodo nuevo |
 | POST | `/clone-from/:sourceId` | Copia en este servidor los archivos de otro | [`POST /api/servers/:serverId/clone`](./03-servers.md#post-apiserversserveridclone) |
 | GET | `/socket` | WebSocket: consola, estadísticas, estado | [`GET /api/servers/:serverId/socket`](./03-servers.md#websocket) |
 
@@ -173,7 +174,7 @@ Cuerpo: una definición de servidor. Si el nodo ya tiene un servidor con ese ide
 
 ### `DELETE /daemon/server/:serverId`
 
-Fuerza la parada del servidor si está en marcha, ejecuta los pasos de desinstalación de la plantilla y borra la carpeta del servidor y todo lo que el nodo guarda de él (definición, tareas, informes de fallos, ajustes de notificación, métricas, estado del mapa del mundo y del modpack, historial de archivos y su carpeta `/tmp`). Si falla un paso de desinstalación, se registra en el log y se muestra en la consola, y el borrado continúa. Después se borra la carpeta de copias de seguridad del servidor en este nodo (`<daemon.data.backups.folder>/<serverId>`), salvo que la petición lleve `?keepBackups=true`, que el panel envía cuando deshace una transferencia entre nodos y quita el servidor del nodo nuevo (solo retira, una a una con `DELETE /backup/file`, las copias que llevó). Tras una transferencia correcta, el nodo antiguo recibe un `DELETE` normal: sus copias ya se copiaron al nodo nuevo. Las copias del almacenamiento externo nunca se tocan. `204`.
+Fuerza la parada del servidor si está en marcha, ejecuta los pasos de desinstalación de la plantilla y borra la carpeta del servidor y todo lo que el nodo guarda de él (definición, tareas, informes de fallos, ajustes de notificación, ajuste de copia periódica (`<id>.offsite`), métricas, estado del mapa del mundo y del modpack, historial de archivos y su carpeta `/tmp`). Si falla un paso de desinstalación, se registra en el log y se muestra en la consola, y el borrado continúa. Después se borra la carpeta de copias de seguridad del servidor en este nodo (`<daemon.data.backups.folder>/<serverId>`), salvo que la petición lleve `?keepBackups=true`, que el panel envía cuando deshace una transferencia entre nodos y quita el servidor del nodo nuevo (solo retira, una a una con `DELETE /backup/file`, las copias que llevó). Tras una transferencia correcta, el nodo antiguo recibe un `DELETE` normal: sus copias ya se copiaron al nodo nuevo. Las copias del almacenamiento externo nunca se tocan. `204`.
 
 ### Acciones de encendido
 

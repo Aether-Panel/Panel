@@ -1000,7 +1000,31 @@
         "both": "Externa",
         "bothHint": "También está guardada en el almacenamiento externo.",
         "only": "Solo externa",
-        "onlyHint": "La copia local ya no existe; se descargará del almacenamiento externo al restaurar o descargar."
+        "onlyHint": "La copia local ya no existe; se descargará del almacenamiento externo al restaurar o descargar.",
+        "title": "Copia al S3",
+        "description": "Una copia completa del servidor que va directa al S3 cada cierto tiempo, sin ocupar espacio en el nodo.",
+        "interval": "Cada cuánto",
+        "defaultOption": "Por defecto ({{value}})",
+        "defaultPlain": "Por defecto",
+        "intervalOff": "Desactivada",
+        "intervalHours": "{{count}} h",
+        "intervalDays": "{{count}} días",
+        "keep": "Conservar en S3",
+        "keepHint": "De 1 a 50. Vacío usa el valor por defecto. Las más antiguas se borran del S3.",
+        "useDefault": "Por defecto",
+        "last": "Última copia periódica: {{date}}",
+        "none": "Todavía no hay ninguna copia periódica.",
+        "notConfigured": "Este nodo no tiene S3 configurado.",
+        "readOnly": "Para cambiarlo hace falta el permiso de crear copias de seguridad.",
+        "save": "Guardar",
+        "saved": "Guardado",
+        "saveError": "No se pudo guardar la copia al S3.",
+        "periodic": {
+          "name": "Copia periódica (S3)",
+          "badge": "Periódica",
+          "hint": "Copia automática de todo el servidor, guardada solo en el S3."
+        },
+        "loadError": "No se pudo leer la copia al S3 de este servidor: el nodo no ha respondido."
       },
       "usage": {
         "label": "Espacio usado por copias:",
@@ -1098,7 +1122,18 @@
           "backup": "Copia (guarda {{count}})",
           "restartNote": "Solo si está encendido"
         },
-        "adminOnly": "Paso de administrador: {{type}}"
+        "adminOnly": "Paso de administrador: {{type}}",
+        "offsite": "Subir al S3",
+        "offsiteKeep": "Conservar en S3",
+        "offsiteHelp": "Las demás ejecuciones guardan la copia solo en el servidor.",
+        "offsiteFrequencies": {
+          "never": "Nunca",
+          "always": "Siempre",
+          "weekend": "Cada fin de semana",
+          "weekly": "Cada semana",
+          "biweekly": "Cada 15 días",
+          "monthly": "Cada mes"
+        }
       },
       "dialog": {
         "createTitle": "Nueva tarea",
@@ -3603,15 +3638,15 @@
     },
     "offsite": {
       "title": "Copias de seguridad externas",
-      "description": "Guarda una copia de cada copia de seguridad en un almacenamiento compatible con S3. Si el disco del nodo falla, las copias siguen a salvo.",
+      "description": "Guarda copias de seguridad fuera del nodo, en un almacenamiento compatible con S3. Si el disco del nodo falla, esas copias siguen a salvo.",
       "test": "Probar conexión",
       "testOk": "Conexión correcta: se pudo escribir y borrar en el bucket.",
       "testError": "No se pudo conectar con el almacenamiento.",
       "statusTitle": "Estado",
-      "statusDescription": "Las copias locales se mantienen; el bucket es una segunda copia.",
+      "statusDescription": "Las copias del nodo se mantienen; el bucket es un sitio aparte donde siguen a salvo.",
       "enabled": "Subir las copias al bucket",
-      "enabledDescription": "Cada copia terminada se sube al momento. Al borrarla, se borra en los dos sitios.",
-      "onHint": "Activado: las copias nuevas se subirán al bucket.",
+      "enabledDescription": "Al bucket van la copia periódica de cada servidor y las copias de las tareas que lo pidan. Las copias manuales se quedan en el nodo. Al borrar una copia, se borra en los dos sitios.",
+      "onHint": "Activado: la copia periódica y las copias de las tareas que lo pidan suben al bucket.",
       "offHint": "Desactivado: las copias solo se guardan en el nodo.",
       "bucketTitle": "Bucket",
       "bucketDescription": "Funciona con AWS S3, Backblaze B2, Cloudflare R2, Wasabi, MinIO y cualquier servicio compatible con S3.",
@@ -3628,7 +3663,14 @@
       "accessKey": "Access key",
       "secretKey": "Secret key",
       "insecure": "Conexión sin cifrar (http)",
-      "insecureDescription": "Solo para un MinIO en tu propia red. Los proveedores públicos usan https."
+      "insecureDescription": "Solo para un MinIO en tu propia red. Los proveedores públicos usan https.",
+      "periodicTitle": "Copia periódica de cada servidor",
+      "periodicDescription": "Cada servidor recibe una copia completa que va directa al bucket, sin ocupar espacio en el nodo. Cada servidor puede cambiarlo en su pestaña Copias de seguridad.",
+      "periodicHours": "Intervalo",
+      "periodicHoursHint": "Cada cuánto recibe cada servidor su copia. «Desactivada» la apaga en los servidores que no tengan su propio intervalo.",
+      "periodicKeep": "Copias a conservar en S3",
+      "periodicKeepHint": "De 1 a 50. Al subir una nueva, se borran las más antiguas.",
+      "remoteNodes": "Nodos remotos: estos valores se guardan en la configuración del panel y se aplican a los servidores de su propio nodo. Cada nodo remoto lee las claves daemon.backups.s3.* de su propio config.json."
     },
     "domains": {
       "title": "Subdominios automáticos",
@@ -3792,6 +3834,8 @@
     "ErrDiscordNoWebhooks": "No hay webhooks de Discord configurados.",
     "ErrDiscordTestFailed": "El mensaje de prueba no llegó a estos webhooks: {{webhooks}}. Revisa que sigan existiendo en Discord.",
     "ErrNotificationLanguage": "El idioma de las notificaciones debe ser español o inglés.",
+    "ErrOffsitePeriodicHours": "La copia periódica externa solo puede hacerse cada 12, 24, 48, 72, 168, 336 o 720 horas, o desactivarse (0).",
+    "ErrOffsiteKeep": "Las copias externas que se conservan deben ser entre 1 y 50.",
     "ErrAIConfirmationInvalid": "Esta solicitud ha caducado, ya se respondió o es de otra persona. Vuelve a preguntar.",
     "ErrAccountPending": "Tu cuenta está pendiente de aprobación. Un administrador tiene que aprobarla antes de que puedas entrar.",
     "ErrGitHubNotConfigured": "GitHub no está configurado en este panel. Un administrador debe añadir el Client ID en Configuración → GitHub.",

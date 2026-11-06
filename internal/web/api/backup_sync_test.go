@@ -55,3 +55,69 @@ func TestApplyNodeBackups_DropsFailedManualBackups(t *testing.T) {
 		assert.Equal(t, "local", byName["done.tar.gz"].Location)
 	}
 }
+
+func TestSyncBackups_RecordsPeriodicCopies(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "backups.db")), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	require.NoError(t, db.AutoMigrate(&models.User{}, &models.Node{}, &models.Server{}, &models.Backup{}))
+
+	server := &models.Server{Identifier: "srv01"}
+	bs := &services.Backup{DB: db}
+	periodic := servers.OffsiteBackupPrefix + "0b5c9a1e-3f2d-4c8e-9a7b-6d1e2f3a4b5c.tar.gz"
+
+	// the node deletes the local archive once uploaded, so the copy is only in the bucket
+	_, err = applyNodeBackups(bs, server, []skypanel.BackupFile{
+		{FileName: periodic, Size: 42, Location: "offsite"},
+	})
+	require.NoError(t, err)
+
+	records, err := bs.GetAllForServer(server.Identifier)
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	assert.Equal(t, "Periodic backup (S3)", records[0].Name)
+	assert.Equal(t, periodic, records[0].FileName)
+	assert.Equal(t, int64(42), records[0].FileSize)
+	assert.Equal(t, "offsite", records[0].Location)
+
+	// a later sync where it is still only in the bucket keeps it
+	_, err = applyNodeBackups(bs, server, []skypanel.BackupFile{
+		{FileName: periodic, Size: 42, Location: "offsite"},
+	})
+	require.NoError(t, err)
+	records, err = bs.GetAllForServer(server.Identifier)
+	require.NoError(t, err)
+	assert.Len(t, records, 1)
+
+	// one seen while its archive was still on the node follows it into the bucket
+	next := servers.OffsiteBackupPrefix + "7e2d4f60-1a3b-4c5d-8e9f-0a1b2c3d4e5f.tar.gz"
+	_, err = applyNodeBackups(bs, server, []skypanel.BackupFile{
+		{FileName: periodic, Size: 42, Location: "offsite"},
+		{FileName: next, Size: 50, Location: "local"},
+	})
+	require.NoError(t, err)
+	_, err = applyNodeBackups(bs, server, []skypanel.BackupFile{
+		{FileName: periodic, Size: 42, Location: "offsite"},
+		{FileName: next, Size: 50, Location: "offsite"},
+	})
+	require.NoError(t, err)
+	records, err = bs.GetAllForServer(server.Identifier)
+	require.NoError(t, err)
+	byName := map[string]*models.Backup{}
+	for _, r := range records {
+		byName[r.FileName] = r
+	}
+	if assert.Contains(t, byName, next) {
+		assert.Equal(t, "Periodic backup (S3)", byName[next].Name)
+		assert.Equal(t, "offsite", byName[next].Location)
+	}
+
+	// once the retention removes it from the bucket the node stops listing it
+	_, err = applyNodeBackups(bs, server, []skypanel.BackupFile{})
+	require.NoError(t, err)
+	records, err = bs.GetAllForServer(server.Identifier)
+	require.NoError(t, err)
+	assert.Empty(t, records)
+}

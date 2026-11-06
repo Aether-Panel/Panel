@@ -258,7 +258,7 @@ Cada contenedor de un servidor de juego se endurece así:
 
 Otros límites que protegen el nodo:
 
-- `panel.backups.maxPerServer` (`10`): copias de seguridad que pueden guardar los usuarios de un servidor; los administradores no tienen límite. Las copias no cuentan en el disco del servidor.
+- `panel.backups.maxPerServer` (`10`): copias de seguridad que pueden tener en el nodo los usuarios de un servidor (las que solo están en el bucket no cuentan); los administradores no tienen límite. Las copias no cuentan en el disco del servidor.
 - `daemon.minFreeDiskMB` (`2048`): se rechaza una instalación que empezaría con menos espacio libre en la carpeta de servidores, antes de que una descarga del juego llene el disco.
 - El límite de disco del servidor se aplica; un servidor que ya lo llenó no arranca hasta que se borren archivos.
 

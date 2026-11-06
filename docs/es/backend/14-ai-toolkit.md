@@ -274,7 +274,7 @@ El servidor es el que `ResolveServerPanel` resolvió para `/api/servers/:serverI
 
 En el nodo cada operación pasa por el `files.FileServer` del servidor, que abre cada ruta por debajo de la carpeta del servidor con `openat2` y `RESOLVE_BENEATH` (o, con `security.forceOpenat`, carpeta a carpeta con `O_NOFOLLOW`): una ruta o un enlace simbólico que saldría de la carpeta lo rechaza el kernel, no unas comprobaciones de texto. Véase [Seguridad → Acceso a archivos](./09-security.md#acceso-a-archivos).
 
-Los archivos internos del panel para un servidor (`.cron`, `.history`, `.crashes`, `.notify`, `.metrics`, `.worldmap`, `.modpack`) están junto a la carpeta del servidor, fuera de su raíz, así que ninguna herramienta puede alcanzarlos. Una ruta que sale de la raíz vuelve como `the path must stay inside the server folder`.
+Los archivos internos del panel para un servidor (`.cron`, `.history`, `.crashes`, `.notify`, `.offsite`, `.metrics`, `.worldmap`, `.modpack`) están junto a la carpeta del servidor, fuera de su raíz, así que ninguna herramienta puede alcanzarlos. Una ruta que sale de la raíz vuelve como `the path must stay inside the server folder`.
 
 ### Enlaces simbólicos
 
