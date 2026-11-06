@@ -83,7 +83,7 @@ La página del servidor (`features/servers/[id]/`) llama a la API directamente d
 | Tareas | `GET /api/servers/:id/tasks`, `PUT/DELETE /api/servers/:id/tasks/:taskId`, `POST /api/servers/:id/tasks/:taskId/run` |
 | Subusuarios | `GET /api/servers/:id/user`, `PUT/DELETE /api/servers/:id/user/:email` |
 | Bases de datos | `GET/POST /api/servers/:id/databases`, `DELETE /api/servers/:id/databases/:dbId`, `GET /api/servers/:id/databasehosts` |
-| Otros | `/notifications`, `/subdomain`, `/version`, `/modpacks`, `/map`, `/clone`, `/transfer`, `/extransfer/*`, `/port-settings`, `/owner/:userId`, `/ai/analyze`, `/ai/chat` |
+| Otros | `/notifications`, `/offsite`, `/subdomain`, `/version`, `/modpacks`, `/map`, `/clone`, `/transfer`, `/extransfer/*`, `/port-settings`, `/owner/:userId`, `/ai/analyze`, `/ai/chat` |
 
 ### WebSocket de la consola
 

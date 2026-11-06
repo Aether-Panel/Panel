@@ -106,6 +106,7 @@ Unless the last column says otherwise, the panel route is the same path under `/
 | GET | `/backup/busy` | Whether a backup, restore point or restore is being written | Node transfer |
 | PUT | `/backup/file?fileName=&modTime=` | Receives a backup archive copied from another node | Node transfer |
 | DELETE | `/backup/file?fileName=` | Removes this node's copy of a backup, leaving the off-site copy | Node transfer (undo) |
+| GET, PUT | `/offsite` | The server's periodic off-site copy setting (`<id>.offsite`) | Same (`/api/servers/:serverId/offsite`); also the node transfer, which copies it to the new node |
 | POST | `/clone-from/:sourceId` | Copies another server's files into this one | [`POST /api/servers/:serverId/clone`](./03-servers.md#post-apiserversserveridclone) |
 | GET | `/socket` | WebSocket: console, stats, status | [`GET /api/servers/:serverId/socket`](./03-servers.md#websocket) |
 
@@ -173,7 +174,7 @@ Body: a server definition. If the node already has a server with that identifier
 
 ### `DELETE /daemon/server/:serverId`
 
-Kills the server if it runs, runs the template's uninstall steps, deletes the server folder and everything the node keeps for it (definition, tasks, crash reports, notification settings, metrics, world map and modpack state, file history, its `/tmp` folder). A failed uninstall step is logged and shown on the console, and the deletion goes on. Then the server's backup folder on this node (`<daemon.data.backups.folder>/<serverId>`) is deleted, unless the request has `?keepBackups=true`, which the panel sends when it undoes a node transfer and removes the server from the new node (it takes back only the backup copies it brought, one by one, with `DELETE /backup/file`). After a transfer that succeeded, the old node gets a plain `DELETE`: its backups were copied to the new node. Copies in off-site storage are never touched. `204`.
+Kills the server if it runs, runs the template's uninstall steps, deletes the server folder and everything the node keeps for it (definition, tasks, crash reports, notification settings, periodic off-site copy setting (`<id>.offsite`), metrics, world map and modpack state, file history, its `/tmp` folder). A failed uninstall step is logged and shown on the console, and the deletion goes on. Then the server's backup folder on this node (`<daemon.data.backups.folder>/<serverId>`) is deleted, unless the request has `?keepBackups=true`, which the panel sends when it undoes a node transfer and removes the server from the new node (it takes back only the backup copies it brought, one by one, with `DELETE /backup/file`). After a transfer that succeeded, the old node gets a plain `DELETE`: its backups were copied to the new node. Copies in off-site storage are never touched. `204`.
 
 ### Power actions
 
