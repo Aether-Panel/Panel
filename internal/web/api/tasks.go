@@ -289,8 +289,11 @@ func addSystemBackups(bs *services.Backup, server *models.Server, onNode []skypa
 			continue
 		}
 		name := "Automatic backup"
-		if strings.HasPrefix(f.FileName, servers.RestorePointPrefix) {
+		switch {
+		case strings.HasPrefix(f.FileName, servers.RestorePointPrefix):
 			name = "Restore point"
+		case strings.HasPrefix(f.FileName, servers.OffsiteBackupPrefix):
+			name = "Periodic backup (S3)"
 		}
 		record := &models.Backup{Name: name, FileName: f.FileName, FileSize: f.Size, Location: f.Location, ServerID: server.Identifier, CreatedAt: f.ModTime}
 		if err := bs.Create(record); err != nil {
@@ -299,8 +302,12 @@ func addSystemBackups(bs *services.Backup, server *models.Server, onNode []skypa
 	}
 }
 
-// isSystemBackup tells backups the node makes by itself (scheduled tasks, restore points), which
-// the panel adds and removes as they come and go, from those made by hand
+// isSystemBackup tells backups the node makes by itself (scheduled tasks, restore points, the
+// periodic off-site copy), which the panel adds and removes as they come and go, from those made
+// by hand. The node lists the periodic copy with Location "offsite" once only the bucket has it,
+// so it stays recorded until the retention removes it there.
 func isSystemBackup(fileName string) bool {
-	return strings.HasPrefix(fileName, servers.AutoBackupPrefix) || strings.HasPrefix(fileName, servers.RestorePointPrefix)
+	return strings.HasPrefix(fileName, servers.AutoBackupPrefix) ||
+		strings.HasPrefix(fileName, servers.RestorePointPrefix) ||
+		strings.HasPrefix(fileName, servers.OffsiteBackupPrefix)
 }
