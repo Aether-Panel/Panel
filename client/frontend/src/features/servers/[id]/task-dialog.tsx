@@ -8,8 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslations } from '@/contexts/translations-context';
+import { MAX_KEEP, MIN_KEEP, OFFSITE_FREQUENCIES, clampKeep, type OffsiteFrequency } from '@/lib/offsite';
 import { cn } from '@/lib/utils';
-import { clampKeep } from './offsite-card';
 import { INTERVAL_HOURS, fromCron, localTimeZone, toCron, weekdayLabels, type Schedule, type ScheduleKind } from './task-schedule';
 
 export type TaskStep = { type: string; [key: string]: unknown };
@@ -37,12 +37,8 @@ export const EDITABLE_STEPS = ['stdin', 'sleep', 'restart', 'stop', 'start', 'ba
 
 export const SLEEP_MINUTES = [1, 5, 10, 15, 30, 60];
 export const DEFAULT_BACKUP_KEEP = 5;
-const MAX_BACKUP_KEEP = 50;
 
-/** How often a backup step's copy also goes to S3; the other runs keep it on the server only. */
-export const OFFSITE_FREQUENCIES = ['never', 'always', 'weekend', 'weekly', 'biweekly', 'monthly'] as const;
-type OffsiteFrequency = (typeof OFFSITE_FREQUENCIES)[number];
-/** What a new backup step starts with. */
+/** What a new backup step starts with: a copy to S3 once a week, 4 of them kept there. */
 const DEFAULT_OFFSITE: OffsiteFrequency = 'weekly';
 const DEFAULT_OFFSITE_KEEP = 4;
 
@@ -431,8 +427,8 @@ function BackupStepFields({ step, id, t, onChange }: Readonly<{ step: TaskStep; 
             id={`${id}-keep`}
             type="number"
             inputMode="numeric"
-            min={1}
-            max={MAX_BACKUP_KEEP}
+            min={MIN_KEEP}
+            max={MAX_KEEP}
             className="h-9 w-20 shrink-0 tabular-nums"
             value={String(step.keep ?? DEFAULT_BACKUP_KEEP)}
             onChange={(e) => onChange({ keep: clampKeep(e.target.value) })}
@@ -462,8 +458,8 @@ function BackupStepFields({ step, id, t, onChange }: Readonly<{ step: TaskStep; 
               id={`${id}-offsite-keep`}
               type="number"
               inputMode="numeric"
-              min={1}
-              max={MAX_BACKUP_KEEP}
+              min={MIN_KEEP}
+              max={MAX_KEEP}
               className="h-9 w-20 shrink-0 tabular-nums"
               value={String(step.offsiteKeep ?? DEFAULT_OFFSITE_KEEP)}
               onChange={(e) => onChange({ offsiteKeep: clampKeep(e.target.value) })}

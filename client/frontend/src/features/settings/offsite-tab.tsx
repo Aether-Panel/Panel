@@ -4,7 +4,7 @@ import { CheckCircle2, CloudUpload, Info, Loader2, PlugZap, XCircle } from '@/co
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PERIODIC_HOURS, clampKeep, periodicHoursLabel } from '@/features/servers/[id]/offsite-card';
+import { MAX_KEEP, MIN_KEEP, PERIODIC_HOURS, clampKeep, periodicHoursLabel } from '@/lib/offsite';
 import { ApiError, api } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { SecretInput, SettingRow, SettingRows, SettingsCard, SettingsCardHeader, SettingsField, SettingsSection } from './general-tab';
@@ -55,6 +55,21 @@ export function OffsiteTab({ localSettings, handleUpdate, t }: Readonly<OffsiteT
   const enabled = Boolean(localSettings[KEYS.enabled]);
   const periodicHours = Number(localSettings[PERIODIC_KEYS.hours] ?? DEFAULT_PERIODIC_HOURS);
   const periodicKeep = Number(localSettings[PERIODIC_KEYS.keep] ?? DEFAULT_PERIODIC_KEEP);
+  // what is being typed in the keep field (null when not editing): an emptied field stays empty
+  // instead of turning into 1, while the setting itself only ever holds a whole number in 1-50
+  const [keepText, setKeepText] = useState<string | null>(null);
+
+  const typeKeep = (text: string) => {
+    setKeepText(text);
+    const n = Number(text);
+    if (text !== '' && Number.isInteger(n) && n >= MIN_KEEP && n <= MAX_KEEP) handleUpdate(PERIODIC_KEYS.keep, n);
+  };
+  const commitKeep = () => {
+    if (keepText === null) return;
+    // an emptied field shows the last valid number again; anything else is held to 1-50
+    if (keepText.trim() !== '') handleUpdate(PERIODIC_KEYS.keep, clampKeep(keepText));
+    setKeepText(null);
+  };
 
   const runTest = async () => {
     setTesting(true);
@@ -134,11 +149,12 @@ export function OffsiteTab({ localSettings, handleUpdate, t }: Readonly<OffsiteT
                   id="offsite-periodic-keep"
                   type="number"
                   inputMode="numeric"
-                  min={1}
-                  max={50}
-                  // always a whole number in range: the whole form is saved at once, and the API refuses anything else
-                  value={String(periodicKeep)}
-                  onChange={(e) => handleUpdate(PERIODIC_KEYS.keep, clampKeep(e.target.value))}
+                  min={MIN_KEEP}
+                  max={MAX_KEEP}
+                  value={keepText ?? String(periodicKeep)}
+                  onChange={(e) => typeKeep(e.target.value)}
+                  onBlur={commitKeep}
+                  onKeyDown={(e) => e.key === 'Enter' && commitKeep()}
                   className="w-24 tabular-nums"
                 />
               </SettingsField>

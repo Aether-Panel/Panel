@@ -1023,7 +1023,8 @@
           "name": "Periodic backup (S3)",
           "badge": "Periodic",
           "hint": "Automatic copy of the whole server, kept in S3 only."
-        }
+        },
+        "loadError": "This server's copy to S3 could not be read: the node did not answer."
       },
       "usage": {
         "label": "Space used by backups:",
@@ -3642,10 +3643,10 @@
       "testOk": "Connected: a file was written to and deleted from the bucket.",
       "testError": "Could not connect to the storage.",
       "statusTitle": "Status",
-      "statusDescription": "The node's backups are kept; the bucket holds others, away from the node.",
+      "statusDescription": "The node's backups are kept; the bucket is a separate place where copies stay safe.",
       "enabled": "Upload backups to the bucket",
       "enabledDescription": "The bucket gets each server's periodic copy and the backups of tasks that ask for it. Manual backups stay on the node. Deleting a backup removes it from both places.",
-      "onHint": "On: periodic copies and the tasks that ask for it upload to the bucket.",
+      "onHint": "On: periodic copies and the copies of tasks that ask for it upload to the bucket.",
       "offHint": "Off: backups are only kept on the node.",
       "bucketTitle": "Bucket",
       "bucketDescription": "Works with AWS S3, Backblaze B2, Cloudflare R2, Wasabi, MinIO and any S3-compatible service.",
@@ -3666,7 +3667,7 @@
       "periodicTitle": "Periodic copy of each server",
       "periodicDescription": "Each server gets a full copy that goes straight to the bucket, without taking space on the node. Each server can change this in its Backups tab.",
       "periodicHours": "Interval",
-      "periodicHoursHint": "Off until you pick an interval.",
+      "periodicHoursHint": "How often each server gets its copy. \"Off\" turns it off for servers without their own interval.",
       "periodicKeep": "Copies to keep in S3",
       "periodicKeepHint": "1 to 50. When a new one is uploaded, the oldest are deleted.",
       "remoteNodes": "Remote nodes: these values are saved in the panel's configuration and apply to the servers on its own node. Each remote node reads the daemon.backups.s3.* keys from its own config.json."

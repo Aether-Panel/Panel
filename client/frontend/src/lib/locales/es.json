@@ -1023,7 +1023,8 @@
           "name": "Copia periódica (S3)",
           "badge": "Periódica",
           "hint": "Copia automática de todo el servidor, guardada solo en el S3."
-        }
+        },
+        "loadError": "No se pudo leer la copia al S3 de este servidor: el nodo no ha respondido."
       },
       "usage": {
         "label": "Espacio usado por copias:",
@@ -3642,10 +3643,10 @@
       "testOk": "Conexión correcta: se pudo escribir y borrar en el bucket.",
       "testError": "No se pudo conectar con el almacenamiento.",
       "statusTitle": "Estado",
-      "statusDescription": "Las copias del nodo se mantienen; el bucket guarda otras aparte, fuera del nodo.",
+      "statusDescription": "Las copias del nodo se mantienen; el bucket es un sitio aparte donde siguen a salvo.",
       "enabled": "Subir las copias al bucket",
       "enabledDescription": "Al bucket van la copia periódica de cada servidor y las copias de las tareas que lo pidan. Las copias manuales se quedan en el nodo. Al borrar una copia, se borra en los dos sitios.",
-      "onHint": "Activado: la copia periódica y las tareas que lo pidan suben al bucket.",
+      "onHint": "Activado: la copia periódica y las copias de las tareas que lo pidan suben al bucket.",
       "offHint": "Desactivado: las copias solo se guardan en el nodo.",
       "bucketTitle": "Bucket",
       "bucketDescription": "Funciona con AWS S3, Backblaze B2, Cloudflare R2, Wasabi, MinIO y cualquier servicio compatible con S3.",
@@ -3666,7 +3667,7 @@
       "periodicTitle": "Copia periódica de cada servidor",
       "periodicDescription": "Cada servidor recibe una copia completa que va directa al bucket, sin ocupar espacio en el nodo. Cada servidor puede cambiarlo en su pestaña Copias de seguridad.",
       "periodicHours": "Intervalo",
-      "periodicHoursHint": "Desactivada hasta que elijas un intervalo.",
+      "periodicHoursHint": "Cada cuánto recibe cada servidor su copia. «Desactivada» la apaga en los servidores que no tengan su propio intervalo.",
       "periodicKeep": "Copias a conservar en S3",
       "periodicKeepHint": "De 1 a 50. Al subir una nueva, se borran las más antiguas.",
       "remoteNodes": "Nodos remotos: estos valores se guardan en la configuración del panel y se aplican a los servidores de su propio nodo. Cada nodo remoto lee las claves daemon.backups.s3.* de su propio config.json."
