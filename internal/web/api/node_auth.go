@@ -4,28 +4,17 @@ import (
 	"net/http"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
-	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 )
 
 // nodeRefusedPanel reports whether a node's answer is the node refusing the panel itself, not
-// an answer about what the user asked for. A node checks only the panel's token (the panel has
-// already checked the user's permissions), so a 401, or a 403 that carries an authentication
-// challenge, means the two do not trust each other: another secret, a clock that is off, or a
-// proxy in front of the node asking for credentials. Any other 403 is the node's own answer.
+// an answer about what the user asked for (see services.NodeRefusedPanel, which the node
+// settings sync shares).
 func nodeRefusedPanel(res *http.Response) bool {
-	if res == nil {
-		return false
-	}
-	switch res.StatusCode {
-	case http.StatusUnauthorized:
-		return true
-	case http.StatusForbidden:
-		return res.Header.Get(middleware.WWWAuthenticateHeader) != ""
-	}
-	return false
+	return services.NodeRefusedPanel(res)
 }
 
 // answerNodeAuthFailure answers 502 with ErrNodeAuthFailed when the node refused the panel's

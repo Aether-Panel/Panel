@@ -215,6 +215,9 @@ func setupPanel(router *gin.Engine) bool {
 		// the domain sits behind Cloudflare's proxy, kept current as either changes
 		services.KeepLocalNodeHostInSync(db)
 	}
+	// the remote nodes take the settings their daemons use (S3 off-site backups, the
+	// CurseForge key) from the panel, so none needs them in its own config.json
+	services.StartNodeSettingsSync(db)
 	return true
 }
 

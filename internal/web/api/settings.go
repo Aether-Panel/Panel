@@ -69,6 +69,40 @@ func registerSettings(g *gin.RouterGroup) {
 
 	g.Handle("GET", "/domain-status", middleware.RequiresPermission(scopes.ScopeSettingsEdit), domainStatus)
 	g.Handle("OPTIONS", "/domain-status", response.CreateOptions("GET"))
+
+	g.Handle("GET", "/node-sync", middleware.RequiresPermission(scopes.ScopeSettingsEdit), getNodeSettingsSync)
+	g.Handle("OPTIONS", "/node-sync", response.CreateOptions("GET"))
+}
+
+// requestNodeSettingsSync sends the node settings to the remote nodes in the background; a
+// variable so tests can see a save ask for it without reaching any node
+var requestNodeSettingsSync = services.RequestNodeSettingsSync
+
+// syncNodesIfChanged asks for a pass to the remote nodes when the save touched a setting their
+// daemons use, so no node needs it in its own config.json. The pass runs in the background:
+// the save never waits for a slow or switched-off node.
+func syncNodesIfChanged(keys ...string) {
+	for _, key := range keys {
+		if config.IsSyncedNodeSetting(key) {
+			requestNodeSettingsSync()
+			return
+		}
+	}
+}
+
+// @Summary Node settings on the remote nodes
+// @Description Whether every remote node has the panel's node settings (S3 off-site backups and the CurseForge key): synced, pending (retried by itself), outdated (the node needs updating) or failed (with the node's reason). Never includes a setting's value.
+// @Success 200 {array} services.NodeSyncStatus
+// @Failure 500 {object} ErrorResponse
+// @Tags Panel Settings
+// @Router /api/settings/node-sync [get]
+// @Security OAuth2Application[settings.edit]
+func getNodeSettingsSync(c *gin.Context) {
+	statuses, err := services.NodeSettingsSyncStatuses(middleware.GetDatabase(c))
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	c.JSON(http.StatusOK, statuses)
 }
 
 // @Summary Domain set-up status
@@ -169,6 +203,7 @@ func setSetting(c *gin.Context) {
 	services.SyncNodeToConfig()
 	pushNotificationLanguageIfChanged(previousLanguage)
 	followDNSSettingsChange(db, previousDNS, previousHost)
+	syncNodesIfChanged(key)
 
 	c.Status(http.StatusNoContent)
 }
@@ -266,6 +301,7 @@ func setSettings(c *gin.Context) {
 	services.SyncNodeToConfig()
 	pushNotificationLanguageIfChanged(previousLanguage)
 	followDNSSettingsChange(db, previousDNS, previousHost)
+	syncNodesIfChanged(keys...)
 
 	c.Status(http.StatusNoContent)
 }
@@ -651,7 +687,7 @@ var editableStringEntries = []config.StringEntry{
 	config.NodeIP,
 	config.GeminiAPIKey,
 	config.NotificationLanguage,
-	// the node's key for CurseForge modpacks (on remote nodes it is set in their own config)
+	// the node's key for CurseForge modpacks; the panel sends it to every remote node too
 	config.CurseForgeKey,
 	// the OAuth App users connect their GitHub account through
 	config.GitHubClientID,
