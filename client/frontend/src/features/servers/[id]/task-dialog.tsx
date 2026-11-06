@@ -203,7 +203,7 @@ export default function TaskDialog({ open, onOpenChange, initial, isEditing, all
             {shown.name && <p id={`${ids}-name-error`} className="text-xs text-destructive-bright">{shown.name}</p>}
           </div>
 
-          <fieldset className="space-y-3">
+          <fieldset className="min-w-0 space-y-3">
             <legend className="mb-3 text-sm font-semibold">{t('servers.tasks.schedule.label')}</legend>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
@@ -296,11 +296,11 @@ export default function TaskDialog({ open, onOpenChange, initial, isEditing, all
             )}
           </fieldset>
 
-          <fieldset className="space-y-3">
+          <fieldset className="min-w-0 space-y-3">
             <legend className="mb-3 text-sm font-semibold">{t('servers.tasks.steps.label')}</legend>
 
             {steps.length > 0 && (
-              <ol className="space-y-2">
+              <ol className="min-w-0 space-y-2">
                 {rows.map(({ key, step }, index) => {
                   const Icon = STEP_ICONS[step.type] ?? Terminal;
                   const editable = (EDITABLE_STEPS as readonly string[]).includes(step.type);
@@ -308,14 +308,14 @@ export default function TaskDialog({ open, onOpenChange, initial, isEditing, all
                   const minutes = sleepMinutes(step);
                   const hasFields = ['stdin', 'sleep', 'backup', 'restart'].includes(step.type);
                   return (
-                    <li key={key} className="space-y-2 rounded-lg border border-border/60 bg-background/30 p-3">
-                      <div className="flex items-center gap-3">
+                    <li key={key} className="min-w-0 space-y-2 rounded-lg border border-border/60 bg-background/30 p-3">
+                      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-secondary text-xs font-semibold tabular-nums text-muted-foreground">
                           {index + 1}
                         </span>
                         <div className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium">
                           <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                          <span className="truncate">{editable ? t(`servers.tasks.steps.${step.type}`) : t('servers.tasks.steps.adminOnly', { type: step.type })}</span>
+                          <span className="min-w-0 break-words sm:truncate">{editable ? t(`servers.tasks.steps.${step.type}`) : t('servers.tasks.steps.adminOnly', { type: step.type })}</span>
                         </div>
                         <div className="flex shrink-0 items-center">
                           <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" disabled={index === 0}
@@ -334,7 +334,7 @@ export default function TaskDialog({ open, onOpenChange, initial, isEditing, all
                       </div>
 
                       {hasFields && (
-                        <div className="space-y-2 pl-9">
+                        <div className="min-w-0 space-y-2 sm:pl-9">
                           {step.type === 'stdin' && (
                             <div className="space-y-1.5">
                               <Input
@@ -426,21 +426,21 @@ export default function TaskDialog({ open, onOpenChange, initial, isEditing, all
 function BackupStepFields({ step, id, t, onChange }: Readonly<{ step: TaskStep; id: string; t: Translate; onChange: (patch: Partial<TaskStep>) => void }>) {
   const frequency = offsiteFrequency(step);
   return (
-    <div className="space-y-1.5">
-      {/* label and field side by side; on a phone each pair takes its own line */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5">
-        <div className="flex items-center justify-between gap-2 sm:justify-start">
+    <div className="min-w-0 space-y-1.5">
+      {/* on a phone each label sits above its field; from sm, label and field side by side */}
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-2">
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
           <Label htmlFor={`${id}-keep`} className="text-xs font-normal text-muted-foreground">
             {t('servers.tasks.steps.keep')}
           </Label>
           <KeepInput id={`${id}-keep`} value={Number(step.keep ?? DEFAULT_BACKUP_KEEP)} onChange={(keep) => onChange({ keep })} />
         </div>
-        <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start">
+        <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
           <Label htmlFor={`${id}-offsite`} className="shrink-0 text-xs font-normal text-muted-foreground">
             {t('servers.tasks.steps.offsite')}
           </Label>
           <Select value={frequency} onValueChange={(value) => onChange({ offsite: value })}>
-            <SelectTrigger id={`${id}-offsite`} className="h-9 min-w-0 flex-1 sm:w-44 sm:flex-none">
+            <SelectTrigger id={`${id}-offsite`} className="h-9 w-full min-w-0 sm:w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -451,7 +451,7 @@ function BackupStepFields({ step, id, t, onChange }: Readonly<{ step: TaskStep; 
           </Select>
         </div>
         {frequency !== 'never' && (
-          <div className="flex items-center justify-between gap-2 sm:justify-start">
+          <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
             <Label htmlFor={`${id}-offsite-keep`} className="text-xs font-normal text-muted-foreground">
               {t('servers.tasks.steps.offsiteKeep')}
             </Label>
