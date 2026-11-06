@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createDocument, isDirty, markSaved, removeAt, setJsonText, updateAt } from './document';
 import { copyName, duplicateTemplate, editorSource, importTemplate, prepareLoadedTemplate } from './initial';
 import { deleteIn, getIn, moveIn, renameKeyIn, setIn, type JsonObject } from './paths';
-import { sameTemplateName, templateNameProblem } from './template-name';
+import { sameTemplateName, storedTemplateName, templateNameProblem } from './template-name';
 import { countIssues, isUnderPath, validateTemplate, type EditorIssue } from './validation';
 import { defaultEnvironment, integerVariableValue } from './warnings';
 
@@ -203,6 +203,22 @@ describe('template name', () => {
     expect(sameTemplateName('paper-1', 'paper')).toBe(false);
   });
 
+  it('compares the same whatever the browser language (ñ = n, ä = a, I = i, trailing spaces)', () => {
+    // a fixed collation: under es, sv or tr the default one would keep these apart, the database does not
+    for (const [a, b] of [['españa', 'espana'], ['päper', 'paper'], ['PIPE', 'pipe'], ['Ärger', 'arger'], ['paper ', 'paper']]) {
+      expect(sameTemplateName(a, b), `${a} / ${b}`).toBe(true);
+      expect(templateNameProblem(a, { takenNames: [b] }), a).toBe(a.trimEnd() === a ? 'nameTaken' : 'nameWhitespace');
+    }
+    expect(copyName('espana', ['españa'])).toBe('espana-copy');
+  });
+
+  it('keeps the stored name when only case or accents change', () => {
+    expect(storedTemplateName('Paper', 'paper')).toBe('paper');
+    expect(storedTemplateName('pàper', 'paper')).toBe('paper');
+    expect(storedTemplateName('velocity', 'paper')).toBe('velocity');
+    expect(storedTemplateName('paper', undefined)).toBe('paper');
+  });
+
   it('counts a case or accent change of the opened name as the same template', () => {
     expect(templateNameProblem('Paper', { takenNames: ['paper', 'velocity'], originalName: 'paper' })).toBeUndefined();
     expect(templateNameProblem('Velocity', { takenNames: ['paper', 'velocity'], originalName: 'paper' })).toBe('nameTaken');
@@ -231,6 +247,20 @@ describe('validation', () => {
     const unknown = validateTemplate({ name: 'paper', environment: { type: 'host' } }, { takenNames: null });
     expect(describeIssues(unknown)).toEqual(['name: templates.editor.validation.namesUnchecked [error, blocking]']);
     expect(validateTemplate({ name: 'paper', environment: { type: 'host' } }, { takenNames: [] })).toEqual([]);
+  });
+
+  it('lets the opened template save under its own name while the local names are unknown', () => {
+    const env = { environment: { type: 'host' } };
+    expect(validateTemplate({ name: 'paper', ...env }, { takenNames: null, originalName: 'paper' })).toEqual([]);
+    expect(describeIssues(validateTemplate({ name: 'velocity', ...env }, { takenNames: null, originalName: 'paper' }))).toEqual([
+      'name: templates.editor.validation.namesUnchecked [error, blocking]',
+    ]);
+  });
+
+  it('warns that a change of case or accents alone is not saved', () => {
+    const issues = validateTemplate({ name: 'Paper', environment: { type: 'host' } }, { takenNames: ['paper'], originalName: 'paper' });
+    expect(describeIssues(issues)).toEqual(['name: templates.editor.warnings.nameCaseOnly [warning]']);
+    expect(issues[0].params).toEqual({ name: 'paper' });
   });
 
   it('finds no errors in any community template', () => {

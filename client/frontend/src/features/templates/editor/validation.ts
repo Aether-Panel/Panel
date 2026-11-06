@@ -2,7 +2,7 @@ import { templateSchema } from '../schema/template';
 import { issueMessageKey, issuePath } from '../schema/issues';
 import { msg } from '../schema/common';
 import { pathKey, type JsonObject } from './paths';
-import { templateNameProblem } from './template-name';
+import { sameTemplateName, templateNameProblem } from './template-name';
 import { templateWarnings, type WarningRule } from './warnings';
 
 // Live validation of the template being edited: the schema's errors, the name rules and the
@@ -52,7 +52,17 @@ export function validateTemplate(template: JsonObject, context: ValidationContex
   const { takenNames, originalName } = context;
   const nameProblem = templateNameProblem(template.name, { takenNames: takenNames ?? [], originalName });
   if (nameProblem) issues.push({ path: 'name', messageKey: msg(nameProblem), severity: 'error', blocking: true });
-  else if (takenNames === null) issues.push({ path: 'name', messageKey: msg('namesUnchecked'), severity: 'error', blocking: true });
+  const name = typeof template.name === 'string' ? template.name : '';
+  // saving under the opened template's own name (as the database compares it) updates that row,
+  // so it cannot overwrite another template even when the other names are unknown
+  const ownName = originalName !== undefined && sameTemplateName(name, originalName);
+  if (!nameProblem && takenNames === null && !ownName) {
+    issues.push({ path: 'name', messageKey: msg('namesUnchecked'), severity: 'error', blocking: true });
+  }
+  // the row keeps its stored name: a change of case or accents alone is not saved
+  if (!nameProblem && ownName && name !== originalName) {
+    issues.push({ path: 'name', messageKey: 'templates.editor.warnings.nameCaseOnly', params: { name: originalName }, severity: 'warning', blocking: false });
+  }
 
   const result = templateSchema.safeParse(template);
   if (!result.success) {

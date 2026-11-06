@@ -3374,8 +3374,9 @@
           "label": "Nombre (ID único)",
           "placeholder": "p. ej. paper",
           "hint": "Aparece en los enlaces y no se repite entre las plantillas locales. Mejor en minúsculas, con números y guiones.",
-          "hintRename": "Si lo cambias, se guarda una plantilla nueva con ese nombre y «{{name}}» se queda como está.",
-          "recheck": "Volver a comprobar"
+          "hintRename": "Si lo cambias por otro nombre, se guarda una plantilla nueva y «{{name}}» se queda como está. Cambiar solo mayúsculas o acentos no cuenta como otro nombre.",
+          "recheck": "Volver a comprobar",
+          "recheckFailed": "No se pudieron leer las plantillas locales. Inténtalo de nuevo en un momento."
         },
         "display": {
           "label": "Nombre visible",
@@ -3940,7 +3941,8 @@
       },
       "warnings": {
         "integerVariableValue": "No es un número entero: el nodo lo cambiará sin avisar (un texto, por ejemplo, pasa a ser 0).",
-        "noDefaultEnvironment": "La plantilla no tiene entorno por defecto: elige host o Docker."
+        "noDefaultEnvironment": "La plantilla no tiene entorno por defecto: elige host o Docker.",
+        "nameCaseOnly": "El panel no distingue mayúsculas ni acentos en los nombres: al guardar, la plantilla sigue llamándose «{{name}}»."
       }
     }
   },

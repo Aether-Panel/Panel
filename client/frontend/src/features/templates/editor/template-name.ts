@@ -15,13 +15,28 @@ const CONTROL_CHARACTER = /[\u0000-\u001f\u007f-\u009f]/;
 /** Why a name cannot be saved, as the code of its message under templates.editor.validation. */
 export type TemplateNameProblem = 'nameRequired' | 'nameTooLong' | 'nameSlash' | 'nameDots' | 'nameWhitespace' | 'nameControl' | 'nameTaken';
 
+// The locale is fixed: the browser's own would change the answer (Spanish keeps ñ apart from n,
+// Swedish ä from a, Turkish I from i) while the database answers the same for everyone. "en"
+// orders by the root collation; "und" is no help, Intl swaps it for the browser's locale.
+const NAME_COLLATOR = new Intl.Collator('en', { sensitivity: 'base' });
+
 /**
  * Whether two names reach the same stored template. The panel's MariaDB compares the name column
- * with its default collation, which ignores case and accents: PUT .../Paper finds the row "paper"
- * and replaces it. So names are told apart the way the database does, not character by character.
+ * with its default collation, which ignores case and accents (ñ = n, ä = a, I = i) and trailing
+ * spaces (PAD SPACE): PUT .../Paper finds the row "paper" and replaces it. So names are told
+ * apart the way the database does, not character by character.
  */
 export function sameTemplateName(a: string, b: string): boolean {
-  return a.localeCompare(b, undefined, { sensitivity: 'base' }) === 0;
+  return NAME_COLLATOR.compare(a.trimEnd(), b.trimEnd()) === 0;
+}
+
+/**
+ * The name a save ends up stored under. The backend updates the row it finds and keeps that row's
+ * name, so for the opened template a change of case or accents alone (paper → Paper) stays
+ * "paper"; the editor saves and shows that name instead of pretending it was renamed.
+ */
+export function storedTemplateName(name: string, originalName: string | undefined): string {
+  return originalName !== undefined && sameTemplateName(name, originalName) ? originalName : name;
 }
 
 /** Whether a local template in `names` would be reached by saving under `name`. */

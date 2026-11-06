@@ -59,24 +59,32 @@ function RecheckNames() {
   const { t } = useTranslations();
   const { recheckNames } = useTemplateEditor();
   const [checking, setChecking] = useState(false);
+  const [failed, setFailed] = useState(false);
   return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      disabled={checking}
-      onClick={async () => {
-        setChecking(true);
-        try {
-          await recheckNames();
-        } finally {
-          setChecking(false);
-        }
-      }}
-    >
-      {checking ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
-      {t('templates.editor.info.name.recheck')}
-    </Button>
+    <div className="space-y-2">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={checking}
+        onClick={async () => {
+          setChecking(true);
+          setFailed(false);
+          try {
+            setFailed(!(await recheckNames()));
+          } finally {
+            setChecking(false);
+          }
+        }}
+      >
+        {checking ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
+        {t('templates.editor.info.name.recheck')}
+      </Button>
+      {/* always present, so a failed retry is announced */}
+      <p aria-live="polite" className="text-pretty text-xs text-destructive-bright empty:!mt-0">
+        {failed ? t('templates.editor.info.name.recheckFailed') : ''}
+      </p>
+    </div>
   );
 }
 

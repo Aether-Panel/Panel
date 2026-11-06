@@ -3374,8 +3374,9 @@
           "label": "Name (unique ID)",
           "placeholder": "e.g. paper",
           "hint": "It appears in links and is unique among local templates. Lowercase letters, digits and hyphens work best.",
-          "hintRename": "If you change it, a new template is saved under that name and \"{{name}}\" stays as it is.",
-          "recheck": "Check again"
+          "hintRename": "If you change it to another name, a new template is saved and \"{{name}}\" stays as it is. Changing only case or accents does not count as another name.",
+          "recheck": "Check again",
+          "recheckFailed": "Couldn't read the local templates. Try again in a moment."
         },
         "display": {
           "label": "Display name",
@@ -3940,7 +3941,8 @@
       },
       "warnings": {
         "integerVariableValue": "Not a whole number: the node will change it without warning (text, for example, becomes 0).",
-        "noDefaultEnvironment": "The template has no default environment: choose host or Docker."
+        "noDefaultEnvironment": "The template has no default environment: choose host or Docker.",
+        "nameCaseOnly": "The panel does not tell names apart by case or accents: when saved, the template keeps the name \"{{name}}\"."
       }
     }
   },

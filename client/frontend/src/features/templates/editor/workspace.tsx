@@ -13,7 +13,8 @@ import { cn } from '@/lib/utils';
 import { useTemplateEditor } from './editor-context';
 import { textValue } from './field';
 import { saveLocalTemplate } from './load';
-import { sameTemplateName } from './template-name';
+import { setIn } from './paths';
+import { storedTemplateName } from './template-name';
 import { IssueCountBadges, SectionNav, SectionSelect } from './section-nav';
 import { getSection } from './sections';
 import { EditorToolbar } from './toolbar';
@@ -81,9 +82,8 @@ function JsonPanel({ split }: Readonly<{ split: boolean }>) {
     <Card className={cn('flex min-w-0 flex-col overflow-hidden', split ? 'sticky top-[9.5rem] h-[calc(100svh-11rem)] min-h-[24rem]' : 'h-[72svh] min-h-[24rem]')}>
       <div className="flex items-center justify-between gap-3 border-b border-border/50 px-4 py-2.5">
         <h2 className="text-sm font-semibold">{t('templates.editor.json.title')}</h2>
-        {/* the live region: its text only changes when the JSON turns valid or invalid, so typing
-            inside broken JSON is not announced on every key */}
-        <span aria-live="polite" className="text-xs">
+        {/* not a live region: the toolbar's status line already announces that the JSON broke */}
+        <span className="text-xs">
           {jsonProblem ? (
             <span className="flex items-center gap-1.5 text-destructive-bright">
               <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
@@ -125,7 +125,7 @@ function JsonPanel({ split }: Readonly<{ split: boolean }>) {
 export function EditorWorkspace() {
   const { t } = useTranslations();
   const editor = useTemplateEditor();
-  const { template, jsonText, dirty, originalName, issues, blocked, markSaved } = editor;
+  const { template, jsonText, dirty, originalName, issues, blocked, markSaved, update } = editor;
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -142,20 +142,22 @@ export function EditorWorkspace() {
   useLeaveGuard(dirty && !saving);
 
   const save = async () => {
-    const saved = template;
+    // a change of case or accents alone is not a rename: the row keeps its name (template-name.ts)
+    const storedName = storedTemplateName(name, originalName);
+    const saved = storedName === name ? template : setIn(template, ['name'], storedName);
     setConfirmOpen(false);
     setSaving(true);
     setSaveError(null);
     try {
-      await saveLocalTemplate(name, saved);
-      // a name that only differs in case or accents updates the same row (see template-name.ts)
-      const created = originalName === undefined || !sameTemplateName(name, originalName);
-      markSaved(name, saved);
-      // the address opens what was saved, so reloading edits it instead of starting over
-      // built from the editor's own path: after a cancelled back or forward the address bar may
+      await saveLocalTemplate(storedName, saved);
+      const created = storedName !== originalName;
+      if (storedName !== name) update(['name'], storedName);
+      markSaved(storedName, saved);
+      // the address opens what was saved, so reloading edits it instead of starting over; built
+      // from the editor's own path, since after a cancelled back or forward the address bar may
       // already show another page
       const url = new URL('/templates/editor/', window.location.origin);
-      url.search = new URLSearchParams({ name }).toString();
+      url.search = new URLSearchParams({ name: storedName }).toString();
       window.history.replaceState(window.history.state, '', url);
       sileo.success({ title: t('common.success'), description: t(created ? 'templates.toast.created' : 'templates.toast.updated') });
     } catch (e) {
