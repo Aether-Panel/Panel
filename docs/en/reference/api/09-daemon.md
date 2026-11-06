@@ -236,7 +236,7 @@ They answer `{"error": {"code": "...", "msg": "..."}}` with a message that holds
 
 ### Backups
 
-The node knows backups by file name, not by the panel's record ID: `GET /backup` lists the finished archives (newest first), then the backups made by hand whose archive could not be written, with `"location": "failed"` (the panel drops their records when it sees them and calls `DELETE` to clear the mark). `restore`, `download` and `DELETE` take `?fileName=`. `POST /backup/create` answers `{"backupFileName": "..."}` and writes the archive in the background. `restore` answers `400 ErrBackupServerRunning` while the server runs, otherwise `202`. See [Server content → Backups](./04-server-content.md#backups).
+The node knows backups by file name, not by the panel's record ID: `GET /backup` lists the finished archives (newest first), then the backups made by hand whose archive could not be written, with `"location": "failed"` (the panel drops their records when it sees them and calls `DELETE` to clear the mark). When off-site storage is set up but could not be listed, the answer carries the header `X-Backups-Offsite: unavailable` and the body, same shape, holds only the node's copies; the panel then keeps the records of the copies that were in the bucket and does not turn `both` into `local`. A node without a bucket, or that listed it fine, sends no header, as does an older node. `restore`, `download` and `DELETE` take `?fileName=`. `POST /backup/create` answers `{"backupFileName": "..."}` and writes the archive in the background. `restore` answers `400 ErrBackupServerRunning` while the server runs, otherwise `202`. See [Server content → Backups](./04-server-content.md#backups).
 
 A [node transfer](./03-servers.md#post-apiserversserveridtransfer) uses three more routes:
 
@@ -249,6 +249,8 @@ A [node transfer](./03-servers.md#post-apiserversserveridtransfer) uses three mo
 No body. `pause` keeps the server's scheduled tasks from running until `resume`: runs that fall due meanwhile are skipped (the node logs `Task <id> skipped: the server is being moved to another node`), and so is `POST /tasks/:taskID/run`, which still answers `204`. A task already running is not interrupted. The state is saved as `"paused": true` in the server's `.cron` file, so it survives a restart of the node. Pausing a paused server, or resuming a running one, does nothing. `204`; `500` when the file cannot be written.
 
 A [node transfer](./03-servers.md#post-apiserversserveridtransfer) pauses the tasks on both nodes while it copies the server (and copies them with `GET /tasks` and `PUT /tasks/:taskID`), then resumes them on the node that keeps the server. A node without these routes answers `404` and the transfer fails at that step and is undone.
+
+While the server is being reloaded or deleted its scheduler is stopped: `PUT` and `DELETE /tasks/:taskID` and `POST /tasks/:taskID/run` then answer `409 ErrSchedulerStopped`, save nothing (the server's `.cron` file is left as it is) and can be tried again.
 
 ### `POST /daemon/server/:serverId/clone-from/:sourceId`
 

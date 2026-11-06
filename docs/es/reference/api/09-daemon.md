@@ -236,7 +236,7 @@ Responden `{"error": {"code": "...", "msg": "..."}}` con un mensaje que contiene
 
 ### Copias de seguridad
 
-El nodo identifica las copias por el nombre del archivo, no por el ID del registro del panel: `GET /backup` lista los archivos terminados (los más recientes primero) y, después, las copias hechas a mano cuyo archivo no se pudo escribir, con `"location": "failed"` (el panel elimina sus registros al verlas y llama a `DELETE` para borrar la marca). `restore`, `download` y `DELETE` reciben `?fileName=`. `POST /backup/create` responde `{"backupFileName": "..."}` y escribe el archivo en segundo plano. `restore` responde `400 ErrBackupServerRunning` mientras el servidor está en marcha y, si no, `202`. Véase [Contenido del servidor → Copias de seguridad](./04-server-content.md#copias-de-seguridad).
+El nodo identifica las copias por el nombre del archivo, no por el ID del registro del panel: `GET /backup` lista los archivos terminados (los más recientes primero) y, después, las copias hechas a mano cuyo archivo no se pudo escribir, con `"location": "failed"` (el panel elimina sus registros al verlas y llama a `DELETE` para borrar la marca). Si el almacenamiento externo está configurado pero no se pudo listar, la respuesta lleva la cabecera `X-Backups-Offsite: unavailable` y el cuerpo, con la misma forma, solo trae las copias del nodo; el panel no borra entonces los registros de las copias que estaban en el bucket ni pasa a `local` las que estaban en `both`. Un nodo sin bucket, o que lo pudo listar, no envía la cabecera, igual que un nodo antiguo. `restore`, `download` y `DELETE` reciben `?fileName=`. `POST /backup/create` responde `{"backupFileName": "..."}` y escribe el archivo en segundo plano. `restore` responde `400 ErrBackupServerRunning` mientras el servidor está en marcha y, si no, `202`. Véase [Contenido del servidor → Copias de seguridad](./04-server-content.md#copias-de-seguridad).
 
 Una [transferencia entre nodos](./03-servers.md#post-apiserversserveridtransfer) usa tres rutas más:
 
@@ -249,6 +249,8 @@ Una [transferencia entre nodos](./03-servers.md#post-apiserversserveridtransfer)
 Sin cuerpo. `pause` impide que las tareas programadas del servidor se ejecuten hasta `resume`: las ejecuciones que tocan entretanto se omiten (el nodo anota `Task <id> skipped: the server is being moved to another node`), igual que `POST /tasks/:taskID/run`, que aun así responde `204`. Una tarea que ya se está ejecutando no se interrumpe. El estado se guarda como `"paused": true` en el archivo `.cron` del servidor, así que se mantiene si el nodo se reinicia. Pausar un servidor ya pausado, o reanudar uno que no lo está, no hace nada. `204`; `500` si no se puede escribir el archivo.
 
 Una [transferencia entre nodos](./03-servers.md#post-apiserversserveridtransfer) pausa las tareas en ambos nodos mientras copia el servidor (y las copia con `GET /tasks` y `PUT /tasks/:taskID`), y después las reanuda en el nodo que se queda con el servidor. Un nodo sin estas rutas responde `404` y la transferencia falla en ese paso y se deshace.
+
+Mientras el servidor se recarga o se borra, su planificador está parado: `PUT` y `DELETE /tasks/:taskID` y `POST /tasks/:taskID/run` responden entonces `409 ErrSchedulerStopped`, no guardan nada (el archivo `.cron` del servidor queda como está) y se pueden repetir.
 
 ### `POST /daemon/server/:serverId/clone-from/:sourceId`
 

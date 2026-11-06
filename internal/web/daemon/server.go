@@ -590,14 +590,28 @@ func runServerTask(c *gin.Context) {
 	taskID := c.Param("taskID")
 
 	err := server.Scheduler.RunTask(taskID)
-	if errors.Is(err, gocron.ErrJobNotFound) {
+	if !handleTaskError(c, err) {
+		c.Status(http.StatusNoContent)
+	}
+}
+
+// handleTaskError answers a task request the scheduler refused and reports whether it did.
+// A stopped scheduler means the server is being reloaded or deleted: the request may be
+// tried again, so it is a conflict rather than a failure of the node.
+func handleTaskError(c *gin.Context, err error) bool {
+	switch {
+	case err == nil:
+		return false
+	case errors.Is(err, gocron.ErrJobNotFound):
 		c.Status(http.StatusNotFound)
-		return
+	case errors.Is(err, servers.ErrInvalidTask):
+		response.HandleError(c, err, http.StatusBadRequest)
+	case errors.Is(err, servers.ErrSchedulerStopped):
+		response.HandleError(c, err, http.StatusConflict)
+	default:
+		response.HandleError(c, err, http.StatusInternalServerError)
 	}
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
-	}
-	c.Status(http.StatusNoContent)
+	return true
 }
 
 // @Summary Edit server task
@@ -621,11 +635,7 @@ func editServerTask(c *gin.Context) {
 	}
 
 	err = server.Scheduler.SetTask(taskID, task)
-	if errors.Is(err, servers.ErrInvalidTask) {
-		response.HandleError(c, err, http.StatusBadRequest)
-		return
-	}
-	if !response.HandleError(c, err, http.StatusInternalServerError) {
+	if !handleTaskError(c, err) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -644,11 +654,7 @@ func deleteServerTask(c *gin.Context) {
 	taskID := c.Param("taskID")
 
 	err := server.Scheduler.RemoveTask(taskID)
-	if errors.Is(err, gocron.ErrJobNotFound) {
-		c.Status(http.StatusNotFound)
-		return
-	}
-	if !response.HandleError(c, err, http.StatusInternalServerError) {
+	if !handleTaskError(c, err) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -1263,7 +1269,9 @@ func createBackup(c *gin.Context) {
 
 // @Summary List backup files
 // @Description Lists the finished backup archives in the server's backup folder, newest first,
-// @Description then the backups made by hand whose archive could not be written, with location "failed"
+// @Description then the backups made by hand whose archive could not be written, with location "failed".
+// @Description When the bucket is set up but could not be listed, the header X-Backups-Offsite: unavailable
+// @Description says the copies only the bucket has are missing from the list
 // @Success 200 {object} []skypanel.BackupFile
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
@@ -1272,9 +1280,13 @@ func createBackup(c *gin.Context) {
 func listBackups(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	backups, err := server.ListBackups()
+	backups, bucketListed, err := server.ListBackupsChecked()
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
+	}
+	if !bucketListed {
+		// the list lacks the copies only the bucket has; the panel keeps their records
+		c.Header(servers.BackupsOffsiteHeader, servers.BackupsOffsiteUnavailable)
 	}
 	// the panel recorded those when they were asked for, and drops them when it sees them here
 	failed, err := server.FailedBackups()

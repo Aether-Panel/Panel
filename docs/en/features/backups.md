@@ -110,7 +110,7 @@ When off-site backups are on and complete (endpoint, bucket, access key and secr
 - **Deleting** a backup removes it from the node and from the bucket.
 - **Downloading** a backup that is only off-site streams it from the bucket.
 - **Restoring** a backup that is only off-site downloads it to the node first.
-- If the bucket cannot be listed (wrong key, network), the local list is shown as is and the error is logged.
+- If the bucket cannot be listed (wrong key, network), the node returns only the backups it has, tells the panel the bucket part is missing (header `X-Backups-Offsite: unavailable`) and logs the error. The panel then keeps the backups it had as **Off-site only** or **Off-site** (with the same ID, so open links keep working) and does not turn them into local ones; they are brought up to date by the next list that can read the bucket.
 
 Timeouts: upload or download 2 hours per transfer, listing 15 seconds for the backup list, 1 minute to list the bucket before deciding an upload or a prune, deletion 1 minute.
 

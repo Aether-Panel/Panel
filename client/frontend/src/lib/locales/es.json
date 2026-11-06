@@ -1029,7 +1029,8 @@
       "usage": {
         "label": "Espacio usado por copias:",
         "largest": "La mayor ocupa {{size}}",
-        "offsite": "{{count}} también en externo"
+        "offsite": "{{count}} también en externo",
+        "offsiteOnly": "{{count}} solo en externo"
       },
       "restorePoint": {
         "badge": "Punto de restauración",
@@ -3804,6 +3805,7 @@
     "ErrAPIKeyNotAllowed": "Esta clave API no tiene permiso para hacer eso.",
     "ErrAIAnalysisDisabled": "Un administrador ha desactivado el análisis de registros con IA.",
     "ErrBackupLimit": "Este servidor ya tiene todas las copias de seguridad que puede guardar. Borra una antigua antes de crear otra.",
+    "ErrSchedulerStopped": "Las tareas de este servidor no se pueden cambiar mientras se recarga o se borra. Vuelve a intentarlo en un momento.",
     "ErrInviteSignupsClosed": "Los registros están cerrados: esa persona necesita una cuenta antes de que puedas añadirla.",
     "ErrDatabaseHostInUse": "Este host todavía tiene bases de datos. Bórralas primero desde sus servidores, para que no queden olvidadas en el servidor de bases de datos.",
     "ErrTransferRunning": "Este servidor ya se está transfiriendo. Espera a que termine esa transferencia.",

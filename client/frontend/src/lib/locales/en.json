@@ -1029,7 +1029,8 @@
       "usage": {
         "label": "Space used by backups:",
         "largest": "The largest takes {{size}}",
-        "offsite": "{{count}} also off-site"
+        "offsite": "{{count}} also off-site",
+        "offsiteOnly": "{{count}} off-site only"
       },
       "restorePoint": {
         "badge": "Restore point",
@@ -3804,6 +3805,7 @@
     "ErrAPIKeyNotAllowed": "This API key is not allowed to do that.",
     "ErrAIAnalysisDisabled": "An administrator has turned the AI log analysis off.",
     "ErrBackupLimit": "This server already has as many backups as it may keep. Delete an old one before making another.",
+    "ErrSchedulerStopped": "This server's tasks cannot be changed while it is being reloaded or deleted. Try again in a moment.",
     "ErrInviteSignupsClosed": "Sign-ups are closed: that person needs an account before you can add them.",
     "ErrDatabaseHostInUse": "This host still has databases. Delete them from their servers first, so they are not left behind on the database server.",
     "ErrTransferRunning": "This server is already being transferred. Wait for that transfer to finish.",

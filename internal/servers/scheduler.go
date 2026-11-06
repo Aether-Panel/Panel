@@ -116,8 +116,9 @@ func (s *Scheduler) save() error {
 	return writeFileAtomic(filepath.Join(config.ServersFolder.Value(), s.serverID+".cron"), append(data, '\n'), 0600)
 }
 
-// errSchedulerStopped is returned for a change to the tasks of a scheduler already stopped
-var errSchedulerStopped = errors.New("the task scheduler is stopped")
+// ErrSchedulerStopped is returned for a change to the tasks of a scheduler already stopped,
+// which happens while its server is being reloaded or deleted
+var ErrSchedulerStopped = skypanel.CreateError("the server's tasks cannot be changed while it is being reloaded or deleted, try again in a moment", "ErrSchedulerStopped")
 
 // executor is the gocron scheduler, or nil once it is stopped (or before Init)
 func (s *Scheduler) executor() gocron.Scheduler {
@@ -224,6 +225,10 @@ func (s *Scheduler) Stop() {
 		// unless Init replaced it meanwhile
 		s.scheduler.CompareAndSwap(current, nil)
 	}
+	// a task change that saw the scheduler still running finishes its save before Stop
+	// returns, so the caller (Delete, Reload) can deal with the .cron file after it
+	s.lock.Lock()
+	defer s.lock.Unlock()
 }
 
 func (s *Scheduler) Start() {
@@ -267,7 +272,7 @@ func (s *Scheduler) addTask(id string, task skypanel.Task) error {
 
 	gs := s.executor()
 	if gs == nil {
-		return errSchedulerStopped
+		return ErrSchedulerStopped
 	}
 	_, err := gs.NewJob(opt, gocron.NewTask(runScheduledTask, s.serverID, id), gocron.WithName(id))
 	if err != nil {
@@ -278,11 +283,17 @@ func (s *Scheduler) addTask(id string, task skypanel.Task) error {
 	return nil
 }
 
-// RemoveTask deletes the task, or returns gocron.ErrJobNotFound when there is none
+// RemoveTask deletes the task, or returns gocron.ErrJobNotFound when there is none. A stopped
+// scheduler returns ErrSchedulerStopped and saves nothing: its server is being reloaded or
+// deleted, and saving would write its .cron file again after Delete removed it, or over the
+// one Reload just loaded.
 func (s *Scheduler) RemoveTask(id string) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
+	if s.executor() == nil {
+		return ErrSchedulerStopped
+	}
 	if _, exists := s.Tasks[id]; !exists {
 		return gocron.ErrJobNotFound
 	}
@@ -306,7 +317,7 @@ func (s *Scheduler) removeJob(id string) {
 func (s *Scheduler) RunTask(id string) error {
 	gs := s.executor()
 	if gs == nil {
-		return errSchedulerStopped
+		return ErrSchedulerStopped
 	}
 	for _, v := range gs.Jobs() {
 		if v.Name() == id {

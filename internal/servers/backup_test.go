@@ -333,3 +333,37 @@ func TestLocateBackup_FindsACopyOnlyTheBucketHas(t *testing.T) {
 	_, _, err = p.locateBackup("nowhere.tar.gz")
 	assert.ErrorIs(t, err, skypanel.ErrFileNotFound)
 }
+
+// The daemon tells the panel when the bucket part of the list is missing, so the panel does
+// not take the off-site copies for deleted
+func TestListBackupsChecked_SaysWhenTheBucketCouldNotBeListed(t *testing.T) {
+	fake := useFakeBucket(t)
+	p, _ := newBackupTestServer(t)
+	writeBackupFile(t, p, "local.tar.gz", time.Hour)
+	fake.put(p.ID(), "remote.tar.gz", time.Now())
+
+	listedNames := func() ([]string, bool) {
+		backups, bucketListed, err := p.ListBackupsChecked()
+		assert.NoError(t, err)
+		names := make([]string, 0, len(backups))
+		for _, b := range backups {
+			names = append(names, b.FileName+":"+b.Location)
+		}
+		return names, bucketListed
+	}
+
+	names, bucketListed := listedNames()
+	assert.True(t, bucketListed)
+	assert.Equal(t, []string{"remote.tar.gz:offsite", "local.tar.gz:local"}, names)
+
+	fake.failList.Store(true)
+	captureErrors(t)
+	names, bucketListed = listedNames()
+	assert.False(t, bucketListed, "the bucket is set up but could not be read")
+	assert.Equal(t, []string{"local.tar.gz:local"}, names, "the node's copies are still listed")
+
+	fake.disabled.Store(true)
+	names, bucketListed = listedNames()
+	assert.True(t, bucketListed, "without a bucket there is nothing missing from the list")
+	assert.Equal(t, []string{"local.tar.gz:local"}, names)
+}

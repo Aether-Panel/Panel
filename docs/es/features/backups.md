@@ -110,7 +110,7 @@ Cuando las copias externas están activas y completas (endpoint, bucket, access 
 - **Eliminar** una copia la borra del nodo y del bucket.
 - **Descargar** una copia que solo existe en el bucket la transmite directamente desde él.
 - **Restaurar** una copia que solo existe en el bucket la descarga primero al nodo.
-- Si el bucket no se puede listar (clave errónea, red), se muestra la lista local sin cambios y el error queda en el registro.
+- Si el bucket no se puede listar (clave errónea, red), el nodo devuelve solo las copias que tiene, avisa al panel de que falta la parte del bucket (cabecera `X-Backups-Offsite: unavailable`) y el error queda en el registro. El panel conserva entonces las copias que tenía como **Solo externa** o **Externa** (con su mismo ID, así que los enlaces abiertos siguen funcionando) y no las cambia a solo locales; se actualizan en la siguiente lista que pueda leer el bucket.
 
 Tiempos máximos: 2 horas por subida o descarga, 15 segundos para listar en la lista de copias, 1 minuto para listar el bucket antes de decidir una subida o una poda y 1 minuto para borrar.
 

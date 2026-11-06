@@ -80,6 +80,30 @@ func TestScheduler_RemoveTaskReportsMissingTasks(t *testing.T) {
 	assert.Empty(t, s.GetExecutor().Jobs())
 }
 
+// During a Delete or Reload the scheduler is stopped first; a task deleted meanwhile must not
+// write its .cron file again, which a server re-created with the same id would then load
+func TestScheduler_RemoveTaskOnAStoppedSchedulerKeepsTheSavedTasks(t *testing.T) {
+	s := newTestScheduler(t)
+	require.NoError(t, s.SetTask("restart", restartTask("0 5 * * *")))
+	require.NoError(t, s.SetTask("backup", restartTask("0 6 * * *")))
+	file := filepath.Join(config.ServersFolder.Value(), "tasktest.cron")
+	saved, err := os.ReadFile(file)
+	require.NoError(t, err)
+
+	s.Stop()
+	assert.ErrorIs(t, s.RemoveTask("restart"), ErrSchedulerStopped)
+	_, ok := s.GetTask("restart")
+	assert.True(t, ok, "the task is still there")
+	now, err := os.ReadFile(file)
+	require.NoError(t, err)
+	assert.Equal(t, string(saved), string(now), "the .cron file is left untouched")
+
+	// as Delete does once the scheduler is stopped
+	require.NoError(t, os.Remove(file))
+	assert.ErrorIs(t, s.RemoveTask("backup"), ErrSchedulerStopped)
+	assert.NoFileExists(t, file, "the .cron file is not written again")
+}
+
 func TestScheduler_TasksSurviveAReload(t *testing.T) {
 	s := newTestScheduler(t)
 	assert.NoError(t, s.SetTask("restart", restartTask("0 5 * * *")))

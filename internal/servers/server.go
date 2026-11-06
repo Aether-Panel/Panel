@@ -1664,6 +1664,14 @@ const partialBackupPrefix = ".partial-"
 // BackupFailedLocation is the Location the backup list gives a backup marked as failed
 const BackupFailedLocation = "failed"
 
+// BackupsOffsiteHeader is set on the node's backup list, to BackupsOffsiteUnavailable, when
+// the bucket is set up but could not be listed: the copies only the bucket has are missing
+// from that list, and the panel must not take them for deleted. An older node never sets it.
+const (
+	BackupsOffsiteHeader      = "X-Backups-Offsite"
+	BackupsOffsiteUnavailable = "unavailable"
+)
+
 // StartBackup begins a backup and returns its file name straight away; the archive is
 // written in the background and the console reports when it is done
 func (p *Server) StartBackup() (string, error) {
@@ -1835,13 +1843,21 @@ func (p *Server) alertBackup(success bool) {
 // ListBackups returns the server's finished backups, on the node and in the bucket, newest
 // first
 func (p *Server) ListBackups() ([]skypanel.BackupFile, error) {
-	result, err := p.listLocalBackups()
+	result, _, err := p.ListBackupsChecked()
+	return result, err
+}
+
+// ListBackupsChecked is ListBackups that also says whether the bucket part of the list is
+// there: bucketListed is false only when off-site backups are set up but the bucket could not
+// be listed, so the copies only the bucket has are missing from the result.
+func (p *Server) ListBackupsChecked() (result []skypanel.BackupFile, bucketListed bool, err error) {
+	result, err = p.listLocalBackups()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	result = p.mergeOffsite(result)
+	result, bucketListed = p.mergeOffsite(result)
 	sortNewestFirst(result)
-	return result, nil
+	return result, bucketListed, nil
 }
 
 // listLocalBackups returns the finished backups in the server's backup folder, in no order
@@ -1874,17 +1890,17 @@ func sortNewestFirst(backups []skypanel.BackupFile) {
 }
 
 // mergeOffsite adds the backups only the bucket still has and marks the ones in both places.
-// If the bucket cannot be listed the local list is returned as it is.
-func (p *Server) mergeOffsite(local []skypanel.BackupFile) []skypanel.BackupFile {
+// If the bucket cannot be listed the local list is returned as it is, with listed false.
+func (p *Server) mergeOffsite(local []skypanel.BackupFile) (merged []skypanel.BackupFile, listed bool) {
 	if !bucket.Configured() {
-		return local
+		return local, true
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	remote, err := bucket.List(ctx, p.ID())
 	if err != nil {
 		p.Log(logging.Error, "Error listing off-site backups: %s", err)
-		return local
+		return local, false
 	}
 	index := make(map[string]int, len(local))
 	for i, b := range local {
@@ -1897,7 +1913,7 @@ func (p *Server) mergeOffsite(local []skypanel.BackupFile) []skypanel.BackupFile
 		}
 		local = append(local, skypanel.BackupFile{FileName: object.FileName, Size: object.Size, ModTime: object.ModTime, Location: "offsite"})
 	}
-	return local
+	return local, true
 }
 
 // pruneAutoBackups deletes the oldest automatic backups on the node beyond the newest keep.

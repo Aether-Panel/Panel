@@ -372,15 +372,25 @@ export default function BackupsView({ serverId }: Readonly<BackupsViewProps>) {
 }
 
 /**
- * How much room the backups take: the total, and a bar split by backup (automatic and
- * periodic ones in a lighter tone) so the big ones stand out.
+ * How much room the backups take on the node: the total, and a bar split by backup (automatic
+ * and periodic ones in a lighter tone) so the big ones stand out. Copies kept only in the
+ * bucket are counted apart.
  */
 function BackupUsage({ backups, t }: Readonly<{ backups: BackupInfo[]; t: (key: string, options?: Record<string, string | number>) => string }>) {
-  const sized = backups.filter((b) => (b.fileSize ?? 0) > 0);
+  // A copy that lives only in the bucket takes no room on the node, so it stays out of the
+  // total and the bar; it is mentioned apart so it doesn't vanish from the summary.
+  const onNode = backups.filter((b) => b.location !== 'offsite');
+  const sized = onNode.filter((b) => (b.fileSize ?? 0) > 0);
   const total = sized.reduce((sum, b) => sum + (b.fileSize ?? 0), 0);
-  if (total === 0) return null;
+  const offsiteOnly = backups.length - onNode.length;
+  if (total === 0 && offsiteOnly === 0) return null;
   const largest = sized.reduce((max, b) => Math.max(max, b.fileSize ?? 0), 0);
   const offsite = backups.filter((b) => b.location === 'both' || b.location === 'offsite').length;
+  // the off-site counts take the accent; the largest-copy note stays muted
+  const notes: { key: string; text: string; accent: boolean }[] = [];
+  if (largest > 0) notes.push({ key: 'largest', text: t('servers.backups.usage.largest', { size: formatBytes(largest) }), accent: false });
+  if (offsite > 0) notes.push({ key: 'offsite', text: t('servers.backups.usage.offsite', { count: offsite }), accent: true });
+  if (offsiteOnly > 0) notes.push({ key: 'offsiteOnly', text: t('servers.backups.usage.offsiteOnly', { count: offsiteOnly }), accent: true });
 
   return (
     <div className="space-y-3 border-b border-border/50 px-5 py-4 md:px-6">
@@ -390,23 +400,29 @@ function BackupUsage({ backups, t }: Readonly<{ backups: BackupInfo[]; t: (key: 
           <span className="font-semibold tabular-nums text-foreground">{formatBytes(total)}</span>
         </p>
         <p className="text-xs text-muted-foreground">
-          {t('servers.backups.usage.largest', { size: formatBytes(largest) })}
-          {offsite > 0 && <> · <span className="text-primary-bright">{t('servers.backups.usage.offsite', { count: offsite })}</span></>}
+          {notes.map((note, i) => (
+            <span key={note.key}>
+              {i > 0 && ' · '}
+              <span className={note.accent ? 'text-primary-bright' : undefined}>{note.text}</span>
+            </span>
+          ))}
         </p>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-secondary/80" role="img" aria-label={`${t('servers.backups.usage.label')} ${formatBytes(total)}`}>
-        {/* the segments slide in together, like the panel's other meters */}
-        <div className="meter-grow flex h-full w-full gap-0.5">
-          {sized.map((backup) => (
-            <span
-              key={backup.id}
-              title={`${backup.fileName} · ${formatBytes(backup.fileSize ?? 0)}`}
-              className={cn('h-full transition-[width] duration-500 ease-panel', isAutomatic(backup) ? 'bg-primary/50' : 'bg-primary')}
-              style={{ width: `${((backup.fileSize ?? 0) / total) * 100}%` }}
-            />
-          ))}
+      {total > 0 && (
+        <div className="h-2 w-full overflow-hidden rounded-full bg-secondary/80" role="img" aria-label={`${t('servers.backups.usage.label')} ${formatBytes(total)}`}>
+          {/* the segments slide in together, like the panel's other meters */}
+          <div className="meter-grow flex h-full w-full gap-0.5">
+            {sized.map((backup) => (
+              <span
+                key={backup.id}
+                title={`${backup.fileName} · ${formatBytes(backup.fileSize ?? 0)}`}
+                className={cn('h-full transition-[width] duration-500 ease-panel', isAutomatic(backup) ? 'bg-primary/50' : 'bg-primary')}
+                style={{ width: `${((backup.fileSize ?? 0) / total) * 100}%` }}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
