@@ -43,7 +43,7 @@ El usuario quiere que cualquiera pueda crear plantillas sin escribir JSON, sin q
    - El orden de las claves puede cambiar.
    - Esto vale para las 60 plantillas de la comunidad.
 4. **Variables:** lista ordenable arrastrando, con estas columnas:
-   - clave (con validación: `^[A-Za-z0-9_]+$`, sin repetidas);
+   - clave (con validación: `^[A-Za-z0-9_-]+$`, sin repetidas; el guion se admite porque 4 plantillas de la comunidad lo usan, pero se avisa de que esas claves no sirven en condiciones);
    - nombre visible y descripción;
    - tipo: texto, número, sí/no u opción;
    - valor por defecto;
