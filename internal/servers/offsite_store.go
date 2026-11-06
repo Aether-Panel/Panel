@@ -72,7 +72,7 @@ var uploading = struct {
 	series map[string]map[string]bool // server -> series
 }{series: map[string]map[string]bool{}}
 
-// startSeries claims the series (a task's id, or "periodic") of the server for one upload; it
+// startSeries claims the series (a task's id, or periodicSeries) of the server for one upload; it
 // reports false while another upload of the same series is in progress
 func startSeries(serverID, series string) bool {
 	uploading.Lock()

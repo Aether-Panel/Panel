@@ -233,7 +233,10 @@ func (p *Server) makePeriodicCopy(clock func() time.Time, keep int) bool {
 		p.Log(logging.Error, "Error creating backup file: %s", err)
 		p.RunningEnvironment.DisplayToConsole(true, "Failed to create backup file")
 		p.endBackupQuiet(false)
-		p.recordPeriodicFailure(clock())
+		// a server deleted meanwhile loses its files mid-archive; nobody waits for its copy
+		if p.recordPeriodicFailure(clock()) {
+			p.alertBackup(false)
+		}
 		return false
 	}
 	p.endBackupQuiet(true)
@@ -246,12 +249,14 @@ func (p *Server) makePeriodicCopy(clock func() time.Time, keep int) bool {
 	}
 	// the interval counts from when the copy reached the bucket, as its date there says
 	ended := clock()
-	p.updatePeriodic(func(s *periodicState) {
+	recorded := p.updatePeriodic(func(s *periodicState) {
 		s.last = ended
 		s.failures = 0
 		s.retryAt = time.Time{}
 	})
-	p.pruneOffsite(keep, periodicObjects)
+	if recorded {
+		p.pruneOffsite(keep, periodicObjects)
+	}
 	return true
 }
 

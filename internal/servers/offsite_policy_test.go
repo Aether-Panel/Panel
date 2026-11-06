@@ -3,16 +3,17 @@ package servers
 import (
 	"testing"
 	"time"
+	// the zone database built in, so the test runs where the system has none
+	_ "time/tzdata"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/offsite"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOffsiteDue(t *testing.T) {
 	loc, err := time.LoadLocation("Europe/Madrid")
-	if err != nil {
-		t.Skip("no tzdata")
-	}
+	require.NoError(t, err)
 	sat := time.Date(2026, 11, 7, 3, 0, 0, 0, loc) // Saturday
 	cases := []struct {
 		f         OffsiteFrequency

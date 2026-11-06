@@ -12,6 +12,7 @@ import (
 	"github.com/go-co-op/gocron/v2"
 	"github.com/gofrs/uuid/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func newTestScheduler(t *testing.T) *Scheduler {
@@ -290,6 +291,7 @@ func TestTaskBackup_NeverStaysLocal(t *testing.T) {
 func TestTaskBackup_PrunesOnlyItsOwnSeries(t *testing.T) {
 	fake := useFakeBucket(t)
 	p, _ := newBackupTestServer(t)
+	useLoadedServers(t, p)
 	named := func(prefix string) string { return prefix + uuid.Must(uuid.NewV4()).String() + ".tar.gz" }
 	ownNewest := ""
 	for i := 0; i < 5; i++ {
@@ -317,6 +319,33 @@ func TestTaskBackup_PrunesOnlyItsOwnSeries(t *testing.T) {
 	assert.Contains(t, fake.names(p.ID()), older, "a copy that names no task is never pruned")
 }
 
+func TestTaskBackup_AServerDeletedDuringItsUploadKeepsItsBucket(t *testing.T) {
+	fake := useFakeBucket(t)
+	p, _ := newBackupTestServer(t)
+	useLoadedServers(t, p)
+	older := []string{
+		taskBackupPrefix("t1") + uuid.Must(uuid.NewV4()).String() + ".tar.gz",
+		taskBackupPrefix("t1") + uuid.Must(uuid.NewV4()).String() + ".tar.gz",
+	}
+	fake.put(p.ID(), older[0], tuesday.AddDate(0, 0, -2))
+	fake.put(p.ID(), older[1], tuesday.AddDate(0, 0, -1))
+	fake.holdUploads()
+
+	_, err := p.RunAutoBackup(AutoBackupOptions{Keep: 5, TaskID: "t1", Offsite: OffsiteAlways, OffsiteKeep: 1, Now: fixedClock(tuesday)})
+	require.NoError(t, err)
+	require.Eventually(t, func() bool { return fake.uploadCount() == 1 }, 15*time.Second, 5*time.Millisecond)
+	// deleted while its copy uploads in the background
+	useLoadedServers(t)
+	fake.release()
+	waitForUploads(t)
+
+	names := fake.names(p.ID())
+	assert.Len(t, names, 3, "the upload ends, and nothing is pruned")
+	for _, name := range older {
+		assert.Contains(t, names, name, "a server deleted meanwhile prunes nothing: its id may be created again")
+	}
+}
+
 func TestTaskBackup_SkipsWhileTheSameSeriesUploads(t *testing.T) {
 	fake := useFakeBucket(t)
 	p, _ := newBackupTestServer(t)
@@ -340,6 +369,7 @@ func TestTaskBackup_AListingErrorDoesNotFailTheTask(t *testing.T) {
 	fake := useFakeBucket(t)
 	fake.failList.Store(true)
 	p, _ := newBackupTestServer(t)
+	captureErrors(t)
 
 	runTaskBackup(t, p, fake, tuesday, AutoBackupOptions{Keep: 5, TaskID: "t1", Offsite: OffsiteAlways, OffsiteKeep: 4})
 

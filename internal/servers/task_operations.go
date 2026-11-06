@@ -191,9 +191,11 @@ func (p *Server) uploadOffsite(fileName, file string) error {
 
 // pruneOffsite deletes the oldest copies of one series in the bucket beyond the newest keep.
 // series picks the series' own copies out of the listing, so copies of other tasks, of the
-// periodic schedule or made by hand are never counted nor deleted.
+// periodic schedule or made by hand are never counted nor deleted. A server deleted while its
+// copy uploaded prunes nothing: its copies in the bucket are all that is left of it, and a
+// server created again with its id would find them.
 func (p *Server) pruneOffsite(keep int, series func([]offsite.Object) []offsite.Object) {
-	if keep < 1 {
+	if keep < 1 || !p.loaded() {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), offsiteListTimeout)

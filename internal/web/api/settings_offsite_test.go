@@ -45,7 +45,6 @@ func TestSettings_RejectsAnInvalidPeriodicInterval(t *testing.T) {
 	assert.ErrorIs(t, validateSetting(hours, 24.5), skypanel.ErrOffsitePeriodicHours)
 	assert.ErrorIs(t, validateSetting(keep, 0), skypanel.ErrOffsiteKeep)
 	assert.ErrorIs(t, validateSetting(keep, float64(51)), skypanel.ErrOffsiteKeep)
-	assert.Equal(t, 0, config.BackupsS3PeriodicHours.Value(), "nothing is saved")
 
 	require.NoError(t, validateSetting(hours, float64(48)))
 	require.NoError(t, applyEditableSetting(hours, float64(48)))

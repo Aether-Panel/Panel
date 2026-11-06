@@ -1803,13 +1803,12 @@ const offsiteTimeout = 2 * time.Hour
 // endBackup ends a backup, telling the console, the owner's channels and Discord how it went
 func (p *Server) endBackup(success bool) {
 	p.endBackupQuiet(success)
-	if success {
-		p.alertBackup(true)
-	}
+	p.alertBackup(success)
 }
 
-// endBackupQuiet ends a backup that only alerts the owner and Discord when it fails: a periodic
-// copy every few hours on every server would otherwise bury the alerts that matter
+// endBackupQuiet ends a backup telling only the console. The periodic copy alerts by itself,
+// and only on a failure of a server still loaded: one every few hours on every server would
+// otherwise bury the alerts that matter.
 func (p *Server) endBackupQuiet(success bool) {
 	p.backupState.Store(backupIdle)
 	if success {
@@ -1817,7 +1816,6 @@ func (p *Server) endBackupQuiet(success bool) {
 		return
 	}
 	p.RunningEnvironment.DisplayToConsole(true, "Backup failed")
-	p.alertBackup(false)
 }
 
 // alertBackup tells the owner's channels and the admin's Discord how a backup went

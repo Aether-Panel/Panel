@@ -29,8 +29,11 @@ const (
 const (
 	defaultOffsiteKeep = 4
 	maxOffsiteKeep     = 50
-	// biweeklySlack keeps a task that runs every 14 days from skipping a turn because
-	// the previous upload finished a few minutes late
+	// biweeklySlack lets a run upload a little before 15 days have passed since the last copy.
+	// A copy is dated when its upload ends, minutes after its run began, so without it a daily
+	// task (or one whose interval divides 15 days) would upload a run later every time, and a
+	// run that started late would push back every upload after it. It is no help to a task
+	// every 14 days: that one uploads every 28.
 	biweeklySlack = 2 * time.Hour
 	// suffix is "-" plus a 36 character uuid
 	backupUUIDSuffixLen = 37
@@ -120,16 +123,16 @@ func offsiteDue(f OffsiteFrequency, last time.Time, now time.Time) bool {
 
 // taskBackupPrefix is the start of the name of every backup a task makes
 func taskBackupPrefix(taskID string) string {
-	return "auto-" + taskID + "-"
+	return AutoBackupPrefix + taskID + "-"
 }
 
 // taskIDFromBackupName extracts the task from "auto-<task>-<uuid>.tar.gz"; names without a
 // task (older auto- copies) and other kinds of backup report false
 func taskIDFromBackupName(name string) (string, bool) {
-	if !strings.HasPrefix(name, "auto-") || !strings.HasSuffix(name, ".tar.gz") {
+	if !strings.HasPrefix(name, AutoBackupPrefix) || !strings.HasSuffix(name, ".tar.gz") {
 		return "", false
 	}
-	rest := strings.TrimSuffix(strings.TrimPrefix(name, "auto-"), ".tar.gz")
+	rest := strings.TrimSuffix(strings.TrimPrefix(name, AutoBackupPrefix), ".tar.gz")
 	if len(rest) <= backupUUIDSuffixLen {
 		return "", false
 	}

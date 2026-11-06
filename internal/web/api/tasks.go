@@ -194,11 +194,12 @@ func putServerTask(c *gin.Context) {
 // syncAutomaticBackupsLock keeps two requests for the same list from adding a backup twice
 var syncAutomaticBackupsLock sync.Mutex
 
-// syncAutomaticBackups brings the panel's list in line with the node: backups scheduled tasks
-// made are added and ones removed by retention are dropped, and every backup gets its size
-// once its archive is written. Backups made by hand are recorded when they are made, so only
-// automatic ones are added, and one made by hand is only removed when the node reports that
-// its archive could not be written. It is best effort: when the node cannot be reached the
+// syncAutomaticBackups brings the panel's list in line with the node: the backups of scheduled
+// tasks, restore points and periodic off-site copies (which only the bucket keeps) are added,
+// ones removed by retention are dropped, and every backup gets its size once its archive is
+// written. Backups made by hand are recorded when they are made,
+// so only automatic ones are added, and one made by hand is only removed when the node reports
+// that its archive could not be written. It is best effort: when the node cannot be reached the
 // stored list is shown as it is.
 func syncAutomaticBackups(ctx context.Context, db *gorm.DB, server *models.Server) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)

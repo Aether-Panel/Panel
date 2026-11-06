@@ -2,6 +2,9 @@ package servers
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/stretchr/testify/assert"
@@ -472,4 +476,87 @@ func TestPeriodic_ATaskNamedPeriodicIsAnotherSeries(t *testing.T) {
 
 	assert.True(t, p.runPeriodic(at(periodicNow)))
 	assert.Equal(t, 1, fake.uploadCount())
+}
+
+// unreadableFiles are a server's files whose folders cannot be listed, so its archive cannot
+// be written. then, when set, runs first, as something that happens while the archive is made.
+type unreadableFiles struct {
+	files.FileServer
+	then func()
+}
+
+func (f unreadableFiles) ReadDir(string) ([]fs.DirEntry, error) {
+	if f.then != nil {
+		f.then()
+	}
+	return nil, errors.New("fake unreadable folder")
+}
+
+// deleteDuringTheTest takes the server off the node as Delete does: out of the cache, then its
+// periodic state forgotten
+func deleteDuringTheTest(t *testing.T, p *Server) {
+	useLoadedServers(t)
+	forgetPeriodic(p.ID())
+}
+
+func TestPeriodic_AnArchiveThatCannotBeWrittenIsAnnouncedOnce(t *testing.T) {
+	fake := useFakeBucket(t)
+	p := newPeriodicTestServer(t)
+	events := countBackupEvents(t)
+	captureErrors(t)
+	p.SetFileServer(unreadableFiles{FileServer: p.GetFileServer()})
+
+	assert.False(t, p.runPeriodic(at(periodicNow)))
+
+	assert.Equal(t, 0, fake.uploadCount())
+	assert.Equal(t, int32(1), events.Load(), "the owner hears of it once")
+	assert.Equal(t, periodicNow.Add(time.Hour), periodicOf(p.ID()).retryAt)
+	assert.Empty(t, backupFiles(t, p), "nothing is left half written")
+	assert.NoError(t, p.IsIdle())
+}
+
+func TestPeriodic_AServerDeletedDuringItsArchiveIsNotAnnounced(t *testing.T) {
+	fake := useFakeBucket(t)
+	p := newPeriodicTestServer(t)
+	events := countBackupEvents(t)
+	captureErrors(t)
+	// deleting a server removes its files, so the archive under way fails
+	p.SetFileServer(unreadableFiles{FileServer: p.GetFileServer(), then: func() { deleteDuringTheTest(t, p) }})
+
+	assert.False(t, p.runPeriodic(at(periodicNow)))
+
+	assert.Equal(t, 0, fake.uploadCount())
+	assert.Equal(t, int32(0), events.Load(), "nobody is told a deleted server's copy failed")
+	assert.False(t, hasPeriodicState(p.ID()))
+	assert.NoError(t, p.IsIdle())
+}
+
+func TestPeriodic_AServerDeletedDuringItsUploadKeepsItsBucket(t *testing.T) {
+	fake := useFakeBucket(t)
+	p := newPeriodicTestServer(t)
+	var older []string
+	for i := 0; i < 4; i++ {
+		name := fmt.Sprintf("%sold-%d.tar.gz", OffsiteBackupPrefix, i)
+		fake.put(p.ID(), name, periodicNow.Add(-time.Duration(25+i)*time.Hour))
+		older = append(older, name)
+	}
+	fake.holdUploads()
+	made := make(chan bool, 1)
+	go func() { made <- p.runPeriodic(at(periodicNow)) }()
+	require.Eventually(t, func() bool { return fake.uploadCount() == 1 }, 15*time.Second, 5*time.Millisecond)
+
+	deleteDuringTheTest(t, p)
+	fake.release()
+	select {
+	case <-made:
+	case <-time.After(15 * time.Second):
+		t.Fatal("the periodic copy never ended")
+	}
+
+	names := fake.names(p.ID())
+	assert.Len(t, names, 5, "the copy that was uploading and every older one stay")
+	for _, name := range older {
+		assert.Contains(t, names, name, "a server deleted meanwhile prunes nothing: its id may be created again")
+	}
+	assert.False(t, hasPeriodicState(p.ID()))
 }
