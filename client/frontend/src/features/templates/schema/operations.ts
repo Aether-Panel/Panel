@@ -48,6 +48,8 @@ type FieldSpec = {
   defaultValue?: string | number | boolean;
   aliases?: readonly string[];
   advanced?: boolean;
+  /** The factory reads "" as not given; see OperationField.emptyIsUnset. */
+  emptyIsUnset?: boolean;
 };
 
 type OperationSpec = {
@@ -268,7 +270,8 @@ const SPECS: readonly OperationSpec[] = [
     icon: 'DownloadCloud',
     fields: [
       { name: 'projectId', widget: number(0), required: true, placeholder: true },
-      { name: 'fileId', widget: number(0), aliases: ['fileID'], placeholder: true },
+      // factory.go: an empty fileId means the newest file
+      { name: 'fileId', widget: number(0), aliases: ['fileID'], placeholder: true, emptyIsUnset: true },
       { name: 'java', widget: text, defaultValue: 'java', placeholder: true, advanced: true },
     ],
   },
@@ -352,8 +355,10 @@ const SPECS: readonly OperationSpec[] = [
           })),
           false,
         ),
-        // a step without it uploads every copy, as tasks did before the option existed
+        // a step without it uploads every copy, as tasks did before the option existed; "" too
+        // (ParseOffsiteFrequency)
         defaultValue: 'always',
+        emptyIsUnset: true,
       },
       // OffsiteKeep reads a JSON number only, so no ${} tokens
       { name: 'offsiteKeep', widget: number(1, 50), variables: false, defaultValue: 4 },
@@ -365,8 +370,8 @@ const SPECS: readonly OperationSpec[] = [
 const SCHEMA_OVERRIDES: Record<string, Record<string, z.ZodType>> = {
   sleep: { duration: durationSchema },
   // offered as a list of versions, but cast to a number: 21 and "21" both work
-  javadl: { version: numberOrVariable({ min: 1 }) },
-  nodejsdl: { version: numberOrVariable({ min: 1 }) },
+  javadl: { version: numberOrVariable({ min: 1, required: true }) },
+  nodejsdl: { version: numberOrVariable({ min: 1, required: true }) },
 };
 
 function buildField(spec: OperationSpec, f: FieldSpec): OperationField {
@@ -382,9 +387,10 @@ function buildField(spec: OperationSpec, f: FieldSpec): OperationField {
     required,
     variables,
     defaultValue: f.defaultValue,
+    emptyIsUnset: f.emptyIsUnset ?? false,
     aliases: f.aliases,
     advanced: f.advanced ?? false,
-    schema: SCHEMA_OVERRIDES[spec.key]?.[f.name] ?? widgetSchema(f.widget, required, variables),
+    schema: SCHEMA_OVERRIDES[spec.key]?.[f.name] ?? widgetSchema(f.widget, required, variables, f.emptyIsUnset),
   };
 }
 

@@ -55,6 +55,11 @@ describe('operation registry', () => {
     }
   });
 
+  it('lets "" stand for unset only where the factory reads it so', () => {
+    const fields = OPERATIONS.flatMap((o) => o.fields.filter((f) => f.emptyIsUnset).map((f) => `${o.key}.${f.name}`));
+    expect(fields.sort()).toEqual(['backup.offsite', 'curseforge.fileId']);
+  });
+
   it('refuses a step without its required arguments', () => {
     for (const op of OPERATIONS) {
       const result = op.stepSchema.safeParse({ type: op.key });

@@ -17,11 +17,10 @@ export interface SelectOption {
  * - stringList: an array of strings, one per row
  * - keyValue: an object of string values
  * - number: a whole number; when the field takes variables it may also be a string of digits
- *   or one holding `${variable}` (or "" when optional), and a string already there stays a string
+ *   or one holding `${variable}`, and a string already there stays a string
  * - boolean: true or false
  * - select: one of the options, or any string when allowCustom (a version, `${variable}`); a
- *   field the node casts to a number (javadl's version) also takes a JSON number, per its schema.
- *   An optional select also takes "", which the node reads as not given (backup's offsite)
+ *   field the node casts to a number (javadl's version) also takes a JSON number, per its schema
  * - stdin: a console configuration object (type, ip, port, password, secure), the same editor
  *   as the run section's; null is read as none
  */
@@ -51,6 +50,11 @@ export interface OperationField {
   variables: boolean;
   /** What the node uses when the argument is missing or empty: a hint, never written. */
   defaultValue?: string | number | boolean;
+  /**
+   * The factory reads "" as not given (curseforge's fileId, backup's offsite), so clearing the
+   * field may write "". Elsewhere "" in a number or a fixed choice is an error the node raises.
+   */
+  emptyIsUnset: boolean;
   /** Older spellings the node also reads (steamgamedl's appID); the form shows whichever is set. */
   aliases?: readonly string[];
   /** Seldom needed; a form may tuck it under "more options". */
@@ -60,7 +64,7 @@ export interface OperationField {
 }
 
 /** The schema of a value edited with this control, before it is made optional. */
-export function widgetSchema(widget: FieldWidget, required: boolean, variables: boolean): z.ZodType {
+export function widgetSchema(widget: FieldWidget, required: boolean, variables: boolean, emptyIsUnset = false): z.ZodType {
   switch (widget.kind) {
     case 'text':
     case 'multiline':
@@ -75,15 +79,14 @@ export function widgetSchema(widget: FieldWidget, required: boolean, variables: 
     case 'keyValue':
       return z.record(z.string(), z.string({ error: typeError() }), { error: typeError() });
     case 'number': {
-      return variables ? numberOrVariable({ ...widget, allowEmpty: !required }) : integerSchema(widget);
+      return variables ? numberOrVariable({ ...widget, required, emptyIsUnset }) : integerSchema({ ...widget, required });
     }
     case 'boolean':
       return z.boolean({ error: typeError() });
     case 'select': {
       if (!widget.allowCustom) {
         const values = widget.options.map((o) => o.value);
-        // the factories read "" as a missing argument, so an optional choice may be left empty
-        return z.enum((required ? values : [...values, '']) as [string, ...string[]], { error: typeError('invalidOption') });
+        return z.enum((emptyIsUnset ? [...values, ''] : values) as [string, ...string[]], { error: typeError('invalidOption', required) });
       }
       const s = z.string({ error: typeError() });
       return required ? s.min(1, { error: msg('required') }) : s;

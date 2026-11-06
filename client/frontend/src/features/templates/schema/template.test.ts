@@ -96,6 +96,20 @@ describe('template schema', () => {
     expect(issues({ ...base, install: [{ type: 'backup', offsite: '' }] })).toEqual([]);
     // but not in a required argument
     expect(issues({ ...base, install: [{ type: 'spongedl', spongeType: '' }] })).toEqual(['install.0.spongeType: templates.editor.validation.required']);
+    expect(issues({ ...base, install: [{ type: 'curseforge', projectId: '' }] })).toEqual(['install.0.projectId: templates.editor.validation.required']);
+    expect(issues({ ...base, install: [{ type: 'javadl', version: '' }] })).toEqual(['install.0.version: templates.editor.validation.required']);
+    expect(issues({ ...base, install: [{ type: 'sleep', duration: '' }] })).toEqual(['install.0.duration: templates.editor.validation.required']);
+  });
+
+  it('flags "" where the node casts it to 0 or refuses it', () => {
+    // AutoBackupKeep only defaults when keep is missing: "" becomes 0, outside 1-50
+    expect(issues({ ...base, install: [{ type: 'backup', keep: '' }] })).toEqual(['install.0.keep: templates.editor.validation.invalidNumber']);
+    expect(issues({ ...base, install: [{ type: 'backup', offsiteKeep: '' }] })).toEqual(['install.0.offsiteKeep: templates.editor.validation.invalidInteger']);
+    // an optional field given "" has a wrong value, it is not missing
+    expect(issues({ ...base, run: { command: 'run', stopCode: '', autostart: '' } })).toEqual([
+      'run.stopCode: templates.editor.validation.invalidInteger',
+      'run.autostart: templates.editor.validation.invalidType',
+    ]);
   });
 
   it('keeps unknown keys at every level', () => {

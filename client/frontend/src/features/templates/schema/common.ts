@@ -7,13 +7,14 @@ import { z } from 'zod';
 export const msg = (code: string) => `templates.editor.validation.${code}`;
 
 /**
- * The message of a type check: "required" when the value is missing or empty (zod reports a
- * missing key as the wrong type, and "" fails a number or a fixed choice), the given code otherwise.
+ * The message of a type check: "required" when the value is missing (zod reports a missing key
+ * as the wrong type) or, for a required field, empty ("" fails a number or a fixed choice); the
+ * given code otherwise, so an optional field given "" is told its value is wrong.
  */
 export const typeError =
-  (code = 'invalidType') =>
+  (code = 'invalidType', required = false) =>
   (issue: { input?: unknown }) =>
-    issue.input === undefined || issue.input === '' ? msg('required') : msg(code);
+    issue.input === undefined || (required && issue.input === '') ? msg('required') : msg(code);
 
 /** A `${name}` token, which the node replaces with the variable's value before a step runs. */
 export const VARIABLE_TOKEN = /\$\{[^}]+\}/;
@@ -34,8 +35,8 @@ export const CONDITION_SAFE_VARIABLE_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
 export const conditionSchema = z.string({ error: typeError() });
 
 /** A whole number with no variables (stopCode, a group's order): the node decodes it as an int. */
-export function integerSchema(bounds: { min?: number; max?: number } = {}) {
-  let num = z.number({ error: typeError('invalidInteger') }).int({ error: msg('invalidInteger') });
+export function integerSchema(bounds: { min?: number; max?: number; required?: boolean } = {}) {
+  let num = z.number({ error: typeError('invalidInteger', bounds.required) }).int({ error: msg('invalidInteger') });
   if (bounds.min !== undefined) num = num.min(bounds.min, { error: msg('outOfRange') });
   if (bounds.max !== undefined) num = num.max(bounds.max, { error: msg('outOfRange') });
   return num;
@@ -43,29 +44,38 @@ export function integerSchema(bounds: { min?: number; max?: number } = {}) {
 
 /**
  * A whole number written as a number or, since the node casts it after replacing tokens, as a
- * string of digits or one holding a `${variable}` (javadl's "${javaversion}"). allowEmpty takes
- * "" too, for an argument the node reads as not given when empty (curseforge's fileId).
+ * string of digits or one holding a `${variable}` (javadl's "${javaversion}"). emptyIsUnset
+ * takes "" too, only for an argument whose factory reads "" as not given (curseforge's fileId);
+ * elsewhere cast turns "" into 0, which the step then refuses.
  */
-export function numberOrVariable(bounds: { min?: number; max?: number; allowEmpty?: boolean } = {}) {
-  const pattern = bounds.allowEmpty ? /^$|^\d+$|\$\{[^}]+\}/ : /^\d+$|\$\{[^}]+\}/;
-  let num = z.number({ error: typeError('invalidNumber') }).int({ error: msg('invalidNumber') });
+export function numberOrVariable(bounds: { min?: number; max?: number; required?: boolean; emptyIsUnset?: boolean } = {}) {
+  const pattern = bounds.emptyIsUnset ? /^$|^\d+$|\$\{[^}]+\}/ : /^\d+$|\$\{[^}]+\}/;
+  let num = z.number({ error: typeError('invalidNumber', bounds.required) }).int({ error: msg('invalidNumber') });
   if (bounds.min !== undefined) num = num.min(bounds.min, { error: msg('outOfRange') });
   if (bounds.max !== undefined) num = num.max(bounds.max, { error: msg('outOfRange') });
-  return z.union([num, z.string().regex(pattern, { error: msg('invalidNumber') })], {
-    error: typeError('invalidNumber'),
+  // a string fails inside its own branch, which zod reports instead of the union's message, so
+  // a required field left "" is named there, before the pattern
+  let text = z.string();
+  if (bounds.required) text = text.min(1, { error: msg('required'), abort: true });
+  return z.union([num, text.regex(pattern, { error: msg('invalidNumber') })], {
+    error: typeError('invalidNumber', bounds.required),
   });
 }
 
 /**
  * What Go's cast.ToDurationE reads: a duration such as "30s" or "1h30m", a bare number of
- * nanoseconds, or a `${variable}` replaced before the step runs.
+ * nanoseconds, or a `${variable}` replaced before the step runs. Only sleep's required duration
+ * uses it, so "" is reported as missing.
  */
 export const durationSchema = z.union(
   [
     z.number().int().nonnegative(),
-    z.string().regex(/^(\d+(\.\d+)?(ns|us|µs|ms|s|m|h))+$|^\d+$|\$\{[^}]+\}/, { error: msg('invalidDuration') }),
+    z
+      .string()
+      .min(1, { error: msg('required'), abort: true })
+      .regex(/^(\d+(\.\d+)?(ns|us|µs|ms|s|m|h))+$|^\d+$|\$\{[^}]+\}/, { error: msg('invalidDuration') }),
   ],
-  { error: typeError('invalidDuration') },
+  { error: typeError('invalidDuration', true) },
 );
 
 /** Console types the node knows (pkg/skypanel/environment.go); "" means the standard input. */
