@@ -6,8 +6,8 @@ A template is the JSON blueprint a server is created from: its variables, instal
 
 The page (**Template Management**, `/templates`) has two tabs:
 
-- **Local**: templates stored in this panel's database. They can be created, edited, uploaded and deleted here.
-- **Community**: templates read from an outside source, either the template index configured in `templates.url` or the Git repositories added through the API. They are read only.
+- **Local**: templates stored in this panel's database. They can be created, edited, duplicated, uploaded and deleted here.
+- **Community**: templates read from an outside source, either the template index configured in `templates.url` or the Git repositories added through the API. They are read only, but can be duplicated as a local template.
 
 Each card shows the template's logo, name, category and a **Use Template** button that opens the create-server wizard with that template already chosen (`/servers/?create=true&template=<name>&repo=<id>`).
 
@@ -16,8 +16,9 @@ Buttons, by permission:
 | Button | Needs |
 |---|---|
 | **Upload** (one or more `.json` files) | `templates.local.edit` |
-| **Create Template** | `templates.repo.create` to see it; saving needs `templates.local.edit` |
-| **Edit** / **Delete** on a local template | `templates.local.edit` |
+| **New template** (opens the [template editor](#template-editor)) | `templates.local.edit` |
+| **Edit** / **Delete** in a local template's menu | `templates.local.edit` |
+| **Duplicate** in any template's menu, local or community | `templates.local.edit` |
 
 **Search.** Above the tabs, it filters both by name, display name and type, ignoring case and accents. It also knows common synonyms (`c#` and `csharp` find .NET, `golang` Go, `mysql` MariaDB, `cs2` Counter-Strike 2, `spring` or `maven` Java; the list is in `client/frontend/src/lib/template-search.ts`). The tab counts show the matches. The create-server wizard has the same search in its template step.
 
@@ -37,7 +38,78 @@ Stored in the panel database, one row per template name. Uploading a file create
 
 If the file has no `display`, the name is used.
 
-The **Create Template** / **Edit template** dialog has three tabs that stay in sync: **General** (**Name (unique ID)**, **Display name**, **Category (type)**), **Run Configuration** (**Start command**, **Stop command**, **Working directory**) and **JSON** (the whole template, with **Load from JSON file**). Saving sends the JSON with `PUT /api/templates/0/<name>`; a template with the same name is replaced.
+The panel keeps a template's JSON as it was written, whether uploaded or saved: the variables keep their order and fields the panel does not know are not lost. Templates saved before this behaviour came in keep the alphabetical order they were stored with until they are saved again.
+
+Local templates are created and edited in the [template editor](#template-editor), which saves them with `PUT /api/templates/0/<name>`; a template with the same name is replaced.
+
+### Template editor
+
+A full page (`/templates/editor/`) to build a template by filling in forms, without writing JSON, while the JSON stays at hand for whoever prefers it. It needs `templates.local.edit`; without it, the page sends you to **Templates**.
+
+#### Getting started
+
+**New template** offers four ways to start. None of them saves anything until you press **Save** in the editor.
+
+| Option | What it opens | Address |
+|---|---|---|
+| **Blank** | The minimum: empty name, display name and category, no variables or steps, a start and a stop command to fill in, and one Docker supported environment with the `ghcr.io/aether-panel/generic` image | `/templates/editor/` |
+| **Base template** | A ready template for a common case, without a name: **Minecraft: Java (Paper)**, **Steam game**, **Node.js app**, **Python app** or **Generic Docker** | `/templates/editor/?preset=<id>` |
+| **Duplicate an existing one** | A copy of a local or community template, picked with a search (the same as the list's: name, display name, type and synonyms) | `/templates/editor/?from=<repo>:<name>` |
+| **Import a .json** | A template file, to review it before saving it. Without a `name`, the file's name is used | `/templates/editor/?import` |
+
+In the list, each template's **⋯** menu has **Duplicate** and, on local ones, **Edit** (`/templates/editor/?name=<name>`).
+
+- In the **Duplicate** search, the down arrow moves into the list and **Enter** opens the first result (only once something has been typed).
+- A copy keeps its source's name when no local template has it; otherwise it becomes `<name>-copy` (or `-copy-2`…) and its display name gets "(copy)" added.
+- Base templates write their variables' texts (display name and description) in the language of whoever creates them: that is what server creators will read. The Minecraft one uses Paper; vanilla means swapping the `paperdl` step for `mojangdl`. The Steam one leaves the `appid` and the executable empty (and required): fill them in before saving, or whoever creates the server will have to type them.
+- They all use only `ghcr.io/aether-panel/*` or official images, and the panel accepts each of them when saved (the Steam one once its `appid` and executable are filled in).
+
+#### The page
+
+- **Sections**, in a side menu (on a phone, a selector at the top): **Information**, **Variables**, **Installation**, **Run**, **Environment**, **Requirements** and **Advanced**. Each shows how many items it has (variables, steps) and how many errors and warnings.
+- **Form | JSON | Split**: the form and the JSON are two views of the same object; a change in one shows in the other at once. **Split** (form and JSON side by side) is only offered on screens 1280 px wide or more; on a narrower one it shows as **Form**.
+- **Preview**, **Download .json** and **Save**. Below 1280 px, **Preview** and **Download .json** are icon-only, and below 420 px **Save** is too. **Ctrl+S** (**⌘S** on macOS) saves from any field, inside the JSON too.
+- Leaving with unsaved changes makes the browser ask first.
+
+| Section | What it edits |
+|---|---|
+| **Information** | Name (the unique ID), display name, category (`type`) and icon |
+| **Variables** | What whoever creates a server fills in. Each variable is a card that folds, with its key, type (text, whole number, yes/no or list of options), default value, display name, description, options and the required, user-editable and internal flags. They are reordered by dragging or with ↑ ↓, in the order "Create server" shows them. A key that is only a number always comes first and cannot be moved. Renaming a key can also rename every `${key}` that uses it |
+| **Installation** | The install steps and, apart, the uninstall ones. **Add step** opens a search with the operations by category (Files, Downloads, Games/Minecraft, Steam, Java/Node, System). Each operation has its form; each step, its condition (**Always**, **Host only**, **Docker only** or **Custom**, a CEL expression). A step of a type the panel doesn't know is edited with **Edit this step's JSON** |
+| **Run** | Start command (**One command** or **By condition**, a list of commands with their condition), stop (command or signal code), working directory, environment variables, console (standard input, RCON, RCON over WebSocket or telnet), automatic start and restart, expected exit code and the **Before start** and **After stop** steps |
+| **Environment** | Default environment (host or Docker) and supported environments (image, ports, network, mounted folders, labels, Docker `hostConfig` and `config`) |
+| **Requirements** | Operating systems, architectures and programs the node needs (`java \|\| java21` accepts either) |
+| **Advanced** | Variable groups, stats (`jcmd`), status query (Minecraft or Steam A2S) and keep-alive. What has no form is edited as JSON in its own section |
+
+**Insert variable**, next to commands and step fields, types `${variable}` into the text field that last had the focus (or at the JSON's cursor).
+
+**What "Create server" takes from the environment.** The wizard always creates servers in Docker, with the **first Docker environment** under **Supported environments** (its image, ports and settings). The default environment is kept in the template, but the wizard doesn't use it. With no Docker environment in the list, the wizard uses `ubuntu:22.04`, and without the list, the node's generic image.
+
+#### Form and JSON
+
+- Nothing is lost: the form always works on the whole template, and fields it doesn't show (unknown step keys, Docker settings without a field…) are kept as they are. Opening a template and saving it untouched saves the same JSON, except that `name` becomes the first key.
+- The JSON view is the panel's Monaco editor, loaded the first time it opens. It validates the template against its schema (underlining errors) and completes keys, operation types and their arguments.
+- Half-typed JSON breaks nothing: the form keeps the last valid version and the toolbar says **The JSON is not valid**. Editing the form meanwhile discards the invalid JSON changes.
+
+#### Errors and warnings
+
+The form and the JSON check the template against the same schema while you type:
+
+- **Errors**: what the node refuses or fails on (an empty required field, a number that isn't one, a step without `type`…). They show under each field and are announced to screen readers.
+- **Warnings**: what the node accepts but probably not as meant. They don't block saving. For example: an undefined `${variable}` or a variable nothing uses, a whole number the node would turn into 0, conditional commands with no default, a stop with neither command nor signal code, no Docker supported environment, an incomplete keep-alive, or a **third-party image**: the project only uses its own images (`ghcr.io/aether-panel/*`) or official ones, from Docker Hub (such as `ubuntu` or `eclipse-temurin`) or from the vendor (such as `mcr.microsoft.com` or `steamcmd/steamcmd`).
+
+The toolbar's status line sums up what is left (**No problems**, how many errors and warnings, or what blocks saving). With anything left it is a button that opens **Errors and warnings**: the whole list grouped by section, what blocks saving first; picking one opens its section and moves the focus to its field.
+
+**Save** is off for a saved template without changes, or when there is an error that blocks saving: an empty or invalid name, a name another local template has, the local templates not being readable to check it (**Check again** retries), a step that is not an object, or broken JSON. With other errors, **Save** asks first (**Save anyway**). On save, the panel validates the template as always; if it refuses it, its message is shown.
+
+#### Preview
+
+**Preview** opens a side panel with the configuration step of the "Create server" wizard (resources, variables and ports), drawn with the same components and the same starting values as the real wizard. You can fill it in and press **Check**, which runs the wizard's checks and moves the focus to the first field to fix; **Reset** goes back to the template's values. Nothing is created and the template is not changed. With no node chosen, free ports and the node's memory are not checked.
+
+#### Save and download
+
+- **Save** sends the template with `PUT /api/templates/0/<name>`. Renaming an existing template saves a new one and leaves the old one as it was; changing only case or accents doesn't count as another name. After saving, the address becomes `?name=<name>`, so reloading keeps editing what was saved.
+- **Download .json** downloads the template as it is in the editor as `<name>.json`, without saving it. It is off while the JSON is not valid.
 
 ### Community templates
 
@@ -70,8 +142,9 @@ Without credentials no authentication is sent, which works for public repositori
 ### In the panel
 
 1. Open **Templates** in the sidebar.
-2. To add your own, either press **Upload** and choose one or more `.json` files, or press **Create Template**, fill in the fields (or paste the JSON) and press **Save template**.
-3. To start a server from any template, press **Use Template** on its card.
+2. To add your own, either press **Upload** and choose one or more `.json` files, or press **New template**, pick how to start, fill in the editor's sections and press **Save**.
+3. To change a local template, **⋯ → Edit** on its card. To start from any other, **⋯ → Duplicate**.
+4. To start a server from any template, press **Use Template** on its card.
 
 ### Via the API
 
@@ -107,11 +180,16 @@ The panel needs outbound HTTPS to the index (or to the Git hosts). See [Configur
 
 ## Limits
 
-- Community templates cannot be edited in place. To change one, open it, copy its JSON into **Create Template** and save it as a local template (with the same or another name).
+- Community templates cannot be edited in place. To change one, **⋯ → Duplicate** and save the copy as a local template (with the same or another name).
+- The editor has no version history or shared editing: if two people save the same template, the last save wins.
+- A variable group's condition and its "Order" field are saved, but the panel doesn't use them yet.
+- The condition warnings don't recognise prefixed CEL literals (`r"…"`, `b"…"`) or type names used without a call (`string`, `int`…): they flag them as undefined variables. No community template uses them.
 - The credentials of a private repository can only be given when adding it through the API; to change them, remove the repository and add it again.
 - There is no button to add or remove Git repositories in the web; it is done through the API. While `templates.url` is set, added repositories are not shown at all.
 - With a `templates.url` index, changes published to the index take up to 5 minutes to show (the in-memory cache is lost when the panel restarts).
-- **Create Template** is shown to holders of `templates.repo.create`, but saving needs `templates.local.edit`.
+- The editor reads the template the way the browser does, so it rewrites numbers the browser can't hold as written: an integer above 2^53 (9007199254740992) loses its last digits and a number written as `1.0` is saved as `1`. Write long IDs (a Steam64 or Discord ID) as strings: `"76561198000000000"`.
+- The editor compares template names ignoring case and accents in every database, as MariaDB does. On SQLite, which does tell them apart, the editor still treats a name that differs only in that way as taken (`Paper` when `paper` exists), and changing only case or accents doesn't rename the template.
+- A template saved with `PUT` can be at most 2 MB, like an uploaded file; a larger one is refused with `413`.
 
 ## Troubleshooting
 
@@ -119,8 +197,11 @@ The panel needs outbound HTTPS to the index (or to the Git hosts). See [Configur
 |---|---|---|
 | **No community templates** | No index configured and no repository added, or the index could not be downloaded | Check `templates.url` and that the panel can reach it; look at the panel log for `Error reading template from …` |
 | `file X is not a JSON template` / `template X has no install steps or run command` (`ErrInvalidTemplate`) | Upload of a wrong file | Upload a template JSON with `install` or `run.command` |
-| **The JSON file isn't valid.** | **Load from JSON file** got invalid JSON | Fix the file |
-| **The template must have a "name" field.** | Saving from the dialog without a name | Fill **Name (unique ID)** |
+| **The JSON file isn't valid.** | **Import a .json** got invalid JSON | Fix the file |
+| **Save** off and **Fix the marked errors to save.** | An error that blocks saving (empty, taken or invalid name, a step that is not an object) | Open **Errors and warnings** from the toolbar and pick the error to go to its field |
+| **Couldn't read the local templates…** | The editor couldn't check whether the name is taken | **Check again** next to the name |
+| **Couldn't save the template: …** | The panel refused the template when validating it | Fix what the message says (for example, a template with neither `install` nor `run.command`) |
+| **Nothing to import** when opening `?import` | The imported file is kept only in that browser tab | Import it again from **New template → Import a .json** |
 | `repo already exists with given name` (`ErrRepoExists`) | Adding a repository with a name already used | Use another name |
 | `bad status 403 from …` in the log | The index host refused the download | Check the URL and the host's protection |
 

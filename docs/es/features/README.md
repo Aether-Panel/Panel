@@ -40,7 +40,7 @@ Para el detalle completo de los endpoints, consulte la [referencia de la API](..
 | [Registro de actividad y registros de acceso](activity-and-access-log.md) | Registro de actividad por servidor y registros de inicio de sesión del panel |
 | [Hosts de bases de datos y bases de datos de servidor](database-hosts.md) | Hosts MySQL/MariaDB y bases de datos por servidor |
 | [Configuración del panel](panel-settings.md) | La página de configuración del panel, sus pestañas y los interruptores de funciones experimentales |
-| [Plantillas](templates.md) | Plantillas locales y de la comunidad, reglas de subida y repositorios de plantillas |
+| [Plantillas](templates.md) | Plantillas locales y de la comunidad, el editor visual de plantillas, reglas de subida y repositorios de plantillas |
 | [Actualizaciones del panel](panel-updates.md) | Comprobación de actualizaciones y autoactualización del panel y sus nodos |
 | [Integración con facturación: API de aprovisionamiento y enlaces de acceso](provisioning-and-sso.md) | Claves de API, productos, rutas de aprovisionamiento `/api/v1` y enlaces de acceso de un solo uso |
 

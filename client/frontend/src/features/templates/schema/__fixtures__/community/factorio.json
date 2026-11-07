@@ -1,0 +1,123 @@
+{
+  "type": "factorio",
+  "display": "Factorio",
+  "icon": "factorio",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 34197,
+      "display": "Port",
+      "desc": "What port to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "save": {
+      "type": "string",
+      "value": "saves/default.zip",
+      "display": "Save File to Use",
+      "desc": "Save File to Use",
+      "required": true,
+      "userEdit": true
+    },
+    "server-settings": {
+      "type": "string",
+      "value": "factorio/data/server-settings.json",
+      "display": "Server Settings JSON",
+      "desc": "Server Settings File Location",
+      "required": true,
+      "userEdit": true
+    },
+    "memory": {
+      "type": "integer",
+      "value": 1024,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    }
+  },
+  "install": [
+    {
+      "type": "download",
+      "files": [
+        "https://www.factorio.com/get-download/latest/headless/linux64"
+      ]
+    },
+    {
+      "type": "move",
+      "source": "factorio-headless_*.tar.xz",
+      "target": "factorio-install.tar.xz"
+    },
+    {
+      "type": "extract",
+      "source": "factorio-install.tar.xz",
+      "destination": "."
+    },
+    {
+      "type": "command",
+      "commands": [
+        "cp -n factorio/data/server-settings.example.json factorio/data/server-settings.json",
+        "chmod +x factorio/bin/x64/factorio",
+        "factorio/bin/x64/factorio --create saves/default.zip"
+      ]
+    }
+  ],
+  "run": {
+    "command": "factorio/bin/x64/factorio --port ${port} --bind ${ip} --start-server ${save} --server-settings ${server-settings}",
+    "stop": "/quit",
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "ghcr.io/aether-panel/ubuntu",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64",
+    "binaries": [
+      "curl",
+      "tar",
+      "xz"
+    ]
+  }
+}

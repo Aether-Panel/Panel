@@ -1,0 +1,198 @@
+{
+  "type": "corekeeper",
+  "display": "Core Keeper",
+  "icon": "corekeeper",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 200,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 4096,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (4096 MB = 4 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 4096,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 27015,
+      "display": "Port",
+      "desc": "Game port (UDP) for Direct Connect. Not used when Direct Connect is off",
+      "required": true,
+      "userEdit": false
+    },
+    "directconnect": {
+      "type": "boolean",
+      "value": true,
+      "display": "Direct Connect",
+      "desc": "Players join with IP, port and password (needed for crossplay with Epic, GOG and Microsoft Store). Off means Steam relay: players join with the Game ID instead and no port is opened",
+      "required": false,
+      "userEdit": true
+    },
+    "worldname": {
+      "type": "string",
+      "value": "Core Keeper Server",
+      "display": "Server Name",
+      "desc": "World and server name",
+      "required": true,
+      "userEdit": true
+    },
+    "serverpassword": {
+      "type": "string",
+      "value": "",
+      "display": "Server Password",
+      "desc": "Password for Direct Connect, up to 28 characters. If empty the game makes up a random one and writes it to GameInfo.txt",
+      "required": false,
+      "userEdit": true
+    },
+    "maxplayers": {
+      "type": "integer",
+      "value": 8,
+      "display": "Max Players",
+      "desc": "Player slots (up to 100)",
+      "required": true,
+      "userEdit": true
+    },
+    "worldindex": {
+      "type": "integer",
+      "value": 0,
+      "display": "World Slot",
+      "desc": "World save slot to load or create (0 to 29)",
+      "required": true,
+      "userEdit": true
+    },
+    "worldseed": {
+      "type": "integer",
+      "value": 0,
+      "display": "World Seed",
+      "desc": "Seed for a new world. 0 picks a random seed",
+      "required": true,
+      "userEdit": true
+    },
+    "worldmode": {
+      "type": "option",
+      "value": 0,
+      "display": "World Mode",
+      "desc": "Mode used when a new world is created",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": 0,
+          "display": "Normal"
+        },
+        {
+          "value": 1,
+          "display": "Hard"
+        },
+        {
+          "value": 2,
+          "display": "Creative"
+        },
+        {
+          "value": 4,
+          "display": "Casual"
+        }
+      ]
+    },
+    "gameid": {
+      "type": "string",
+      "value": "",
+      "display": "Game ID",
+      "desc": "Fixed Game ID for Steam relay joins (alphanumeric, 28 characters). Empty keeps the one the game generates",
+      "required": false,
+      "userEdit": true
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "steamgamedl",
+      "appId": "1963720"
+    },
+    {
+      "if": "env == 'docker'",
+      "type": "command",
+      "commands": [
+        "bash -c \"for try in 1 2 3 4 5; do steamcmd +@sSteamCmdForcePlatformType linux +force_install_dir /SkyPanel +login anonymous +app_update 1963720 validate +quit && exit 0; echo 'steamcmd could not finish the download, trying again in 15s ($try/5)'; sleep 15; done; exit 1\""
+      ]
+    },
+    {
+      "type": "command",
+      "commands": [
+        "chmod +x CoreKeeperServer",
+        "bash -c \"mkdir -p .steam/sdk32 .steam/sdk64; for d in .steam .steam/steamcmd .local/share/Steam/steamcmd steamcmd; do if [ -f $d/linux32/steamclient.so ]; then cp -f $d/linux32/steamclient.so .steam/sdk32/; fi; if [ -f $d/linux64/steamclient.so ]; then cp -f $d/linux64/steamclient.so .steam/sdk64/; fi; done; true\""
+      ]
+    }
+  ],
+  "run": {
+    "command": "bash ./aether-corekeeper.sh",
+    "stopCode": 2,
+    "environmentVars": {
+      "CK_IP": "${ip}",
+      "CK_PORT": "${port}",
+      "CK_DIRECT": "${directconnect}",
+      "CK_NAME": "${worldname}",
+      "CK_PASSWORD": "${serverpassword}",
+      "CK_MAXPLAYERS": "${maxplayers}",
+      "CK_WORLD": "${worldindex}",
+      "CK_SEED": "${worldseed}",
+      "CK_MODE": "${worldmode}",
+      "CK_GAMEID": "${gameid}"
+    },
+    "pre": [
+      {
+        "type": "writefile",
+        "target": "aether-corekeeper.sh",
+        "text": "#!/bin/bash\n# Core Keeper launcher, written by Aether Panel before every start (edits are overwritten).\n# The settings arrive from the panel as CK_* environment variables.\nLOG=logs/CoreKeeperServer.log\nmkdir -p logs gamedata\nrm -f GameID.txt GameInfo.txt\n: > \"$LOG\"\n\nset -- -batchmode -logfile \"$LOG\" -datapath gamedata -world \"$CK_WORLD\" -worldname \"$CK_NAME\" -worldseed \"$CK_SEED\" -worldmode \"$CK_MODE\" -maxplayers \"$CK_MAXPLAYERS\"\nif [ -n \"$CK_GAMEID\" ]; then set -- \"$@\" -gameid \"$CK_GAMEID\"; fi\nif [ \"$CK_DIRECT\" = \"true\" ]; then\n  set -- \"$@\" -ip \"$CK_IP\" -port \"$CK_PORT\"\n  if [ -n \"$CK_PASSWORD\" ]; then set -- \"$@\" -password \"$CK_PASSWORD\"; fi\nfi\n\n# The Linux server needs an X display even in batch mode, so give it a virtual one.\nif ! command -v Xvfb >/dev/null 2>&1; then\n  echo \"Xvfb is missing: the Core Keeper server needs it (Debian/Ubuntu: apt install xvfb libxi6).\"\n  exit 1\nfi\nDISP=$(( CK_PORT % 50000 + 100 ))\nrm -f \"/tmp/.X$DISP-lock\"\nXvfb \":$DISP\" -screen 0 1x1x24 -ac -nolisten tcp -nolisten unix >/dev/null 2>&1 &\nXVFB=$!\nexport DISPLAY=\":$DISP\"\nexport LD_LIBRARY_PATH=\"$PWD/.steam/sdk64:$PWD/linux64:$LD_LIBRARY_PATH\"\nsleep 1\n\n./CoreKeeperServer \"$@\" &\nCK=$!\ntail -n +1 -F \"$LOG\" 2>/dev/null &\nTAIL=$!\n\n# Stopping from the panel sends SIGINT to this script. Background jobs of a script ignore\n# SIGINT, so pass it on as SIGTERM, which the server handles by saving and exiting.\ntrap 'kill -TERM $CK 2>/dev/null' INT TERM\nCODE=0\nwhile kill -0 $CK 2>/dev/null; do\n  wait $CK\n  CODE=$?\ndone\nsleep 1\nkill $TAIL $XVFB 2>/dev/null\nexit $CODE\n"
+      }
+    ],
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "ghcr.io/aether-panel/steamcmd",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/udp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64"
+  }
+}

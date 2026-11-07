@@ -1,0 +1,114 @@
+{
+  "type": "srcds",
+  "display": "ARMA3",
+  "icon": "arma3",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "config": {
+      "type": "string",
+      "value": "config.cfg",
+      "display": "Config File",
+      "desc": "The Config file you want to use. NOTE: config.cfg is created on server installation!",
+      "required": false,
+      "userEdit": true
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 2302,
+      "display": "Port",
+      "desc": "What port to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "steam_user": {
+      "type": "string",
+      "value": "anonymous",
+      "display": "Steam User",
+      "desc": "Username for Steam login",
+      "required": true,
+      "userEdit": true
+    },
+    "memory": {
+      "type": "integer",
+      "value": 1024,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "steamgamedl",
+      "appId": "233780",
+      "username": "${steam_user}"
+    },
+    {
+      "if": "env == 'docker'",
+      "type": "command",
+      "commands": [
+        "steamcmd +force_install_dir /SkyPanel +login ${steam_user} +app_update 233780 +quit"
+      ]
+    },
+    {
+      "type": "command",
+      "commands": [
+        "touch ./config.cfg",
+        "touch ./parameters.txt"
+      ]
+    }
+  ],
+  "run": {
+    "command": "./arma3server -ip=${ip} -port=${port} -config=${config} -par=parameters.txt",
+    "stopCode": 2,
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "steamcmd/steamcmd",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64"
+  }
+}

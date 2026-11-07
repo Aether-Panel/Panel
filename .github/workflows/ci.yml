@@ -179,6 +179,10 @@ jobs:
           yarn lint
           yarn typecheck
 
+      - name: Run Frontend Unit Tests
+        working-directory: ./client/frontend
+        run: yarn test
+
       - name: Verify Frontend Build
         working-directory: ./client
         run: yarn build

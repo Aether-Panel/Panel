@@ -1,0 +1,188 @@
+{
+  "type": "srcds",
+  "display": "Dont Starve Together",
+  "icon": "dontstarvetogether",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "description": {
+      "type": "string",
+      "value": "Dont Starve Together Server",
+      "display": "Server Description",
+      "desc": "Description for the Server",
+      "required": true,
+      "userEdit": true
+    },
+    "gamemode": {
+      "type": "option",
+      "value": "",
+      "display": "Gamemode",
+      "desc": "The Gamemode you want to play in",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "survival",
+          "display": "Survival"
+        },
+        {
+          "value": "wilderness",
+          "display": "Wilderness"
+        },
+        {
+          "value": "endless",
+          "display": "Endless"
+        }
+      ]
+    },
+    "gamestyle": {
+      "type": "option",
+      "value": "",
+      "display": "Gamestyle",
+      "desc": "How do you want to play on your Server?",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "social",
+          "display": "Social"
+        },
+        {
+          "value": "cooperative",
+          "display": "Cooperative"
+        },
+        {
+          "value": "competetive",
+          "display": "Competetive"
+        },
+        {
+          "value": "madness",
+          "display": "Madness"
+        }
+      ]
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": true
+    },
+    "maxplayers": {
+      "type": "integer",
+      "value": 5,
+      "display": "Max Players",
+      "desc": "How much Players can connect to your Server",
+      "required": true,
+      "userEdit": true
+    },
+    "password": {
+      "type": "string",
+      "value": "",
+      "display": "Password",
+      "desc": "(optional) The password, needed to connect to your Server",
+      "required": false,
+      "userEdit": true
+    },
+    "port": {
+      "type": "integer",
+      "value": 10889,
+      "display": "Port",
+      "desc": "What port to bind the server to",
+      "required": true,
+      "userEdit": true
+    },
+    "pvp": {
+      "type": "boolean",
+      "value": false,
+      "display": "PvP",
+      "desc": "Should PvP activated on the Server?",
+      "required": true,
+      "userEdit": true
+    },
+    "servername": {
+      "type": "string",
+      "value": "DDTServer",
+      "display": "ServerName",
+      "desc": "Display Name for the Server",
+      "required": true,
+      "userEdit": true
+    },
+    "servertoken": {
+      "type": "string",
+      "value": "",
+      "display": "Server Token",
+      "desc": "Dont Starve Together Server Token (may find here <a href=\"https://accounts.klei.com/account/game/servers?game=DontStarveTogether\" target=\"_blank\">here</a>)",
+      "required": true,
+      "userEdit": true
+    },
+    "memory": {
+      "type": "integer",
+      "value": 1024,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "steamgamedl",
+      "appId": "343050"
+    },
+    {
+      "if": "env == 'docker'",
+      "type": "command",
+      "commands": [
+        "steamcmd +force_install_dir /SkyPanel +login anonymous +app_update 343050 +quit"
+      ]
+    },
+    {
+      "type": "mkdir",
+      "target": "DoNotStarveTogether/DontStarveTogetherServer"
+    },
+    {
+      "type": "writefile",
+      "target": "DoNotStarveTogether/DontStarveTogetherServer/cluster_token.txt",
+      "text": "${servertoken}"
+    },
+    {
+      "type": "writefile",
+      "text": "[GAMEPLAY]\ngame_mode = ${gamemode}\nmax_players = ${maxplayers}\npvp = ${pvp}\npause_when_empty = true\n\n[NETWORK]\ncluster_description = ${description}\ncluster_name = ${servername}\ncluster_intention = ${gamestyle}\ncluster_password = ${password}\n\n[MISC]\nconsole_enabled = true\n\n[SHARD]\nshard_enabled = true\nbind_ip = ${ip}\nmaster_ip = ${ip}\nmaster_port = ${port}\ncluster_key = ${servertoken}",
+      "target": "DoNotStarveTogether/DontStarveTogetherServer/cluster.ini"
+    }
+  ],
+  "run": {
+    "command": "./dontstarve_dedicated_server_nullrenderer -persistent_storage_root . -console -cluster \"DontStarveTogetherServer\" -monitor_parent_process",
+    "stop": "c_shutdown()",
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64"
+  }
+}

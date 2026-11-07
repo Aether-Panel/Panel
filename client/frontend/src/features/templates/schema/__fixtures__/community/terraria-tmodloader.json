@@ -1,0 +1,416 @@
+{
+  "type": "terraria",
+  "display": "Terraria - tModLoader",
+  "icon": "terraria",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "abr": {
+      "type": "string",
+      "value": "-1",
+      "display": "announcementbox-range",
+      "desc": "Sets the announcementbox text messaging range in pixels, -1 for serverwide announcements.",
+      "required": true,
+      "userEdit": true
+    },
+    "backups": {
+      "type": "string",
+      "value": "2",
+      "display": "Backups",
+      "desc": "Sets the number of rolling world backups to keep",
+      "required": true,
+      "userEdit": true
+    },
+    "ban": {
+      "type": "string",
+      "value": "banlist.txt",
+      "display": "Banlist",
+      "desc": "Name of the banlist file",
+      "required": true,
+      "userEdit": true
+    },
+    "difficulty": {
+      "type": "string",
+      "value": "0",
+      "display": "Difficulty",
+      "desc": "This can not be changed after the world was generated",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "0",
+          "display": "Normal"
+        },
+        {
+          "value": "1",
+          "display": "Expert"
+        },
+        {
+          "value": "2",
+          "display": "Master"
+        },
+        {
+          "value": "3",
+          "display": "Journey"
+        }
+      ]
+    },
+    "disableannouncementbox": {
+      "type": "string",
+      "value": "",
+      "display": "Announcement Box",
+      "desc": "Decides if the text announcements the Announcement Box makes when pulsed from wire.",
+      "required": false,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "",
+          "display": "Enable"
+        },
+        {
+          "value": "-disableannouncementbox",
+          "display": "Disable"
+        }
+      ]
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "Sets the IP address for the server to listen on - 0.0.0.0 means every possible IP",
+      "required": true,
+      "userEdit": false
+    },
+    "lang": {
+      "type": "string",
+      "value": "en-US",
+      "display": "Language",
+      "desc": "Language for the server",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "en-US",
+          "display": "English"
+        },
+        {
+          "value": "de-DE",
+          "display": "German"
+        },
+        {
+          "value": "it-IT",
+          "display": "Italian"
+        },
+        {
+          "value": "fr-FR",
+          "display": "French"
+        },
+        {
+          "value": "es-ES",
+          "display": "Spanish"
+        },
+        {
+          "value": "ru-RU",
+          "display": "Russian"
+        },
+        {
+          "value": "zh-Hans",
+          "display": "Chinese"
+        },
+        {
+          "value": "pt-PR",
+          "display": "Portuguese"
+        },
+        {
+          "value": "pl-PL",
+          "display": "Polish"
+        }
+      ]
+    },
+    "motd": {
+      "type": "string",
+      "value": "Hello!",
+      "display": "motd",
+      "desc": "Set the message of the day",
+      "required": true,
+      "userEdit": true
+    },
+    "npcs": {
+      "type": "string",
+      "value": "60",
+      "display": "npcstream",
+      "desc": "Reduces enemy skipping but increases bandwidth usage. The lower the number the less skipping will happen, but more data is sent. 0 is off.",
+      "required": true,
+      "userEdit": true
+    },
+    "password": {
+      "type": "string",
+      "value": "",
+      "display": "Password",
+      "desc": "Server Password - leave blank for none",
+      "required": true,
+      "userEdit": true
+    },
+    "players": {
+      "type": "string",
+      "value": "4",
+      "display": "Players",
+      "desc": "Max Players",
+      "required": true,
+      "userEdit": true
+    },
+    "port": {
+      "type": "string",
+      "value": "7777",
+      "display": "Port",
+      "desc": "What port to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "secure": {
+      "type": "string",
+      "value": "1",
+      "display": "secure",
+      "desc": "Enable cheat protection = 1 and disable = 0",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "1",
+          "display": "Enable"
+        },
+        {
+          "value": "0",
+          "display": "Disable"
+        }
+      ]
+    },
+    "seed": {
+      "type": "string",
+      "value": "VeryGoodStartingSeed",
+      "display": "Seed",
+      "desc": "This can not be changed after the world was generated - Seed of the World",
+      "required": true,
+      "userEdit": true
+    },
+    "sl": {
+      "type": "string",
+      "value": "1",
+      "display": "maximum liquids moving",
+      "desc": "Reduces maximum liquids moving at the same time. If enabled may reduce lags but liquids may take longer to settle.",
+      "required": true,
+      "userEdit": true
+    },
+    "steam": {
+      "type": "string",
+      "value": "",
+      "display": "Steam",
+      "desc": "Enables Steam Support",
+      "required": false,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "-steam",
+          "display": "Enable"
+        },
+        {
+          "value": "",
+          "display": "Disable"
+        }
+      ]
+    },
+    "tversion": {
+      "type": "string",
+      "value": "v2023.11.3.3",
+      "display": "tModLoader Version (Set this to the latest tModLoader version to enable support - see https://github.com/tModLoader/tModLoader/releases/latest)",
+      "desc": "tModLoader Version",
+      "required": false,
+      "userEdit": false
+    },
+    "world": {
+      "type": "string",
+      "value": "Terraria-World-1",
+      "display": "World-Name",
+      "desc": "Name of your World",
+      "required": true,
+      "userEdit": true
+    },
+    "wp": {
+      "type": "string",
+      "value": "worlds",
+      "display": "Worldpath",
+      "desc": "Name of the world folder",
+      "required": true,
+      "userEdit": true
+    },
+    "arch": {
+      "type": "option",
+      "value": "x64",
+      "display": "Architecture",
+      "desc": "Architecture your machine",
+      "required": true,
+      "userEdit": false,
+      "options": [
+        {
+          "value": "arm",
+          "display": "arm"
+        },
+        {
+          "value": "arm64",
+          "display": "arm64"
+        },
+        {
+          "value": "x64",
+          "display": "amd64"
+        }
+      ]
+    },
+    "dotnetversion": {
+      "type": "string",
+      "value": "6.0.14",
+      "display": ".NET Runtime Version",
+      "desc": ".NET Runtime Version",
+      "required": true,
+      "userEdit": false
+    },
+    "size": {
+      "type": "option",
+      "value": "3",
+      "display": "World Size",
+      "desc": "World Size to create",
+      "required": true,
+      "userEdit": false,
+      "options": [
+        {
+          "value": "1",
+          "display": "Small"
+        },
+        {
+          "value": "2",
+          "display": "Medium"
+        },
+        {
+          "value": "3",
+          "display": "Large"
+        }
+      ]
+    },
+    "memory": {
+      "type": "integer",
+      "value": 1024,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "download",
+      "files": [
+        "https://dotnetcli.azureedge.net/dotnet/Runtime/${dotnetversion}/dotnet-runtime-${dotnetversion}-linux-${arch}.tar.gz"
+      ]
+    },
+    {
+      "if": "env == 'host'",
+      "type": "command",
+      "commands": [
+        "rm -rf dotnet",
+        "mkdir -p dotnet"
+      ]
+    },
+    {
+      "if": "env == 'host'",
+      "type": "extract",
+      "source": "dotnet-runtime-${dotnetversion}-linux-${arch}.tar.gz",
+      "destination": "dotnet"
+    },
+    {
+      "if": "env == 'host'",
+      "type": "command",
+      "commands": [
+        "rm -rf dotnet-runtime-linux-${arch}.tar.gz"
+      ]
+    },
+    {
+      "type": "githubdl",
+      "repository": "tModLoader/tModLoader",
+      "assetMatch": "tModLoader.zip",
+      "outputVariable": "tmodAsset"
+    },
+    {
+      "type": "extract",
+      "source": "${tmodAsset}",
+      "destination": "."
+    },
+    {
+      "type": "command",
+      "commands": [
+        "rm \"${tmodAsset}\"",
+        "mkdir -p ./${wp}"
+      ]
+    }
+  ],
+  "run": {
+    "command": [
+      {
+        "if": "env == 'docker'",
+        "command": "dotnet tModLoader.dll -server ${steam} -ip ${ip} ${disableannouncementbox} -announcementboxrange ${abr} -config ./serverconfig.txt -autocreate ${size}"
+      },
+      {
+        "command": "dotnet/dotnet tModLoader.dll -server ${steam} -ip ${ip} ${disableannouncementbox} -announcementboxrange ${abr} -config ./serverconfig.txt -autocreate ${size}"
+      }
+    ],
+    "stop": "exit",
+    "pre": [
+      {
+        "type": "writefile",
+        "target": "serverconfig.txt",
+        "text": "world=${wp}/${world}.wld\nautocreate=${size}\nseed=${seed}\nworldname=${world}\ndifficulty=${difficulty}\nmaxplayers=${players}\nport=${port}\npassword=${password}\nmotd=${motd}\nworldpath=../${wp}\nbanlist=../${ban}\nsecure=${secure}\nlanguage=${lang}\nupnp=1\nnpcstream=${npcs}\npriority=3\nslowliquids=${sl}\nworldrollbackstokeep=${backups}"
+      }
+    ],
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "mcr.microsoft.com/dotnet/runtime:${dotnetversion}",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64",
+    "binaries": [
+      "tar"
+    ]
+  }
+}

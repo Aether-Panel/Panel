@@ -8,23 +8,21 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Code, Bot, Server as ServerIcon, Database, Plus, LayoutTemplate, MoreHorizontal,
-  Gamepad2, Globe, Cpu, Radio, Network, Box, Terminal, Shield, Play, Upload, FileJson, Trash2, Loader2, Search
+  Gamepad2, Globe, Cpu, Radio, Network, Box, Terminal, Shield, Play, Upload, Trash2, Loader2, Search, Pencil, Copy
 } from '@/components/icons';
 import { matchesTemplate } from '@/lib/template-search';
 import type { AppIcon } from '@/components/icons';
 import { useTranslations } from '@/contexts/translations-context';
 import { useTemplates } from '@/hooks/use-templates';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { sileo } from "@/lib/toast";
-import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { EmptyState } from '@/components/empty-state';
 import { templateLogo } from '@/lib/template-logos';
 import { TemplateLogo } from '@/components/template-logo';
+import { duplicateHref, NewTemplateDialog } from './new-template-dialog';
 
 // Optional icon mapping if we want to guess icon by category later, or just a default
 function getIconForCategory(category?: string): AppIcon {
@@ -52,29 +50,17 @@ function getIconForCategory(category?: string): AppIcon {
   return ServerIcon; // default
 }
 
-const defaultTemplateJson = `{
-  "name": "",
-  "display": "",
-  "type": "other",
-  "install": [],
-  "run": {
-    "command": "",
-    "stop": "",
-    "workingDirectory": "",
-    "environmentVars": {}
-  }
-}`;
-
 function TemplateItem({
   template,
-  canManage,
-  onEdit,
+  canEdit,
+  canDuplicate,
   onDelete,
 }: Readonly<{
   template: any;
-  /** Local templates the user may edit get an actions menu (edit / delete). */
-  canManage: boolean;
-  onEdit?: () => void;
+  /** A local template the user may change: edit and delete. */
+  canEdit: boolean;
+  /** Any template, local or community, can be copied into a new local one. */
+  canDuplicate: boolean;
   onDelete?: () => void;
 }>) {
   const { t } = useTranslations();
@@ -101,7 +87,7 @@ function TemplateItem({
             )}
           </p>
         </div>
-        {canManage && (
+        {(canEdit || canDuplicate) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -115,15 +101,34 @@ function TemplateItem({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>{t('common.actions')}</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => setTimeout(() => onEdit?.())}>{t('common.edit')}</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive-bright focus:bg-destructive/10 focus:text-destructive-bright"
-                onClick={() => setTimeout(() => onDelete?.(), 50)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                {t('common.delete')}
-              </DropdownMenuItem>
+              {canEdit && (
+                <DropdownMenuItem asChild>
+                  <a href={`/templates/editor/?${new URLSearchParams({ name: template.name })}`}>
+                    <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
+                    {t('common.edit')}
+                  </a>
+                </DropdownMenuItem>
+              )}
+              {canDuplicate && (
+                <DropdownMenuItem asChild>
+                  <a href={duplicateHref(template)}>
+                    <Copy className="mr-2 h-4 w-4" aria-hidden="true" />
+                    {t('templates.actions.duplicate')}
+                  </a>
+                </DropdownMenuItem>
+              )}
+              {canEdit && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive-bright focus:bg-destructive/10 focus:text-destructive-bright"
+                    onClick={() => setTimeout(() => onDelete?.(), 50)}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                    {t('common.delete')}
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
@@ -200,42 +205,15 @@ export default function TemplatesPage() {
   const [isMounted, setIsMounted] = useState(false);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [templateJson, setTemplateJson] = useState(defaultTemplateJson);
-  const [templateObj, setTemplateObj] = useState<any>(JSON.parse(defaultTemplateJson));
-  const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState('local');
   const [query, setQuery] = useState('');
   const [deletingTemplate, setDeletingTemplate] = useState<any>(null);
-  // Name of the local template open in the editor; null while creating a new one.
-  const [editingName, setEditingName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const loadFileRef = useRef<HTMLInputElement>(null);
-
-  const updateField = (field: string, value: string) => {
-    const newObj = { ...templateObj, [field]: value };
-    setTemplateObj(newObj);
-    setTemplateJson(JSON.stringify(newObj, null, 2));
-  };
-
-  const updateRunField = (field: string, value: string) => {
-    const newObj = { ...templateObj, run: { ...templateObj.run, [field]: value } };
-    setTemplateObj(newObj);
-    setTemplateJson(JSON.stringify(newObj, null, 2));
-  };
-
-  const handleJsonChange = (val: string) => {
-    setTemplateJson(val);
-    try {
-      setTemplateObj(JSON.parse(val));
-    } catch {
-      // Half-typed JSON is expected while editing; the form keeps the last valid object.
-    }
-  };
 
   const { t } = useTranslations();
 
-  const { repos, loading: reposLoading, getTemplatesForRepo, getTemplateDetails, saveTemplate, uploadTemplates, deleteTemplate } = useTemplates();
+  const { repos, loading: reposLoading, getTemplatesForRepo, uploadTemplates, deleteTemplate } = useTemplates();
   const [allTemplates, setAllTemplates] = useState<any[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
 
@@ -285,25 +263,6 @@ export default function TemplatesPage() {
     }
   };
 
-  const handleLoadFromFile = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const file = files[0];
-    try {
-      const text = await file.text();
-      const parsed = JSON.parse(text);
-      if (!parsed.name) {
-        parsed.name = (file.name || '').replace(/\.json$/i, '');
-      }
-      setTemplateJson(JSON.stringify(parsed, null, 2));
-      setTemplateObj(parsed);
-    } catch (e) {
-      console.error('Failed to read template file:', e);
-      sileo.error({ title: t('common.error'), description: t('templates.toast.invalidJson') });
-    } finally {
-      if (loadFileRef.current) loadFileRef.current.value = '';
-    }
-  };
-
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -333,28 +292,6 @@ export default function TemplatesPage() {
     }
   };
 
-  const openCreate = () => {
-    // Coming from an edit: start the new template from a clean slate.
-    if (editingName !== null) {
-      setEditingName(null);
-      setTemplateJson(defaultTemplateJson);
-      setTemplateObj(JSON.parse(defaultTemplateJson));
-    }
-    setIsCreateOpen(true);
-  };
-
-  const openEdit = async (template: any) => {
-    const details = await getTemplateDetails(0, template.name);
-    if (!details) {
-      sileo.error({ title: t('common.error'), description: t('templates.toast.loadFailed') });
-      return;
-    }
-    setEditingName(template.name);
-    setTemplateJson(JSON.stringify(details, null, 2));
-    setTemplateObj(details);
-    setIsCreateOpen(true);
-  };
-
   if (!isMounted || !hasScope('templates.view') || reposLoading) {
     return <TemplatesSkeleton />;
   }
@@ -371,8 +308,9 @@ export default function TemplatesPage() {
       action={<Button variant="outline" onClick={() => setQuery('')}>{t('templates.search.clear')}</Button>}
     />
   );
+  // saving a template (PUT /api/templates/0/:name) needs templates.local.edit, and so do creating,
+  // editing and duplicating one
   const canEditLocal = hasScope('templates.local.edit');
-  const canCreate = hasScope('templates.repo.create');
 
   const loadingGrid = (
     <TemplateGrid>
@@ -403,116 +341,11 @@ export default function TemplatesPage() {
             />
           </>
         )}
-        {canCreate && (
-          <Button onClick={openCreate}>
+        {canEditLocal && (
+          <Button onClick={() => setIsCreateOpen(true)}>
             <Plus aria-hidden="true" />
             {t('templates.create')}
           </Button>
-        )}
-        {(canCreate || canEditLocal) && (
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogContent className="flex h-[min(90svh,48rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
-              <DialogHeader className="border-b border-border/60 p-6 pb-5 text-left">
-                <DialogTitle className="text-xl font-semibold tracking-[-0.02em]">
-                  {editingName !== null ? t('templates.editDialog.title') : t('templates.create')}
-                </DialogTitle>
-                <DialogDescription>{t('templates.createDialog.description')}</DialogDescription>
-              </DialogHeader>
-              <div className="flex min-h-0 flex-1 flex-col p-6">
-                <Tabs defaultValue="general" className="flex min-h-0 flex-1 flex-col">
-                  <TabsList className="mb-5 self-start">
-                    <TabsTrigger value="general">{t('templates.General')}</TabsTrigger>
-                    <TabsTrigger value="run">{t('templates.RunConfig')}</TabsTrigger>
-                    <TabsTrigger value="json">{t('templates.Json')}</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="general" className="custom-scrollbar mt-0 min-h-0 flex-1 space-y-4 overflow-y-auto">
-                    <div className="space-y-2">
-                      <Label htmlFor="tpl-name">{t('templates.fields.name')}</Label>
-                      <Input id="tpl-name" className="font-mono" value={templateObj?.name || ''} onChange={(e) => updateField('name', e.target.value)} placeholder={t('templates.fields.namePlaceholder')} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="tpl-display">{t('templates.fields.display')}</Label>
-                      <Input id="tpl-display" value={templateObj?.display || ''} onChange={(e) => updateField('display', e.target.value)} placeholder={t('templates.fields.displayPlaceholder')} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="tpl-type">{t('templates.fields.type')}</Label>
-                      <Input id="tpl-type" className="font-mono" value={templateObj?.type || ''} onChange={(e) => updateField('type', e.target.value)} placeholder={t('templates.fields.typePlaceholder')} />
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="run" className="custom-scrollbar mt-0 min-h-0 flex-1 space-y-4 overflow-y-auto">
-                    <div className="space-y-2">
-                      <Label htmlFor="tpl-command">{t('templates.fields.startCommand')}</Label>
-                      <Input id="tpl-command" className="font-mono" value={templateObj?.run?.command || ''} onChange={(e) => updateRunField('command', e.target.value)} placeholder={t('templates.fields.startCommandPlaceholder')} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="tpl-stop">{t('templates.fields.stopCommand')}</Label>
-                      <Input id="tpl-stop" className="font-mono" value={templateObj?.run?.stop || ''} onChange={(e) => updateRunField('stop', e.target.value)} placeholder={t('templates.fields.stopCommandPlaceholder')} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="tpl-workdir">{t('templates.fields.workingDirectory')}</Label>
-                      <Input id="tpl-workdir" className="font-mono" value={templateObj?.run?.workingDirectory || ''} onChange={(e) => updateRunField('workingDirectory', e.target.value)} placeholder="" />
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="json" className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <Label htmlFor="tpl-json">{t('templates.fields.json')}</Label>
-                      <Button variant="outline" size="sm" type="button" onClick={() => loadFileRef.current?.click()}>
-                        <FileJson aria-hidden="true" />
-                        {t('templates.fields.loadFromFile')}
-                      </Button>
-                      <input
-                        ref={loadFileRef}
-                        type="file"
-                        accept=".json,application/json"
-                        className="hidden"
-                        onChange={(e) => handleLoadFromFile(e.target.files)}
-                      />
-                    </div>
-                    <Textarea
-                      id="tpl-json"
-                      className="custom-scrollbar min-h-[16rem] w-full flex-1 resize-none font-mono text-xs leading-relaxed"
-                      value={templateJson}
-                      onChange={(e) => handleJsonChange(e.target.value)}
-                      placeholder={t('templates.fields.jsonPlaceholder')}
-                      spellCheck={false}
-                    />
-                  </TabsContent>
-                </Tabs>
-              </div>
-              <DialogFooter className="gap-2 border-t border-border/60 px-6 py-4 sm:gap-0">
-                <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
-                  {t('common.cancel')}
-                </Button>
-                <Button disabled={saving} onClick={async () => {
-                  try {
-                    setSaving(true);
-                    const parsed = JSON.parse(templateJson);
-                    if (!parsed.name) throw new Error(t('templates.toast.nameRequired'));
-                    await saveTemplate(parsed.name, parsed);
-                    sileo.success({ title: t('common.success'), description: editingName !== null ? t('templates.toast.updated') : t('templates.toast.created') });
-                    setIsCreateOpen(false);
-                    setTemplateJson(defaultTemplateJson);
-                    if (editingName !== null) {
-                      setEditingName(null);
-                      setTemplateObj(JSON.parse(defaultTemplateJson));
-                    }
-                    // Refresh
-                    await loadAllTemplates();
-                  } catch (e: any) {
-                    sileo.error({ title: t('common.error'), description: e.message || t('templates.toast.saveFailed') });
-                  } finally {
-                    setSaving(false);
-                  }
-                }}>
-                  {saving && <Loader2 className="animate-spin" aria-hidden="true" />}
-                  {saving ? t('common.saving') : t('templates.save')}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         )}
       </PageHeader>
 
@@ -554,8 +387,8 @@ export default function TemplatesPage() {
                 <EmptyTemplates
                   title={t('templates.empty.localTitle')}
                   description={t('templates.empty.localDescription')}
-                  action={canCreate ? (
-                    <Button onClick={openCreate}>
+                  action={canEditLocal ? (
+                    <Button onClick={() => setIsCreateOpen(true)}>
                       <Plus aria-hidden="true" />
                       {t('templates.create')}
                     </Button>
@@ -567,8 +400,8 @@ export default function TemplatesPage() {
                 <TemplateItem
                   key={`local-${template.name}-${idx}`}
                   template={template}
-                  canManage={canEditLocal}
-                  onEdit={() => void openEdit(template)}
+                  canEdit={canEditLocal}
+                  canDuplicate={canEditLocal}
                   onDelete={() => setDeletingTemplate(template)}
                 />
               ))}
@@ -591,13 +424,18 @@ export default function TemplatesPage() {
                 <TemplateItem
                   key={`com-${template.repoId}-${template.name}-${idx}`}
                   template={template}
-                  canManage={false}
+                  canEdit={false}
+                  canDuplicate={canEditLocal}
                 />
               ))}
             </TemplateTabBody>
           </TabsContent>
         </Card>
       </Tabs>
+
+      {canEditLocal && (
+        <NewTemplateDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} templates={allTemplates} loading={loadingTemplates} />
+      )}
 
       <AlertDialog open={!!deletingTemplate} onOpenChange={(open) => !open && setDeletingTemplate(null)}>
         <AlertDialogContent>

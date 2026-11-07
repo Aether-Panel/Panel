@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -179,6 +180,7 @@ func getTemplateFromRepo(c *gin.Context) {
 // @Summary Adds or updates a template
 // @Success 204 {object} nil
 // @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 413 {object} skypanel.ErrorResponse
 // @Failure 500 {object} skypanel.ErrorResponse
 // @Param template body skypanel.Server true "Template"
 // @Param name path string true "Template name"
@@ -190,8 +192,23 @@ func putTemplate(c *gin.Context) {
 	ts := &services.Template{DB: db}
 
 	templateName := c.Param("name")
+
+	// the body is stored whole, unknown keys included, so it gets the same cap as an upload
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxTemplateFileSize)
+	// the body is checked as a server definition, as always, and then stored as written:
+	// decoding it into skypanel.Server would sort the variables and drop unknown fields
+	body, err := io.ReadAll(c.Request.Body)
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		response.HandleError(c, skypanel.CreateError("the template is larger than 2 MB", "ErrTemplateTooLarge"), http.StatusRequestEntityTooLarge)
+		return
+	}
+	if response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+	c.Request.Body = io.NopCloser(bytes.NewReader(body))
 	templateRequest := skypanel.Server{}
-	err := c.MustBindWith(&templateRequest, binding.JSON)
+	err = c.MustBindWith(&templateRequest, binding.JSON)
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
@@ -205,7 +222,11 @@ func putTemplate(c *gin.Context) {
 		return
 	}
 
-	template.Server = templateRequest
+	// only a JSON null gets this far without being an object
+	err = template.SetDefinition(body)
+	if response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
 	err = ts.Save(template)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -312,11 +333,18 @@ func parseUploadedTemplate(fh *multipart.FileHeader) (*models.Template, error) {
 	if name == "" {
 		name = server.Type.Type
 	}
-	if server.Display == "" {
-		server.Display = name
-	}
 
-	return &models.Template{Name: name, Server: server}, nil
+	// the file is kept as written; a missing display name is added at its end
+	template := &models.Template{Name: name}
+	if err := template.SetDefinition(data); err != nil {
+		return nil, err
+	}
+	if template.Display == "" {
+		if err := template.SetField("display", name); err != nil {
+			return nil, err
+		}
+	}
+	return template, nil
 }
 
 // templateRepoInput is the body of POST /api/templates. The credentials of a private

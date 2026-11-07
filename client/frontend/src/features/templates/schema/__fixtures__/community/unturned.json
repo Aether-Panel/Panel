@@ -1,0 +1,223 @@
+{
+  "type": "srcds",
+  "display": "Unturned",
+  "icon": "unturned",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "mapname": {
+      "type": "option",
+      "value": "PEI",
+      "display": "Map",
+      "desc": "Server map.",
+      "required": false,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "PEI",
+          "display": "PEI"
+        },
+        {
+          "value": "Germany",
+          "display": "Germany"
+        },
+        {
+          "value": "Russia",
+          "display": "Russia"
+        },
+        {
+          "value": "Washington",
+          "display": "Washington"
+        },
+        {
+          "value": "Yukon",
+          "display": "Yukon"
+        }
+      ]
+    },
+    "maxplayers": {
+      "type": "integer",
+      "value": 24,
+      "display": "Server slots",
+      "desc": "Slots",
+      "required": false,
+      "userEdit": false
+    },
+    "mode": {
+      "type": "option",
+      "value": "normal",
+      "display": "Mode",
+      "desc": "Game difficulty",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "easy",
+          "display": "Easy"
+        },
+        {
+          "value": "normal",
+          "display": "Normal"
+        },
+        {
+          "value": "hard",
+          "display": "Hard"
+        }
+      ]
+    },
+    "name": {
+      "type": "string",
+      "value": "Unturned Server",
+      "display": "Name",
+      "desc": "Server name",
+      "required": true,
+      "userEdit": true
+    },
+    "password": {
+      "type": "string",
+      "value": "",
+      "display": "Server password",
+      "desc": "Password users enter to join server",
+      "required": false,
+      "userEdit": true
+    },
+    "perspective": {
+      "type": "option",
+      "value": "",
+      "display": "Perspective",
+      "desc": "Perspective of the server",
+      "required": false,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "First",
+          "display": "First"
+        },
+        {
+          "value": "Third",
+          "display": "Third"
+        },
+        {
+          "value": "Both",
+          "display": "Both"
+        },
+        {
+          "value": "Vehicle",
+          "display": "Vehicle"
+        }
+      ]
+    },
+    "port": {
+      "type": "integer",
+      "value": 27015,
+      "display": "Port",
+      "desc": "Server port.",
+      "required": true,
+      "userEdit": false
+    },
+    "server": {
+      "type": "string",
+      "value": "Default",
+      "display": "Server",
+      "desc": "Server name under Servers folder",
+      "required": false,
+      "userEdit": true
+    },
+    "steam_id": {
+      "type": "string",
+      "value": "",
+      "display": "STEAMID_64",
+      "desc": "Server owner STEAMID_64",
+      "required": true,
+      "userEdit": true
+    },
+    "welcome": {
+      "type": "string",
+      "value": "Welcome to the server!",
+      "display": "Server welcome message",
+      "desc": "Welcome",
+      "required": true,
+      "userEdit": true
+    },
+    "memory": {
+      "type": "integer",
+      "value": 1024,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "steamgamedl",
+      "appId": "1110390"
+    },
+    {
+      "if": "env == 'docker'",
+      "type": "command",
+      "commands": [
+        "steamcmd +force_install_dir /SkyPanel +login anonymous +app_update 1110390 validate +exit"
+      ]
+    },
+    {
+      "type": "command",
+      "commands": [
+        "chmod +x ServerHelper.sh"
+      ]
+    },
+    {
+      "type": "mkdir",
+      "target": "Servers/${server}/Server"
+    },
+    {
+      "type": "writefile",
+      "text": "Name ${name}\nMap ${mapname}\nPort ${port}\nMaxPlayers ${maxplayers}\nMode ${mode}\nOwner ${steam_id}\nWelcome ${welcome}\nPassword ${password}\nPerspective ${perspective}",
+      "target": "/Servers/${server}/Server/Commands.dat"
+    }
+  ],
+  "run": {
+    "command": "./ServerHelper.sh",
+    "stop": "shutdown",
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "steamcmd/steamcmd",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64"
+  }
+}

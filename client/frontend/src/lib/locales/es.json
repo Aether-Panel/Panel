@@ -3217,7 +3217,7 @@
   "templates": {
     "title": "Gestión de plantillas",
     "description": "Selecciona una plantilla para crear un nuevo servidor.",
-    "create": "Crear plantilla",
+    "create": "Nueva plantilla",
     "use": "Usar plantilla",
     "categories": {
       "web": "Web",
@@ -3226,12 +3226,8 @@
       "other": "Otro",
       "NoGroup": "Sin grupo"
     },
-    "General": "General",
-    "RunConfig": "Configuración de ejecución",
-    "Json": "JSON",
     "upload": "Subir",
     "uploading": "Subiendo…",
-    "save": "Guardar plantilla",
     "listTitle": "Plantillas disponibles",
     "localDescription": "Plantillas guardadas en este panel.",
     "communityDescription": "Plantillas de los repositorios de la comunidad.",
@@ -3241,7 +3237,8 @@
     },
     "actions": {
       "delete": "Eliminar {{name}}",
-      "openMenu": "Acciones de {{name}}"
+      "openMenu": "Acciones de {{name}}",
+      "duplicate": "Duplicar"
     },
     "empty": {
       "localTitle": "No hay plantillas locales",
@@ -3253,25 +3250,6 @@
       "title": "Eliminar plantilla",
       "description": "¿Eliminar la plantilla local «{{name}}»? Esta acción no se puede deshacer."
     },
-    "createDialog": {
-      "description": "Define los parámetros de la plantilla. Los campos y el JSON se mantienen sincronizados."
-    },
-    "fields": {
-      "name": "Nombre (ID único)",
-      "namePlaceholder": "p. ej. spigot",
-      "display": "Nombre visible",
-      "displayPlaceholder": "p. ej. Minecraft Spigot",
-      "type": "Categoría (tipo)",
-      "typePlaceholder": "p. ej. web, game, bot",
-      "startCommand": "Comando de inicio",
-      "startCommandPlaceholder": "p. ej. java -jar server.jar",
-      "stopCommand": "Comando de parada",
-      "stopCommandPlaceholder": "p. ej. stop",
-      "workingDirectory": "Directorio de trabajo",
-      "json": "JSON de la plantilla",
-      "jsonPlaceholder": "Pega o escribe aquí el JSON de la plantilla…",
-      "loadFromFile": "Cargar desde archivo JSON"
-    },
     "toast": {
       "uploaded": "Se han subido {{count}} plantillas.",
       "uploadFailed": "No se pudieron subir las plantillas.",
@@ -3279,13 +3257,8 @@
       "deleted": "Plantilla «{{name}}» eliminada.",
       "deleteFailed": "No se pudo eliminar la plantilla.",
       "created": "Plantilla creada correctamente.",
-      "nameRequired": "La plantilla debe tener un campo «name».",
-      "saveFailed": "JSON no válido o error de red.",
-      "updated": "Plantilla actualizada correctamente.",
-      "loadFailed": "No se pudo cargar la plantilla."
-    },
-    "editDialog": {
-      "title": "Editar plantilla"
+      "saveFailed": "No se pudo guardar la plantilla.",
+      "updated": "Plantilla actualizada correctamente."
     },
     "search": {
       "label": "Buscar plantillas",
@@ -3293,6 +3266,1404 @@
       "noResultsTitle": "Ninguna plantilla coincide",
       "noResultsDescription": "No hay plantillas para «{{query}}». Prueba con otro nombre, un lenguaje (Go, PHP, C#…) o un juego.",
       "clear": "Borrar búsqueda"
+    },
+    "chooser": {
+      "title": "Nueva plantilla",
+      "description": "Elige cómo empezar. No se guarda nada hasta que pulses Guardar en el editor.",
+      "blank": {
+        "title": "En blanco",
+        "description": "Empieza con lo mínimo y rellena cada sección."
+      },
+      "duplicate": {
+        "option": "Duplicar una existente",
+        "optionDescription": "Parte de una plantilla local o de la comunidad y guárdala como tuya.",
+        "title": "Duplicar una plantilla",
+        "description": "Elige de qué plantilla partir. La copia se abre en el editor como plantilla local.",
+        "searchLabel": "Buscar la plantilla que duplicar",
+        "emptyTitle": "Ninguna plantilla coincide",
+        "emptyDescription": "Prueba con otro nombre, un lenguaje o un juego.",
+        "noneTitle": "Todavía no hay plantillas",
+        "noneDescription": "Las plantillas locales y las de la comunidad aparecerán aquí.",
+        "resultsOne": "1 plantilla",
+        "resultsMany": "{{count}} plantillas",
+        "searchHint": "Escribe para filtrar. Intro abre el primer resultado; la flecha abajo pasa a la lista."
+      },
+      "import": {
+        "title": "Importar un .json",
+        "description": "Abre un archivo de plantilla en el editor para revisarlo antes de guardarlo.",
+        "failed": "No se pudo abrir el archivo en el editor."
+      },
+      "back": "Volver",
+      "preset": {
+        "option": "Plantilla base",
+        "optionDescription": "Parte de una plantilla lista para un caso habitual: Minecraft, Steam, Node.js, Python o Docker.",
+        "title": "Elegir una plantilla base",
+        "description": "Se abre en el editor sin nombre: dale uno y ajústala antes de guardarla.",
+        "listLabel": "Plantillas base"
+      }
+    },
+    "editor": {
+      "breadcrumb": "Editor",
+      "newTitle": "Nueva plantilla",
+      "back": "Plantillas",
+      "descriptionNew": "Plantilla local nueva: se guarda en este panel cuando pulses Guardar.",
+      "descriptionLocal": "Plantilla local «{{name}}».",
+      "unsaved": "Sin guardar",
+      "save": "Guardar",
+      "download": "Descargar .json",
+      "saveFailed": "No se pudo guardar la plantilla: {{message}}",
+      "copySuffix": "copia",
+      "views": {
+        "label": "Vista",
+        "form": "Formulario",
+        "json": "JSON",
+        "split": "Dividido"
+      },
+      "status": {
+        "clean": "Sin problemas",
+        "jsonInvalid": "El JSON no es válido: corrígelo para poder guardar.",
+        "blocked": "Corrige los errores marcados para poder guardar."
+      },
+      "issues": {
+        "errorsOne": "1 error",
+        "errorsMany": "{{count}} errores",
+        "warningsOne": "1 aviso",
+        "warningsMany": "{{count}} avisos"
+      },
+      "confirmErrors": {
+        "title": "¿Guardar con errores?",
+        "descriptionOne": "La plantilla tiene 1 error. Puede que el panel la rechace o que la instalación falle. ¿Quieres guardarla igualmente?",
+        "descriptionMany": "La plantilla tiene {{count}} errores. Puede que el panel la rechace o que la instalación falle. ¿Quieres guardarla igualmente?",
+        "confirm": "Guardar igualmente"
+      },
+      "sections": {
+        "navLabel": "Secciones de la plantilla",
+        "selectLabel": "Sección",
+        "info": {
+          "label": "Información",
+          "description": "Cómo se llama la plantilla y cómo la ven los usuarios."
+        },
+        "variables": {
+          "label": "Variables",
+          "description": "Lo que rellena quien crea un servidor: puerto, versión, contraseña…",
+          "countLabelOne": "1 variable",
+          "countLabelMany": "{{count}} variables"
+        },
+        "install": {
+          "label": "Instalación",
+          "description": "Los pasos que preparan los archivos del servidor al instalarlo, y los que lo limpian al desinstalarlo.",
+          "countLabelOne": "1 paso",
+          "countLabelMany": "{{count}} pasos"
+        },
+        "run": {
+          "label": "Ejecución",
+          "description": "Cómo arranca y se detiene el servidor, su carpeta, sus variables de entorno y su consola."
+        },
+        "environment": {
+          "label": "Entorno",
+          "description": "Dónde se ejecuta el servidor: en el host o en un contenedor Docker, y con qué imagen."
+        },
+        "requirements": {
+          "label": "Requisitos",
+          "description": "El sistema operativo, la arquitectura y los programas que necesita el nodo."
+        },
+        "advanced": {
+          "label": "Avanzado",
+          "description": "Grupos de variables, estadísticas, consulta del estado y keep-alive."
+        }
+      },
+      "info": {
+        "identity": {
+          "title": "Identidad",
+          "description": "El nombre identifica la plantilla en el panel; el nombre visible es el que ven los usuarios."
+        },
+        "appearance": {
+          "title": "Categoría e icono",
+          "description": "Ayudan a encontrar la plantilla en la lista y al crear un servidor."
+        },
+        "name": {
+          "label": "Nombre (ID único)",
+          "placeholder": "p. ej. paper",
+          "hint": "Aparece en los enlaces y no se repite entre las plantillas locales. Mejor en minúsculas, con números y guiones.",
+          "hintRename": "Si lo cambias por otro nombre, se guarda una plantilla nueva y «{{name}}» se queda como está. Cambiar solo mayúsculas o acentos no cuenta como otro nombre.",
+          "recheck": "Volver a comprobar",
+          "recheckFailed": "No se pudieron leer las plantillas locales. Inténtalo de nuevo en un momento."
+        },
+        "display": {
+          "label": "Nombre visible",
+          "placeholder": "p. ej. Minecraft Paper",
+          "hint": "Lo que ven los usuarios al elegir la plantilla."
+        },
+        "type": {
+          "label": "Categoría",
+          "placeholder": "p. ej. minecraft-java",
+          "hint": "Agrupa la plantilla y decide su icono por defecto en la lista. Puedes escribir una propia."
+        },
+        "icon": {
+          "label": "Icono",
+          "automatic": "Automático (según el nombre)",
+          "hint": "El logo de la plantilla. En automático se busca por su nombre."
+        }
+      },
+      "json": {
+        "title": "JSON de la plantilla",
+        "valid": "JSON válido",
+        "invalidShort": "JSON no válido",
+        "invalid": "El JSON no es válido.",
+        "notObject": "El JSON tiene que ser un objeto: { … }.",
+        "keptForm": "El formulario sigue mostrando la última versión válida.",
+        "formNotice": "El JSON tiene cambios que no son válidos. El formulario muestra la última versión válida; si editas aquí, esos cambios se descartan.",
+        "loading": "Cargando el editor…"
+      },
+      "load": {
+        "notFound": {
+          "title": "No se encontró la plantilla",
+          "description": "No hay ninguna plantilla «{{name}}». Puede que se haya eliminado o renombrado."
+        },
+        "importMissing": {
+          "title": "No hay nada que importar",
+          "description": "El archivo importado ya no está en esta pestaña. Vuelve a importarlo desde la lista de plantillas."
+        },
+        "loadFailed": {
+          "title": "No se pudo abrir la plantilla",
+          "description": "El panel no respondió como se esperaba. Vuelve a intentarlo en un momento."
+        },
+        "presetMissing": {
+          "title": "Esa plantilla base no existe",
+          "description": "No hay ninguna plantilla base «{{name}}». Vuelve a la lista y elige otra."
+        }
+      },
+      "operationCategories": {
+        "files": "Archivos",
+        "downloads": "Descargas",
+        "minecraft": "Juegos/Minecraft",
+        "steam": "Steam",
+        "runtimes": "Java/Node",
+        "system": "Sistema",
+        "server": "Servidor"
+      },
+      "operations": {
+        "alterfile": {
+          "label": "Modificar archivo",
+          "help": "Busca un texto en un archivo y lo sustituye en todas sus apariciones.",
+          "fields": {
+            "file": {
+              "label": "Archivo",
+              "help": "Ruta del archivo dentro de la carpeta del servidor.",
+              "placeholder": "server.properties"
+            },
+            "search": {
+              "label": "Buscar",
+              "help": "Texto que se busca. Con «Expresión regular» activado, un patrón.",
+              "placeholder": "server-port=25565"
+            },
+            "replace": {
+              "label": "Sustituir por",
+              "help": "Texto que ocupa su lugar. Vacío, se borra lo encontrado.",
+              "placeholder": "server-port=${port}"
+            },
+            "regex": {
+              "label": "Expresión regular",
+              "help": "Trata «Buscar» como una expresión regular de Go; «Sustituir por» puede usar $1, $2…"
+            }
+          }
+        },
+        "writefile": {
+          "label": "Escribir archivo",
+          "help": "Crea un archivo con el texto indicado, o lo sobrescribe si ya existe.",
+          "fields": {
+            "target": {
+              "label": "Archivo",
+              "help": "Ruta del archivo dentro de la carpeta del servidor.",
+              "placeholder": "eula.txt"
+            },
+            "text": {
+              "label": "Contenido",
+              "help": "Texto completo del archivo. Puede llevar variables, como ${port}."
+            }
+          }
+        },
+        "mkdir": {
+          "label": "Crear carpeta",
+          "help": "Crea una carpeta, y las que falten por encima, dentro de la carpeta del servidor.",
+          "fields": {
+            "target": {
+              "label": "Carpeta",
+              "help": "Ruta de la carpeta que se crea.",
+              "placeholder": "plugins"
+            }
+          }
+        },
+        "move": {
+          "label": "Mover o renombrar",
+          "help": "Mueve o renombra archivos dentro de la carpeta del servidor.",
+          "fields": {
+            "source": {
+              "label": "Origen",
+              "help": "Archivo que se mueve. Admite comodines (*.jar); con varios, el destino debe ser una carpeta existente.",
+              "placeholder": "server-*.jar"
+            },
+            "target": {
+              "label": "Destino",
+              "help": "Nueva ruta, o la carpeta a la que se mueven.",
+              "placeholder": "server.jar"
+            }
+          }
+        },
+        "extract": {
+          "label": "Extraer archivo comprimido",
+          "help": "Descomprime un .zip, .tar.gz u otro formato admitido dentro de la carpeta del servidor.",
+          "fields": {
+            "source": {
+              "label": "Archivo comprimido",
+              "help": "Ruta del archivo que se descomprime.",
+              "placeholder": "server.zip"
+            },
+            "destination": {
+              "label": "Carpeta de destino",
+              "help": "Dónde se extrae su contenido. Vacío, en la carpeta del servidor.",
+              "placeholder": "."
+            }
+          }
+        },
+        "archive": {
+          "label": "Comprimir",
+          "help": "Crea un archivo comprimido con los archivos y carpetas indicados.",
+          "fields": {
+            "source": {
+              "label": "Archivos",
+              "help": "Rutas que se incluyen, una por línea.",
+              "placeholder": "world"
+            },
+            "destination": {
+              "label": "Archivo de salida",
+              "help": "Ruta del archivo que se crea; no debe existir.",
+              "placeholder": "world-backup.zip"
+            }
+          }
+        },
+        "download": {
+          "label": "Descargar archivos",
+          "help": "Descarga cada dirección en la carpeta del servidor, con el nombre del archivo de la URL.",
+          "fields": {
+            "files": {
+              "label": "URL",
+              "help": "Direcciones que se descargan, una por línea.",
+              "placeholder": "https://example.com/server.jar"
+            }
+          }
+        },
+        "githubdl": {
+          "label": "Descargar de GitHub",
+          "help": "Descarga un archivo de la última versión publicada de un repositorio de GitHub.",
+          "fields": {
+            "repository": {
+              "label": "Repositorio",
+              "help": "Propietario y nombre del repositorio.",
+              "placeholder": "lavalink-devs/Lavalink"
+            },
+            "assetMatch": {
+              "label": "Archivo de la versión",
+              "help": "Parte del nombre del archivo que se descarga. Vacío, el primero de la versión.",
+              "placeholder": "Lavalink.jar"
+            },
+            "outputVariable": {
+              "label": "Guardar nombre en variable",
+              "help": "Variable donde se guarda el nombre del archivo descargado, para los pasos siguientes.",
+              "placeholder": "downloadedFile"
+            }
+          }
+        },
+        "scraperdl": {
+          "label": "Descargar la última versión de una web",
+          "help": "Lee una página, busca la versión con una expresión regular y descarga la URL de descarga con esa versión.",
+          "fields": {
+            "url": {
+              "label": "Página",
+              "help": "Dirección que se consulta.",
+              "placeholder": "https://api.purpurmc.org/v2/purpur"
+            },
+            "regex": {
+              "label": "Expresión regular",
+              "help": "Patrón con un grupo entre paréntesis que captura la versión.",
+              "placeholder": "\"current\":\"([^\"]+)\""
+            },
+            "downloadUrl": {
+              "label": "URL de descarga",
+              "help": "Dirección del archivo; ${match} se sustituye por la versión encontrada.",
+              "placeholder": "https://example.com/download/${match}/server.jar"
+            },
+            "outputVariable": {
+              "label": "Guardar versión en variable",
+              "help": "Variable donde se guarda la versión encontrada, para los pasos siguientes.",
+              "placeholder": "resolvedVersion"
+            }
+          }
+        },
+        "mojangdl": {
+          "label": "Minecraft (Mojang)",
+          "help": "Descarga el servidor oficial de Minecraft Java de la versión indicada.",
+          "fields": {
+            "version": {
+              "label": "Versión",
+              "help": "Una versión concreta (1.21.1), «latest» o «release» para la última estable, o «snapshot».",
+              "placeholder": "${version}"
+            },
+            "target": {
+              "label": "Archivo",
+              "help": "Nombre con el que se guarda el servidor.",
+              "placeholder": "server.jar"
+            }
+          }
+        },
+        "paperdl": {
+          "label": "PaperMC",
+          "help": "Descarga Paper u otro proyecto de PaperMC (Folia, Velocity, Waterfall).",
+          "fields": {
+            "project": {
+              "label": "Proyecto",
+              "help": "Proyecto de PaperMC. Vacío, Paper."
+            },
+            "minecraftVersion": {
+              "label": "Versión de Minecraft",
+              "help": "Versión de Minecraft, o «latest» para la última que admite el proyecto.",
+              "placeholder": "${version}"
+            },
+            "build": {
+              "label": "Build",
+              "help": "Número de build, o «latest».",
+              "placeholder": "latest"
+            },
+            "target": {
+              "label": "Archivo",
+              "help": "Nombre con el que se guarda el servidor.",
+              "placeholder": "server.jar"
+            }
+          }
+        },
+        "fabricdl": {
+          "label": "Instalador de Fabric",
+          "help": "Descarga el instalador de Fabric más reciente como fabric-installer.jar; un paso «Comando» posterior lo ejecuta."
+        },
+        "forgedl": {
+          "label": "Instalador de Forge",
+          "help": "Descarga el instalador de Minecraft Forge. Indica la versión de Minecraft, la de Forge o ambas.",
+          "fields": {
+            "minecraftVersion": {
+              "label": "Versión de Minecraft",
+              "help": "Sin versión de Forge, se usa la última de esta versión de Minecraft.",
+              "placeholder": "1.20.1"
+            },
+            "version": {
+              "label": "Versión de Forge",
+              "help": "Versión completa, como 1.20.1-47.2.0. Vacía, la última para la versión de Minecraft.",
+              "placeholder": "1.20.1-47.2.0"
+            },
+            "target": {
+              "label": "Archivo",
+              "help": "Nombre con el que se guarda el instalador.",
+              "placeholder": "installer.jar"
+            },
+            "outputVariable": {
+              "label": "Guardar versión en variable",
+              "help": "Variable donde se guarda la versión de Forge elegida."
+            }
+          }
+        },
+        "neoforgedl": {
+          "label": "Instalador de NeoForge",
+          "help": "Descarga el instalador de NeoForge. Indica la versión de Minecraft, la de NeoForge o ambas.",
+          "fields": {
+            "minecraftVersion": {
+              "label": "Versión de Minecraft",
+              "help": "Sin versión de NeoForge, se usa la última de esta versión de Minecraft.",
+              "placeholder": "1.21.1"
+            },
+            "version": {
+              "label": "Versión de NeoForge",
+              "help": "Versión de NeoForge. Vacía, la última para la versión de Minecraft.",
+              "placeholder": "21.1.77"
+            },
+            "target": {
+              "label": "Archivo",
+              "help": "Nombre con el que se guarda el instalador.",
+              "placeholder": "installer.jar"
+            },
+            "outputVariable": {
+              "label": "Guardar versión en variable",
+              "help": "Variable donde se guarda la versión de NeoForge elegida."
+            }
+          }
+        },
+        "resolveforgeversion": {
+          "label": "Averiguar versión de Forge",
+          "help": "Busca qué versión de Forge corresponde y la guarda en una variable, sin descargar nada.",
+          "fields": {
+            "minecraftVersion": {
+              "label": "Versión de Minecraft",
+              "help": "Versión de Minecraft para la que se busca Forge.",
+              "placeholder": "${version}"
+            },
+            "version": {
+              "label": "Versión de Forge",
+              "help": "Si se indica, se usa tal cual.",
+              "placeholder": "${forgebuild}"
+            },
+            "outputVariable": {
+              "label": "Guardar versión en variable",
+              "help": "Variable donde se guarda la versión encontrada."
+            }
+          }
+        },
+        "resolveneoforgeversion": {
+          "label": "Averiguar versión de NeoForge",
+          "help": "Busca qué versión de NeoForge corresponde y la guarda en una variable, sin descargar nada.",
+          "fields": {
+            "minecraftVersion": {
+              "label": "Versión de Minecraft",
+              "help": "Versión de Minecraft para la que se busca NeoForge.",
+              "placeholder": "${version}"
+            },
+            "version": {
+              "label": "Versión de NeoForge",
+              "help": "Si se indica, se usa tal cual.",
+              "placeholder": "${neoforgebuild}"
+            },
+            "outputVariable": {
+              "label": "Guardar versión en variable",
+              "help": "Variable donde se guarda la versión encontrada."
+            }
+          }
+        },
+        "spongedl": {
+          "label": "Sponge",
+          "help": "Descarga SpongeVanilla o instala SpongeForge.",
+          "fields": {
+            "spongeType": {
+              "label": "Tipo",
+              "help": "Edición de Sponge que se instala.",
+              "options": {
+                "spongevanilla": "SpongeVanilla",
+                "spongeforge": "SpongeForge"
+              }
+            },
+            "minecraftVersion": {
+              "label": "Versión de Minecraft",
+              "help": "Filtra las versiones de Sponge por versión de Minecraft.",
+              "placeholder": "1.20.1"
+            },
+            "spongeVersion": {
+              "label": "Versión de Sponge",
+              "help": "Versión concreta. Vacía, la última que cumpla los filtros.",
+              "placeholder": "1.20.1-11.0.0"
+            },
+            "recommended": {
+              "label": "Solo recomendadas",
+              "help": "Elige la última versión marcada como recomendada."
+            }
+          }
+        },
+        "curseforge": {
+          "label": "Modpack de CurseForge",
+          "help": "Instala los archivos de servidor de un modpack de CurseForge. Necesita la clave de API de CurseForge configurada en el panel.",
+          "fields": {
+            "projectId": {
+              "label": "ID del proyecto",
+              "help": "Número del proyecto en CurseForge.",
+              "placeholder": "${projectId}"
+            },
+            "fileId": {
+              "label": "ID del archivo",
+              "help": "Versión concreta del modpack. Vacío, la más reciente.",
+              "placeholder": "${fileId}"
+            },
+            "java": {
+              "label": "Java",
+              "help": "Comando de Java con el que se ejecuta el instalador del modpack.",
+              "placeholder": "java${javaversion}"
+            }
+          }
+        },
+        "steamgamedl": {
+          "label": "Juego de Steam",
+          "help": "Descarga o actualiza un juego de Steam con DepotDownloader.",
+          "fields": {
+            "appId": {
+              "label": "App ID",
+              "help": "Número de la aplicación del servidor dedicado en Steam.",
+              "placeholder": "896660"
+            },
+            "username": {
+              "label": "Usuario de Steam",
+              "help": "Solo para juegos que piden iniciar sesión. Vacío, se descarga de forma anónima.",
+              "placeholder": "${steam_user}"
+            },
+            "password": {
+              "label": "Contraseña de Steam",
+              "help": "Contraseña de esa cuenta. Mejor como variable que escrita aquí."
+            },
+            "extraArgs": {
+              "label": "Argumentos extra",
+              "help": "Opciones adicionales para DepotDownloader, una por línea.",
+              "placeholder": "-beta"
+            }
+          }
+        },
+        "javadl": {
+          "label": "Java",
+          "help": "Instala Java (Eclipse Temurin) en el nodo y lo deja disponible como java<versión>, por ejemplo java21.",
+          "fields": {
+            "version": {
+              "label": "Versión",
+              "help": "Versión principal de Java.",
+              "placeholder": "${javaversion}"
+            }
+          }
+        },
+        "nodejsdl": {
+          "label": "Node.js",
+          "help": "Instala Node.js en el nodo y lo deja disponible como node<versión> y npm<versión>.",
+          "fields": {
+            "version": {
+              "label": "Versión",
+              "help": "Versión principal de Node.js.",
+              "placeholder": "${nodeversion}"
+            }
+          }
+        },
+        "command": {
+          "label": "Ejecutar comandos",
+          "help": "Ejecuta comandos en la carpeta del servidor, uno tras otro; si uno falla, se detiene.",
+          "fields": {
+            "commands": {
+              "label": "Comandos",
+              "help": "Un comando por línea.",
+              "placeholder": "java -jar installer.jar --installServer"
+            },
+            "stdin": {
+              "label": "Consola del comando",
+              "help": "Cómo se envía la entrada a estos comandos. Casi nunca hace falta."
+            }
+          }
+        },
+        "console": {
+          "label": "Mostrar mensaje",
+          "help": "Escribe un mensaje en la consola del servidor, por ejemplo para dar instrucciones.",
+          "fields": {
+            "message": {
+              "label": "Mensaje",
+              "help": "Texto que se muestra en la consola.",
+              "placeholder": "Abre el enlace que aparece abajo para iniciar sesión."
+            }
+          }
+        },
+        "stdin": {
+          "label": "Enviar a la consola",
+          "help": "Envía un comando a la consola del servidor en marcha.",
+          "fields": {
+            "command": {
+              "label": "Comando",
+              "help": "Lo que se escribe en la consola.",
+              "placeholder": "save-all"
+            }
+          }
+        },
+        "sleep": {
+          "label": "Esperar",
+          "help": "Hace una pausa antes del siguiente paso.",
+          "fields": {
+            "duration": {
+              "label": "Duración",
+              "help": "Con unidad: 30s, 5m, 1h30m.",
+              "placeholder": "30s"
+            }
+          }
+        },
+        "dockerpull": {
+          "label": "Descargar imagen de Docker",
+          "help": "Descarga una imagen de Docker en el nodo.",
+          "fields": {
+            "imageName": {
+              "label": "Imagen",
+              "help": "Nombre y etiqueta de la imagen. Usa imágenes oficiales o de ghcr.io/aether-panel.",
+              "placeholder": "eclipse-temurin:21"
+            }
+          }
+        },
+        "start": {
+          "label": "Iniciar",
+          "help": "Inicia el servidor. Solo en tareas programadas."
+        },
+        "stop": {
+          "label": "Detener",
+          "help": "Detiene el servidor y espera a que se apague. Solo en tareas programadas."
+        },
+        "restart": {
+          "label": "Reiniciar",
+          "help": "Reinicia el servidor si está encendido. Solo en tareas programadas."
+        },
+        "backup": {
+          "label": "Copia de seguridad",
+          "help": "Hace una copia de seguridad del servidor. Solo en tareas programadas.",
+          "fields": {
+            "keep": {
+              "label": "Copias que se guardan",
+              "help": "Las copias automáticas más antiguas se borran solas (de 1 a 50)."
+            },
+            "offsite": {
+              "label": "Subir al S3",
+              "help": "Con qué frecuencia la copia se sube también al almacenamiento externo.",
+              "options": {
+                "never": "Nunca",
+                "always": "Siempre",
+                "weekend": "Cada fin de semana",
+                "weekly": "Cada semana",
+                "biweekly": "Cada 15 días",
+                "monthly": "Cada mes"
+              }
+            },
+            "offsiteKeep": {
+              "label": "Copias en S3",
+              "help": "Cuántas copias de esta tarea se conservan en el S3 (de 1 a 50)."
+            }
+          }
+        }
+      },
+      "validation": {
+        "required": "Este campo es obligatorio.",
+        "invalidType": "El valor no tiene el tipo esperado.",
+        "invalidNumber": "Debe ser un número entero o una variable, como ${version}.",
+        "invalidBoolean": "Debe ser verdadero o falso.",
+        "outOfRange": "El valor está fuera del rango permitido.",
+        "invalidOption": "Elige una de las opciones disponibles.",
+        "invalidValue": "El valor no es válido.",
+        "invalidDuration": "Indica una duración con unidad, como 30s, 5m o 1h.",
+        "invalidVariableKey": "La clave solo puede llevar letras, números, guiones y guiones bajos.",
+        "invalidEnvironment": "Elige un entorno: host o docker.",
+        "invalidCommand": "Debe ser un comando o una lista de comandos con condición.",
+        "unknownOperation": "El nodo no conoce este tipo de paso.",
+        "versionOrMinecraftVersion": "Indica la versión de Minecraft, la del cargador o ambas.",
+        "invalidInteger": "Debe ser un número entero.",
+        "stepNotObject": "Cada paso debe ser un objeto con su «type».",
+        "nameRequired": "Escribe un nombre para la plantilla.",
+        "nameTooLong": "El nombre puede tener 100 caracteres como mucho.",
+        "nameSlash": "El nombre no puede llevar «/».",
+        "nameDots": "El nombre no puede ser «.» ni «..».",
+        "nameWhitespace": "El nombre no puede empezar ni acabar con espacios.",
+        "nameControl": "El nombre lleva caracteres que no se pueden usar.",
+        "nameTaken": "Ya hay una plantilla local con este nombre.",
+        "namesUnchecked": "No se pudieron leer las plantillas locales, así que no se sabe si este nombre ya existe. Vuelve a comprobarlo para poder guardar."
+      },
+      "warnings": {
+        "integerVariableValue": "No es un número entero: el nodo lo cambiará sin avisar (un texto, por ejemplo, pasa a ser 0).",
+        "noDefaultEnvironment": "La plantilla no tiene entorno por defecto. «Crear servidor» no lo usa (crea los servidores en Docker), pero un servidor creado con la plantilla tal cual, por ejemplo desde la API, lo necesita.",
+        "nameCaseOnly": "El panel no distingue mayúsculas ni acentos en los nombres: al guardar, la plantilla sigue llamándose «{{name}}».",
+        "undefinedVariable": "{{token}} no es ninguna variable de la plantilla: el nodo deja el texto tal cual. Créala en Variables, o ignora el aviso si es una variable del shell.",
+        "undefinedConditionVariable": "La condición lee «{{name}}», que no es ninguna variable: el paso fallará al evaluarla.",
+        "unusedVariable": "Ningún comando, paso ni condición usa esta variable.",
+        "conditionVariableKey": "«{{name}}» lleva guion o empieza por número, y una condición no puede leerla por su nombre: escribe {{token}} en su lugar.",
+        "noDefaultCommand": "Todas las entradas tienen condición: si no se cumple ninguna, el servidor no tiene con qué arrancar. Deja una sin condición como comando por defecto.",
+        "extraDefaultCommand": "El nodo solo usa la primera entrada sin condición: esta no se usará nunca. Ponle una condición o quítala.",
+        "stopCommandIgnored": "Hay también un código de señal, y con él el nodo no envía este comando. Quita uno de los dos.",
+        "noStopMethod": "No hay comando de parada ni código de señal: al parar, el panel enviará una línea vacía a la consola y el servidor seguramente no se detendrá.",
+        "thirdPartyImage": "Imagen de terceros. El proyecto solo usa sus propias imágenes (ghcr.io/aether-panel/…) o imágenes oficiales, de Docker Hub (como ubuntu o eclipse-temurin) o del fabricante del programa (como mcr.microsoft.com o steamcmd/steamcmd): una imagen de terceros puede cambiar o desaparecer sin aviso. Si falta algún programa, se añade a nuestras imágenes.",
+        "keepAliveFrequency": "El nodo no entiende esta frecuencia y no enviará el comando. Usa una duración con unidad, como 30s, 5m o 1h30m.",
+        "keepAliveIncomplete": "El keep-alive necesita la frecuencia y el comando: con solo uno, no se envía nada.",
+        "groupUnknownVariable": "«{{key}}» no es ninguna variable de la plantilla: el grupo no puede mostrarla.",
+        "noDockerEnvironment": "Ningún entorno admitido es Docker. El formulario «Crear servidor» crea siempre los servidores en Docker, así que usará la imagen {{image}}, que seguramente no tiene lo que necesita la plantilla. Añade un entorno Docker con su imagen."
+      },
+      "sortable": {
+        "handle": "Arrastrar para mover «{{item}}»",
+        "roleDescription": "elemento reordenable",
+        "instructions": "Para mover un elemento, pulsa espacio o Intro sobre su asa, muévelo con las flechas arriba y abajo y pulsa espacio o Intro para soltarlo. Escape cancela.",
+        "picked": "Has cogido «{{item}}». Está en la posición {{position}} de {{count}}.",
+        "over": "«{{item}}» pasa a la posición {{position}} de {{count}}.",
+        "outside": "«{{item}}» está fuera de la lista.",
+        "dropped": "Has soltado «{{item}}» en la posición {{position}} de {{count}}.",
+        "cancelled": "Movimiento cancelado: «{{item}}» vuelve a la posición {{position}} de {{count}}.",
+        "moveUp": "Subir «{{item}}»",
+        "moveDown": "Bajar «{{item}}»",
+        "movedTo": "«{{item}}» está ahora en la posición {{position}} de {{count}}.",
+        "locked": "«{{item}}» no se puede mover"
+      },
+      "insertVariable": {
+        "button": "Insertar variable",
+        "noField": "Haz clic primero en el campo donde quieres insertar la variable.",
+        "search": "Buscar variable…",
+        "empty": "Ninguna variable coincide.",
+        "templateGroup": "Variables de la plantilla",
+        "builtinGroup": "Del panel",
+        "builtin": {
+          "rootDir": "Carpeta del servidor"
+        }
+      },
+      "variables": {
+        "add": "Añadir variable",
+        "countOne": "1 variable, en el orden en que se muestran al crear un servidor.",
+        "countMany": "{{count}} variables, en el orden en que se muestran al crear un servidor.",
+        "expandAll": "Abrir todas",
+        "collapseAll": "Cerrar todas",
+        "menu": "Acciones de «{{key}}»",
+        "duplicate": "Duplicar",
+        "empty": {
+          "title": "Sin variables",
+          "description": "Añade las opciones que elige quien crea el servidor, como el puerto, la versión o la memoria. Luego se usan como ${clave} en los comandos y pasos."
+        },
+        "undefined": {
+          "title": "La plantilla usa estas variables, pero no están definidas. Pulsa una para crearla:",
+          "create": "Crear la variable {{name}}"
+        },
+        "deleteConfirm": {
+          "title": "¿Eliminar «{{key}}»?",
+          "descriptionOne": "Se usa en 1 sitio de la plantilla. Si la eliminas, ese uso se queda sin valor: {{token}} se deja tal cual y una condición que la lea falla.",
+          "descriptionMany": "Se usa en {{count}} sitios de la plantilla. Si la eliminas, esos usos se quedan sin valor: {{token}} se deja tal cual y una condición que la lea falla."
+        },
+        "badges": {
+          "required": "Obligatoria",
+          "internal": "Interna",
+          "pinned": "Siempre la primera"
+        },
+        "key": {
+          "label": "Clave",
+          "hint": "En comandos y pasos se escribe ${clave}. Letras, números, _ y -.",
+          "usedOne": "Se usa en 1 sitio.",
+          "usedMany": "Se usa en {{count}} sitios.",
+          "conditionUnsafe": "Una condición «if» no puede leerla por su nombre (lleva guion o empieza por número); allí usa {{token}}.",
+          "keyRequired": "Escribe una clave.",
+          "keyInvalid": "Solo letras, números, guiones y guiones bajos, sin espacios.",
+          "keyTaken": "Ya hay otra variable con esta clave.",
+          "renameUsesOne": "Cambiar también su uso: {{from}} → {{to}}",
+          "renameUsesMany": "Cambiar también sus {{count}} usos: {{from}} → {{to}}",
+          "pinned": "Una clave que es solo un número va siempre la primera de la lista: no se puede mover.",
+          "renameKeepsConditionOne": "La condición que la lee por su nombre no cambia: una condición no puede leer una clave con guion o que empieza por número.",
+          "renameKeepsConditionMany": "Las {{count}} condiciones que la leen por su nombre no cambian: una condición no puede leer una clave con guion o que empieza por número.",
+          "notAppliedTitle": "Clave sin cambiar",
+          "notApplied": "«{{draft}}» no se ha aplicado: {{reason}} La variable sigue llamándose «{{key}}».",
+          "notAppliedEmpty": "Una clave no puede quedar vacía, así que no se ha cambiado: la variable sigue llamándose «{{key}}»."
+        },
+        "type": {
+          "label": "Tipo",
+          "string": "Texto",
+          "integer": "Número entero",
+          "boolean": "Sí / No",
+          "option": "Lista de opciones",
+          "other": "Otro: {{type}}"
+        },
+        "value": {
+          "label": "Valor por defecto",
+          "yes": "Sí",
+          "no": "No",
+          "noOptions": "Añade opciones abajo para elegir una.",
+          "pick": "Elige una opción",
+          "notAnOption": "{{value}} (no está en la lista)"
+        },
+        "display": {
+          "label": "Nombre visible",
+          "placeholder": "p. ej. Puerto del servidor"
+        },
+        "desc": {
+          "label": "Descripción",
+          "placeholder": "Una frase que ayude a elegir el valor."
+        },
+        "options": {
+          "title": "Opciones",
+          "hint": "Lo que se puede elegir. El valor es lo que recibe la plantilla; el texto, lo que ve el usuario.",
+          "valueColumn": "Valor",
+          "displayColumn": "Texto visible",
+          "valueLabel": "Valor de la opción {{n}}",
+          "displayLabel": "Texto visible de la opción {{n}}",
+          "valuePlaceholder": "valor",
+          "displayPlaceholder": "Texto que ve el usuario",
+          "remove": "Quitar la opción «{{item}}»",
+          "add": "Añadir opción",
+          "none": "Aún no hay opciones.",
+          "empty": "(vacía)",
+          "numbered": "opción {{n}}",
+          "notOptionType": "Esta variable es de tipo «{{type}}», pero tiene opciones: al crear un servidor se elige igualmente de esta lista.",
+          "removeAll": "Quitar las opciones"
+        },
+        "flags": {
+          "required": {
+            "label": "Obligatoria",
+            "description": "Hay que darle un valor para poder crear el servidor."
+          },
+          "userEdit": {
+            "label": "Editable por los usuarios",
+            "description": "Los usuarios del servidor pueden cambiarla después en sus ajustes. Si no, solo un administrador."
+          },
+          "internal": {
+            "label": "Interna",
+            "description": "No se muestra al crear el servidor ni en sus ajustes: se usa siempre el valor por defecto."
+          }
+        }
+      },
+      "install": {
+        "title": "Pasos de instalación",
+        "empty": {
+          "title": "Aún no hay pasos de instalación",
+          "description": "Añade los pasos que preparan los archivos del servidor: descargar el juego, extraerlo, escribir su configuración…"
+        },
+        "uninstall": {
+          "title": "Desinstalación",
+          "optional": "(opcional)",
+          "description": "Pasos que se ejecutan al eliminar un servidor, justo antes de borrar sus archivos. Casi nunca hacen falta.",
+          "empty": {
+            "title": "Sin pasos de desinstalación",
+            "description": "Al eliminar el servidor solo se borran sus archivos. Añade un paso si hay que hacer algo más antes."
+          }
+        }
+      },
+      "steps": {
+        "add": "Añadir paso",
+        "countOne": "1 paso",
+        "countMany": "{{count}} pasos",
+        "expandAll": "Abrir todos",
+        "collapseAll": "Cerrar todos",
+        "numbered": "Paso {{n}}: {{name}}",
+        "stepNumber": "Paso {{n}}:",
+        "menu": "Acciones de «{{step}}»",
+        "editJson": "Editar JSON de este paso",
+        "useForm": "Volver al formulario",
+        "insertAfter": "Insertar paso después",
+        "duplicate": "Duplicar",
+        "moveUp": "Subir",
+        "moveDown": "Bajar",
+        "invalidStep": "Paso no válido",
+        "unknownType": "Tipo que el panel no conoce",
+        "notFilled": "Sin rellenar",
+        "noFields": "Este paso no necesita datos.",
+        "taskOnly": "Esta operación es para tareas programadas: durante la instalación, o al arrancar, el panel no puede ejecutarla.",
+        "extraKeys": "También tiene {{keys}}, que el formulario no muestra. Se conservan; puedes cambiarlos en el JSON del paso.",
+        "required": "obligatorio",
+        "pick": "Elige un valor",
+        "unset": "Sin definir",
+        "otherValue": "Otro: {{value}}",
+        "defaultValue": "Por defecto: {{value}}",
+        "suggestions": "Valores habituales de «{{field}}»",
+        "suggestionsShort": "Valores habituales",
+        "notEditableHere": "Este valor no tiene el formato que espera el formulario. Se conserva tal cual; cámbialo en el JSON del paso.",
+        "advanced": "Opciones avanzadas",
+        "list": {
+          "item": "{{field}}, línea {{n}}",
+          "add": "Añadir línea",
+          "remove": "Quitar «{{item}}»"
+        },
+        "keyValue": {
+          "keyLabel": "Nombre {{n}}",
+          "valueLabel": "Valor de «{{key}}»",
+          "add": "Añadir",
+          "none": "Aún no hay ninguno.",
+          "keyRequired": "Escribe un nombre.",
+          "keyTaken": "Ya hay otro con este nombre.",
+          "pinned": "Un nombre que es solo un número va siempre el primero: no se puede mover."
+        },
+        "condition": {
+          "label": "Cuándo se ejecuta",
+          "help": "El paso se salta cuando su condición no se cumple.",
+          "presets": {
+            "none": "Siempre",
+            "host": "Solo en host",
+            "docker": "Solo en Docker",
+            "custom": "Personalizada"
+          },
+          "tag": {
+            "host": "Solo host",
+            "docker": "Solo Docker",
+            "custom": "Con condición"
+          },
+          "hintNone": "Se ejecuta en cualquier entorno.",
+          "hintPreset": "Se guarda como {{expression}}.",
+          "hintCustom": "Una expresión CEL: lee las variables por su nombre, sin ${}. Compara con == y !=, combina con && (y), || (o) y ! (no); los textos van entre comillas simples.",
+          "examples": "Ejemplos:",
+          "insert": "Insertar variable o función",
+          "asText": "como texto (su clave lleva guion)",
+          "functions": "Funciones",
+          "builtin": {
+            "env": "Entorno: host o docker",
+            "os": "Sistema: linux o windows",
+            "arch": "Arquitectura: amd64 o arm64"
+          },
+          "function": {
+            "file_exists": "Si existe un archivo en la carpeta del servidor",
+            "in_path": "Si hay un programa instalado en el sistema"
+          }
+        },
+        "json": {
+          "label": "JSON del paso",
+          "syntax": "El JSON no es válido ({{detail}}); el paso se queda con la última versión válida.",
+          "notObject": "Un paso tiene que ser un objeto entre llaves; el paso se queda con la última versión válida.",
+          "unknownHint": "El panel no tiene formulario para «{{type}}»: puede ser de una versión más nueva o un error al escribirlo. Edítalo aquí o cambia su type.",
+          "invalidHint": "Este paso no es un objeto, así que no se puede ejecutar. Escríbelo como {\"type\": …}.",
+          "invalidState": "El JSON del paso no es válido.",
+          "unapplied": "El JSON de este paso no es válido y no se ha aplicado: corrígelo para poder guardar."
+        },
+        "palette": {
+          "title": "Añadir paso",
+          "titleAfter": "Insertar paso después del {{n}}",
+          "description": "Elige qué hace el paso. Puedes buscar por nombre o por lo que hace.",
+          "search": "Buscar operación…",
+          "empty": "Ninguna operación coincide.",
+          "keyMove": "moverse",
+          "keyPick": "añadir",
+          "keyClose": "cerrar",
+          "results": "Resultados"
+        },
+        "deleteConfirm": {
+          "title": "¿Eliminar «{{step}}»?",
+          "description": "Se pierde todo lo que tiene configurado. Si te equivocas, no guardes los cambios."
+        }
+      },
+      "stdin": {
+        "types": {
+          "unset": "Sin configurar (entrada estándar)",
+          "stdin": "Entrada estándar",
+          "rcon": "RCON",
+          "rconws": "RCON por WebSocket",
+          "telnet": "Telnet"
+        },
+        "ip": {
+          "label": "Dirección",
+          "help": "Vacía, se conecta al propio servidor."
+        },
+        "port": {
+          "label": "Puerto",
+          "help": "El puerto de la consola remota del juego."
+        },
+        "password": {
+          "label": "Contraseña",
+          "help": "Mejor como variable que escrita aquí."
+        },
+        "secure": {
+          "label": "Conexión segura (wss://)",
+          "help": "Desactívalo si el juego solo acepta ws:// sin cifrar."
+        }
+      },
+      "jsonBlock": {
+        "invalidState": "El JSON no es válido.",
+        "syntax": "El JSON no es válido ({{detail}}). Se mantiene el último que sí lo era.",
+        "notObject": "Tiene que ser un objeto: { … }. Se mantiene el último válido.",
+        "unapplied": "Este JSON no es válido y no se ha aplicado: corrígelo o vacíalo para poder guardar."
+      },
+      "run": {
+        "optional": "(opcional)",
+        "start": {
+          "title": "Arranque",
+          "description": "El comando que inicia el servidor. Puede ser uno solo o varios, cada uno con la condición en la que se usa."
+        },
+        "command": {
+          "shape": "Comando",
+          "single": "Un comando",
+          "conditional": "Según condición",
+          "singleBlocked": "Para volver a un solo comando, deja una única entrada y quítale la condición.",
+          "singleBlockedKeys": "Esta entrada tiene ajustes propios, como su consola, que un solo comando no guarda. Quítalos para volver a un solo comando.",
+          "label": "Comando de arranque",
+          "hint": "Lo que el nodo ejecuta en la carpeta del servidor. Las variables, como ${memory}, se sustituyen por su valor.",
+          "line": "Comando",
+          "entry": "Entrada {{n}}",
+          "defaultTag": "Por defecto",
+          "remove": "Quitar «{{item}}»",
+          "conditionHelp": "El nodo usa la primera entrada cuya condición se cumple.",
+          "conditionNone": "Sin condición es el comando por defecto: se usa cuando no se cumple ninguna otra.",
+          "conditionalHint": "Al arrancar, el nodo prueba las entradas en orden y usa la primera cuya condición se cumple; si no se cumple ninguna, usa la primera sin condición.",
+          "extraKeys": "También tiene {{keys}}, que el formulario no muestra. Se conservan; puedes cambiarlos en la vista JSON.",
+          "add": "Añadir comando",
+          "conditionLabel": "Cuándo se usa",
+          "advanced": "Opciones avanzadas",
+          "stdinLabel": "Consola de esta entrada",
+          "stdinHint": "Solo cuando se arranca con esta entrada. Sin configurar, se usa la de la sección Consola."
+        },
+        "workingDirectory": {
+          "label": "Carpeta de trabajo",
+          "hint": "Se guarda en la plantilla, pero este nodo no la usa: el servidor arranca siempre en su propia carpeta."
+        },
+        "stop": {
+          "title": "Parada",
+          "description": "Cómo se pide al servidor que se detenga: con un comando en su consola o con una señal a su proceso.",
+          "mode": "Cómo se detiene",
+          "removeCommand": "Quitar el comando",
+          "command": {
+            "choice": "Comando de parada",
+            "label": "Comando de parada",
+            "hint": "Lo que se escribe en la consola para cerrar el servidor, como stop, quit o exit."
+          },
+          "code": {
+            "choice": "Código de señal",
+            "label": "Código de señal",
+            "hint": "El número de la señal que se envía al proceso. Las habituales son 15 (SIGTERM) y 2 (SIGINT, como pulsar Ctrl+C).",
+            "pick": "Habituales",
+            "pickLabel": "Señales habituales"
+          },
+          "signals": {
+            "SIGTERM": "Pide al programa que se cierre. La más habitual.",
+            "SIGINT": "Como pulsar Ctrl+C en la consola: muchos servidores guardan y se cierran.",
+            "SIGKILL": "Lo cierra al momento, sin dejarle guardar. Solo si no responde a otra.",
+            "SIGHUP": "Aviso de que se cerró el terminal. Pocos programas la usan para salir.",
+            "SIGQUIT": "Le pide salir; algunos programas escriben antes un volcado de depuración."
+          }
+        },
+        "environmentVars": {
+          "title": "Variables de entorno",
+          "description": "Las variables de entorno con las que arranca el proceso del servidor.",
+          "label": "Variables de entorno",
+          "hint": "Un nombre y su valor por fila. El valor puede usar variables de la plantilla, como ${port}.",
+          "keyPlaceholder": "NOMBRE",
+          "valuePlaceholder": "valor o ${variable}"
+        },
+        "console": {
+          "title": "Consola",
+          "description": "Por dónde envía el panel los comandos que se escriben en la consola del servidor.",
+          "label": "Entrada de la consola",
+          "hint": "Casi siempre la entrada estándar. Algunos juegos solo aceptan comandos por RCON o telnet."
+        },
+        "behaviour": {
+          "title": "Arranque y reinicio automáticos",
+          "description": "Lo que hace el nodo por su cuenta con los servidores creados desde esta plantilla. Cada servidor puede cambiarlo después en sus ajustes.",
+          "autostart": {
+            "label": "Iniciar al arrancar el nodo",
+            "hint": "El servidor se inicia solo cuando el nodo arranca."
+          },
+          "autorecover": {
+            "label": "Reiniciar si se cae",
+            "hint": "Si el proceso termina con un código distinto del esperado, se vuelve a iniciar."
+          },
+          "autorestart": {
+            "label": "Reiniciar si se para",
+            "hint": "Si el proceso termina con el código esperado (sin que nadie lo pare desde el panel), se vuelve a iniciar."
+          },
+          "expectedExitCode": {
+            "label": "Código de salida esperado",
+            "hint": "El código con el que el servidor sale cuando se cierra bien; con otro, el panel lo trata como una caída. Al pararlo con una señal, muchos programas salen con 128 más la señal (143 con SIGTERM)."
+          }
+        },
+        "pre": {
+          "title": "Antes de arrancar",
+          "description": "Pasos que se ejecutan cada vez que se inicia el servidor, justo antes del comando de arranque: actualizar el juego, regenerar la configuración…",
+          "empty": {
+            "title": "Sin pasos antes de arrancar",
+            "description": "El servidor arranca directamente con su comando. Añade un paso si hay que preparar algo cada vez."
+          }
+        },
+        "post": {
+          "title": "Después de parar",
+          "description": "Pasos que se ejecutan cuando el proceso del servidor termina. Pueden leer ${success} y ${exitCode}.",
+          "empty": {
+            "title": "Sin pasos después de parar",
+            "description": "Al terminar no se hace nada más. Añade un paso si hay que limpiar o copiar algo."
+          }
+        }
+      },
+      "environment": {
+        "default": {
+          "title": "Entorno por defecto",
+          "description": "Se guarda en la plantilla, pero el formulario «Crear servidor» del panel no lo usa: crea siempre los servidores en Docker, con el primer entorno Docker de «Entornos admitidos»."
+        },
+        "supported": {
+          "title": "Entornos admitidos",
+          "description": "El formulario «Crear servidor» crea los servidores en Docker con el primer entorno Docker de esta lista: su imagen, sus puertos y sus ajustes.",
+          "item": "Entorno {{n}}: {{type}}",
+          "remove": "Quitar «{{item}}»",
+          "add": "Añadir entorno",
+          "empty": {
+            "title": "Sin entornos admitidos",
+            "description": "Sin un entorno Docker aquí, el formulario «Crear servidor» usa una imagen genérica. Añade uno con la imagen que necesita la plantilla."
+          }
+        },
+        "type": {
+          "label": "Tipo",
+          "hint": {
+            "docker": "En un contenedor Docker, aislado del nodo, con la imagen indicada.",
+            "host": "Directamente en el nodo, con los programas que tenga instalados.",
+            "unset": "Sin definir."
+          }
+        },
+        "types": {
+          "unset": "Sin definir",
+          "host": "Host",
+          "docker": "Docker",
+          "tty": "tty (igual que host)",
+          "standard": "standard (igual que host)"
+        },
+        "image": {
+          "label": "Imagen",
+          "hint": "Una imagen de ghcr.io/aether-panel/ o una oficial (de Docker Hub o del fabricante del programa). La etiqueta puede usar una variable, como eclipse-temurin:${javaversion}."
+        },
+        "portBindings": {
+          "label": "Puertos",
+          "hint": "Uno por fila, como en docker run -p: IP:puerto del nodo:puerto del contenedor/protocolo."
+        },
+        "advanced": "Opciones avanzadas de Docker",
+        "networkName": {
+          "label": "Red",
+          "hint": "bridge publica los puertos de arriba; host comparte la red del nodo y no los usa."
+        },
+        "containerRoot": {
+          "label": "Carpeta del servidor en el contenedor",
+          "hint": "Dónde se montan los archivos del servidor dentro del contenedor. Tiene que ser una ruta absoluta."
+        },
+        "bindings": {
+          "label": "Carpetas montadas",
+          "hint": "Una carpeta del nodo y dónde aparece dentro del contenedor.",
+          "newKey": "/ruta/en/el/nodo"
+        },
+        "labels": {
+          "label": "Etiquetas del contenedor",
+          "hint": "Etiquetas de Docker para el contenedor. Pueden usar variables."
+        },
+        "hostConfig": {
+          "label": "hostConfig",
+          "hint": "Ajustes del contenedor tal como los define la API de Docker (HostConfig), por ejemplo { \"Init\": true }."
+        },
+        "config": {
+          "label": "config",
+          "hint": "Ajustes de la imagen tal como los define la API de Docker (Config)."
+        },
+        "extraKeys": "También tiene {{keys}}, que el formulario no muestra. Se conservan; puedes cambiarlos en la vista JSON.",
+        "extraKeysHost": "También tiene {{keys}}: ajustes que este tipo de entorno no usa. Se conservan por si vuelves a Docker."
+      },
+      "requirements": {
+        "any": "Sin marcar ninguno, vale cualquiera.",
+        "platform": {
+          "title": "Sistema y arquitectura",
+          "description": "El nodo se niega a instalar la plantilla en un sistema o una arquitectura que no estén marcados."
+        },
+        "os": {
+          "label": "Sistema operativo",
+          "hint": "Se guarda como {{value}}.",
+          "values": {
+            "linux": "Linux",
+            "windows": "Windows",
+            "darwin": "macOS"
+          }
+        },
+        "arch": {
+          "label": "Arquitectura",
+          "hint": "Se guarda como {{value}}.",
+          "values": {
+            "amd64": "x86-64 (amd64)",
+            "arm64": "ARM de 64 bits (arm64)",
+            "386": "x86 de 32 bits (386)",
+            "arm": "ARM de 32 bits (arm)"
+          }
+        },
+        "binaries": {
+          "title": "Programas",
+          "description": "Los programas que el nodo tiene que tener instalados. Solo se comprueba en host: en Docker los pone la imagen.",
+          "label": "Programas necesarios",
+          "hint": "Uno por fila, tal como se llaman en el PATH. Para aceptar cualquiera de varios, sepáralos con ||, como java || java21."
+        },
+        "extraKeys": "También tiene {{keys}}, que el formulario no muestra. Se conservan; puedes cambiarlos en la vista JSON."
+      },
+      "advanced": {
+        "extraKeys": "También tiene {{keys}}, que el formulario no muestra. Se conservan; puedes cambiarlos en la vista JSON.",
+        "groups": {
+          "title": "Grupos de variables",
+          "description": "Ordenan las variables en bloques en la página de ajustes del servidor. Las que no están en ningún grupo se muestran aparte.",
+          "add": "Añadir grupo",
+          "remove": "Quitar el grupo «{{group}}»",
+          "untitled": "Grupo {{n}}",
+          "countOne": "1 variable",
+          "countMany": "{{count}} variables",
+          "conditionHelp": "Se guarda en la plantilla, pero el panel aún no la aplica: el grupo se muestra siempre.",
+          "conditionNone": "Sin condición.",
+          "orderHint": "La página de ajustes muestra los grupos en el orden de esta lista; «Orden» se guarda para las plantillas que lo usan.",
+          "displayField": {
+            "label": "Nombre",
+            "placeholder": "General"
+          },
+          "orderField": {
+            "label": "Orden"
+          },
+          "descriptionField": {
+            "label": "Descripción"
+          },
+          "variables": {
+            "label": "Variables",
+            "hint": "En el orden en que se muestran dentro del grupo.",
+            "add": "Añadir",
+            "remove": "Quitar «{{key}}» del grupo",
+            "missing": "(no existe)",
+            "none": "La plantilla aún no tiene variables.",
+            "inOther": "ya en «{{group}}»"
+          },
+          "empty": {
+            "title": "Sin grupos",
+            "description": "Las variables se muestran todas juntas en los ajustes del servidor."
+          },
+          "conditionLabel": "Cuándo se muestra"
+        },
+        "stats": {
+          "title": "Estadísticas",
+          "description": "Datos de uso que el panel muestra, además de CPU y memoria.",
+          "type": {
+            "label": "Estadísticas adicionales",
+            "hint": "«Memoria de Java» pide a la máquina virtual de Java su uso de memoria (heap) con jcmd.",
+            "jcmd": "Memoria de Java (jcmd)"
+          },
+          "cmd": {
+            "label": "Programa jcmd",
+            "hint": "Solo en Docker: el comando jcmd dentro del contenedor."
+          }
+        },
+        "query": {
+          "title": "Consulta del estado",
+          "description": "Cómo pregunta el panel al juego cuántos jugadores hay conectados.",
+          "type": {
+            "label": "Protocolo",
+            "minecraft": "Minecraft (ping de la lista de servidores)",
+            "source": "Steam (A2S)",
+            "hint": {
+              "unset": "Sin definir, el panel prueba la consulta de Steam (A2S) y deja de intentarlo un rato si el juego no contesta.",
+              "minecraft": "Usa la IP y el puerto del servidor (las variables ip y port).",
+              "source": "Usa el puerto de consulta (queryport o variantes) o, si no hay, port.",
+              "other": "El panel no conoce este protocolo y no consultará el estado."
+            }
+          }
+        },
+        "keepAlive": {
+          "title": "Keep-alive",
+          "description": "Un comando que se envía a la consola cada cierto tiempo mientras el servidor está en marcha.",
+          "hint": "La frecuencia es una duración con unidad: 30s, 5m, 1h30m. Hacen falta los dos campos.",
+          "frequency": {
+            "label": "Cada"
+          },
+          "command": {
+            "label": "Comando"
+          }
+        }
+      },
+      "preview": {
+        "button": "Vista previa",
+        "title": "Vista previa",
+        "description": "Así lo verá quien cree un servidor con esta plantilla.",
+        "note": "Es el mismo formulario del asistente «Crear servidor», con los valores de la plantilla. Puedes probarlo: aquí no se crea nada.",
+        "noVariables": "Esta plantilla no pide ninguna variable: quien cree el servidor solo elige los recursos y los puertos.",
+        "check": "Comprobar",
+        "reset": "Restablecer",
+        "checkOk": "Todo correcto: con estos valores se podría crear el servidor.",
+        "checkErrorsOne": "Hay 1 campo por corregir.",
+        "checkErrorsMany": "Hay {{count}} campos por corregir.",
+        "failedTitle": "La vista previa no puede mostrar esta plantilla",
+        "failedDescription": "Alguna variable tiene un valor que el formulario no sabe mostrar. Revísala en el JSON."
+      },
+      "summary": {
+        "title": "Errores y avisos",
+        "open": "Ver la lista",
+        "hint": "Elige uno para ir a su campo.",
+        "blocking": "Impide guardar",
+        "jsonOnly": "Solo en el JSON",
+        "staleJson": "El JSON tiene cambios no válidos: la lista es de la última versión válida.",
+        "error": "Error",
+        "warning": "Aviso"
+      }
+    },
+    "presets": {
+      "minecraft-paper": {
+        "title": "Minecraft: Java (Paper)",
+        "description": "Un servidor Paper: lo descarga, instala Java y pide aceptar el EULA.",
+        "display": "Minecraft: Java Edition (Paper)",
+        "vars": {
+          "eula": {
+            "display": "Acepto el EULA de Minecraft",
+            "desc": "El servidor no arranca hasta que se acepta el EULA de Minecraft: https://aka.ms/MinecraftEULA"
+          },
+          "version": {
+            "display": "Versión de Minecraft",
+            "desc": "Una versión como 1.21.4, o latest para la más reciente que admita Paper."
+          },
+          "paperbuild": {
+            "display": "Build de Paper",
+            "desc": "Un número de build de Paper, o latest para la más reciente."
+          },
+          "javaversion": {
+            "display": "Versión de Java",
+            "desc": "Minecraft 26.1 y posteriores necesitan Java 25; de 1.20.5 a 1.21, Java 21; de 1.17 a 1.20.4, Java 17; las anteriores, Java 8."
+          },
+          "motd": {
+            "display": "Mensaje del servidor (MOTD)",
+            "desc": "El texto que se ve bajo el nombre del servidor en la lista de servidores."
+          },
+          "memory": {
+            "display": "Memoria (MB)",
+            "desc": "La memoria máxima de Java (-Xmx), en MB."
+          },
+          "port": {
+            "display": "Puerto",
+            "desc": "El puerto TCP al que se conectan los jugadores."
+          }
+        }
+      },
+      "steam": {
+        "title": "Juego de Steam",
+        "description": "Un servidor dedicado que se descarga de Steam por su ID de app.",
+        "display": "Servidor dedicado de Steam",
+        "vars": {
+          "appid": {
+            "display": "ID de la app de Steam",
+            "desc": "El número del servidor dedicado en Steam (búscalo en SteamDB). Por ejemplo, 896660 es Valheim."
+          },
+          "executable": {
+            "display": "Archivo de arranque",
+            "desc": "El programa que arranca el servidor, dentro de su carpeta. Por ejemplo, valheim_server.x86_64."
+          },
+          "args": {
+            "display": "Argumentos de arranque",
+            "desc": "Lo que se añade al arrancar el servidor; cada juego tiene los suyos."
+          },
+          "port": {
+            "display": "Puerto",
+            "desc": "El puerto UDP al que se conectan los jugadores."
+          }
+        }
+      },
+      "nodejs": {
+        "title": "App Node.js",
+        "description": "Ejecuta un archivo con Node.js e instala las dependencias de package.json.",
+        "display": "App Node.js",
+        "vars": {
+          "nodeversion": {
+            "display": "Versión de Node.js",
+            "desc": "La versión principal de Node.js con la que se ejecuta la app."
+          },
+          "startfile": {
+            "display": "Archivo de inicio",
+            "desc": "El archivo que se ejecuta con node, dentro de la carpeta del servidor."
+          },
+          "port": {
+            "display": "Puerto",
+            "desc": "El puerto TCP de la app. También le llega en la variable de entorno PORT."
+          }
+        }
+      },
+      "python": {
+        "title": "App Python",
+        "description": "Ejecuta un archivo con Python, en un entorno virtual con su requirements.txt.",
+        "display": "App Python",
+        "vars": {
+          "pyversion": {
+            "display": "Versión de Python",
+            "desc": "La versión de Python en Docker. En el host se usa esa versión si está instalada y, si no, python3."
+          },
+          "startfile": {
+            "display": "Archivo de inicio",
+            "desc": "El archivo de Python que se ejecuta, dentro de la carpeta del servidor."
+          },
+          "port": {
+            "display": "Puerto",
+            "desc": "El puerto TCP de la app. También le llega en la variable de entorno PORT."
+          }
+        }
+      },
+      "docker": {
+        "title": "Docker genérico",
+        "description": "Lo mínimo para un servidor en Docker: la imagen, un puerto y un start.sh.",
+        "display": "Aplicación en Docker",
+        "vars": {
+          "port": {
+            "display": "Puerto",
+            "desc": "El puerto TCP del servidor. También le llega en la variable de entorno PORT."
+          }
+        }
+      }
     }
   },
   "common": {
@@ -3863,7 +5234,8 @@
     "ErrPluginsNotMinecraft": "Los plugins y mods solo existen en servidores de Minecraft: Java Edition.",
     "ErrNodeJoinCode": "Ese código de unión no existe, ya se usó o caducó: genera otro en el panel.",
     "ErrNodeJoinLocal": "El nodo del propio panel se instala con el panel: no se despliega en otra máquina.",
-    "ErrNodeJoinURL": "Primero pon la URL principal del panel en Configuración → General (por ejemplo https://panel.tudominio.com): el nodo nuevo llega al panel por ella."
+    "ErrNodeJoinURL": "Primero pon la URL principal del panel en Configuración → General (por ejemplo https://panel.tudominio.com): el nodo nuevo llega al panel por ella.",
+    "ErrTemplateTooLarge": "La plantilla ocupa más de 2 MB, lo máximo que guarda el panel."
   },
   "apiErrorValues": {
     "ErrDiscordTestFailed": {

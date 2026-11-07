@@ -1,0 +1,142 @@
+{
+  "type": "lavalink",
+  "display": "Lavalink",
+  "icon": "lavalink",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 4096,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (4096 MB = 4 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 1024,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate. 512 MB is enough for a few players, give more for many guilds",
+      "required": true,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 2333,
+      "display": "Port",
+      "desc": "Port Lavalink listens on (TCP, HTTP and WebSocket). Your bot connects here",
+      "required": true,
+      "userEdit": false
+    },
+    "password": {
+      "type": "string",
+      "value": "",
+      "display": "Password",
+      "desc": "Password your bot uses to connect (the Authorization header). Applied on every start",
+      "required": true,
+      "userEdit": true
+    },
+    "javaversion": {
+      "type": "option",
+      "value": "21",
+      "display": "Java Version",
+      "desc": "Version of Java to run Lavalink with (17 or newer)",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "17",
+          "display": "Java 17"
+        },
+        {
+          "value": "21",
+          "display": "Java 21"
+        },
+        {
+          "value": "25",
+          "display": "Java 25"
+        }
+      ]
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "javadl",
+      "version": "${javaversion}"
+    },
+    {
+      "type": "command",
+      "commands": [
+        "rm -f Lavalink.jar"
+      ]
+    },
+    {
+      "type": "githubdl",
+      "repository": "lavalink-devs/Lavalink",
+      "assetMatch": "Lavalink.jar"
+    },
+    {
+      "if": "!file_exists('application.yml')",
+      "type": "writefile",
+      "target": "application.yml",
+      "text": "# Written by Aether Panel on install, only when this file does not exist.\n# The port and the password always come from the panel (SERVER_PORT and\n# LAVALINK_SERVER_PASSWORD environment variables), the values below are a copy.\nserver:\n  port: ${port}\n  address: 0.0.0.0\n  http2:\n    enabled: false\nlavalink:\n  # YouTube needs the youtube-source plugin (https://github.com/lavalink-devs/youtube-source).\n  # Uncomment and put its latest version, then restart:\n  # plugins:\n  #   - dependency: \"dev.lavalink.youtube:youtube-plugin:VERSION\"\n  #     snapshot: false\n  server:\n    password: \"${password}\"\n    sources:\n      youtube: false\n      bandcamp: true\n      soundcloud: true\n      twitch: true\n      vimeo: true\n      nico: true\n      http: true\n      local: false\n    filters:\n      volume: true\n      equalizer: true\n      karaoke: true\n      timescale: true\n      tremolo: true\n      vibrato: true\n      distortion: true\n      rotation: true\n      channelMix: true\n      lowPass: true\n    bufferDurationMs: 400\n    frameBufferDurationMs: 5000\n    opusEncodingQuality: 10\n    resamplingQuality: LOW\n    trackStuckThresholdMs: 10000\n    useSeekGhosting: true\n    youtubePlaylistLoadLimit: 6\n    playerUpdateInterval: 5\n    youtubeSearchEnabled: true\n    soundcloudSearchEnabled: true\n    gc-warnings: true\nmetrics:\n  prometheus:\n    enabled: false\n    endpoint: /metrics\nlogging:\n  file:\n    path: ./logs/\n  level:\n    root: INFO\n    lavalink: INFO\n  logback:\n    rollingpolicy:\n      max-file-size: 100MB\n      max-history: 7\n"
+    }
+  ],
+  "run": {
+    "command": [
+      {
+        "if": "env == 'host'",
+        "command": "java${javaversion} -Xmx${memory}M -jar Lavalink.jar"
+      },
+      {
+        "command": "java -Xmx${memory}M -jar Lavalink.jar"
+      }
+    ],
+    "stopCode": 15,
+    "environmentVars": {
+      "SERVER_PORT": "${port}",
+      "SERVER_ADDRESS": "0.0.0.0",
+      "LAVALINK_SERVER_PASSWORD": "${password}"
+    },
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "eclipse-temurin:${javaversion}",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux"
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "type": "zomboid",
+  "display": "Project Zomboid",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "adminPassword": {
+      "type": "string",
+      "value": "password",
+      "display": "Admin Password",
+      "desc": "Password for admin account",
+      "required": true,
+      "userEdit": true
+    },
+    "memory": {
+      "type": "integer",
+      "value": 4096,
+      "display": "Memory (MB)",
+      "desc": "Memory to allocate",
+      "required": true,
+      "userEdit": true
+    },
+    "port": {
+      "type": "integer",
+      "value": 16261,
+      "display": "port",
+      "desc": "Base port (UDP) for server. Additional ports (TCP) beyond this will need to be opened. 1 per user.",
+      "required": true,
+      "userEdit": true
+    },
+    "serverName": {
+      "type": "string",
+      "value": "skypanelserver",
+      "display": "serverName",
+      "desc": "Name of the PZ server",
+      "required": false,
+      "userEdit": true
+    },
+    "steamVAC": {
+      "type": "boolean",
+      "value": true,
+      "display": "steamVAC",
+      "desc": "Enable or disable Steam VAC",
+      "required": true,
+      "userEdit": true
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "steamgamedl",
+      "appId": "380870"
+    },
+    {
+      "if": "env == 'docker'",
+      "type": "command",
+      "commands": [
+        "steamcmd +force_install_dir /SkyPanel +login anonymous +app_update 380870 +quit"
+      ]
+    },
+    {
+      "type": "writefile",
+      "text": "{\n\t\"mainClass\": \"zombie/network/GameServer\",\n\t\"classpath\": [\n\t\t\"java/.\",\n\t\t\"java/istack-commons-runtime.jar\",\n\t\t\"java/jassimp.jar\",\n\t\t\"java/javacord-2.0.17-shaded.jar\",\n\t\t\"java/javax.activation-api.jar\",\n\t\t\"java/jaxb-api.jar\",\n\t\t\"java/jaxb-runtime.jar\",\n\t\t\"java/lwjgl.jar\",\n\t\t\"java/lwjgl-natives-linux.jar\",\n\t\t\"java/lwjgl-glfw.jar\",\n\t\t\"java/lwjgl-glfw-natives-linux.jar\",\n\t\t\"java/lwjgl-jemalloc.jar\",\n\t\t\"java/lwjgl-jemalloc-natives-linux.jar\",\n\t\t\"java/lwjgl-opengl.jar\",\n\t\t\"java/lwjgl-opengl-natives-linux.jar\",\n\t\t\"java/lwjgl_util.jar\",\n\t\t\"java/sqlite-jdbc-3.27.2.1.jar\",\n\t\t\"java/trove-3.0.3.jar\",\n\t\t\"java/commons-compress-1.18.jar\",\n\t\t\"java/uncommons-maths-1.2.3.jar\"\n\t],\n\t\"vmArgs\": [\n\t\t\"-Djava.awt.headless=true\",\n\t\t\"-Xmx${memory}M\",\n\t\t\"-Dzomboid.steam=1\",\n\t\t\"-Dzomboid.znetlog=1\",\n\t\t\"-Djava.library.path=linux64/:natives/\",\n        \"-Duser.home=./\",\n\t\t\"-Djava.security.egd=file:/dev/urandom\",\n\t\t\"-XX:+UseZGC\",\n\t\t\"-XX:-OmitStackTraceInFastThrow\"\n\t]\n}",
+      "target": "ProjectZomboid64.json"
+    },
+    {
+      "type": "command",
+      "commands": [
+        "chmod +x start-server.sh"
+      ]
+    }
+  ],
+  "run": {
+    "command": "./start-server.sh -servername ${serverName} -adminpassword ${adminPassword} -steamvac ${steamVAC} -port ${port}",
+    "stop": "quit",
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "steamcmd/steamcmd",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64"
+  }
+}

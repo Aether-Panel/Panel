@@ -1,0 +1,116 @@
+{
+  "type": "redis",
+  "display": "Redis",
+  "icon": "redis",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 5120,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (5120 MB = 5 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 512,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate. Redis keeps all data in memory and is limited to 80% of this, after that writes fail instead of the server being killed",
+      "required": true,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 6379,
+      "display": "Port",
+      "desc": "Port Redis listens on (TCP)",
+      "required": true,
+      "userEdit": false
+    },
+    "version": {
+      "type": "option",
+      "value": "8",
+      "display": "Redis Version",
+      "desc": "Major version of Redis",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "7",
+          "display": "Redis 7"
+        },
+        {
+          "value": "8",
+          "display": "Redis 8"
+        }
+      ]
+    },
+    "password": {
+      "type": "string",
+      "value": "",
+      "display": "Password",
+      "desc": "Password clients need (AUTH). Applied on every start",
+      "required": true,
+      "userEdit": true
+    },
+    "extraargs": {
+      "type": "string",
+      "value": "",
+      "display": "Extra Server Arguments",
+      "desc": "Optional. Extra command line options for the server, for example --maxmemory-policy allkeys-lru --appendfsync always",
+      "required": false,
+      "userEdit": true
+    }
+  },
+  "install": [
+    {
+      "type": "mkdir",
+      "target": "data"
+    }
+  ],
+  "run": {
+    "command": "bash -c \"set -e; mkdir -p /SkyPanel/data; cd /SkyPanel/data; exec docker-entrypoint.sh redis-server --port ${port} --bind 0.0.0.0 --dir /SkyPanel/data --appendonly yes --maxmemory \\\"$(( ${memory} * 80 / 100 ))mb\\\" --requirepass \\\"$REDIS_PASSWORD\\\" ${extraargs}\"",
+    "stopCode": 15,
+    "environmentVars": {
+      "REDIS_PASSWORD": "${password}"
+    },
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "docker",
+    "image": "redis:${version}",
+    "portBindings": [
+      "0.0.0.0:${port}:${port}/tcp"
+    ]
+  },
+  "supportedEnvironments": [
+    {
+      "type": "docker",
+      "image": "redis:${version}",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp"
+      ]
+    }
+  ]
+}

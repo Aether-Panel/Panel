@@ -1,0 +1,209 @@
+{
+  "type": "go",
+  "display": "Go App",
+  "icon": "go",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 1024,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 8000,
+      "display": "Port",
+      "desc": "Port your app can listen on (TCP). It is also passed to the app as the PORT environment variable",
+      "required": true,
+      "userEdit": false
+    },
+    "goversion": {
+      "type": "option",
+      "value": "1.27",
+      "display": "Go Version",
+      "desc": "Version of Go (the official golang image) that builds and runs the app. A go.mod asking for a newer Go downloads that toolchain into the server folder",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "1.26",
+          "display": "Go 1.26"
+        },
+        {
+          "value": "1.27",
+          "display": "Go 1.27"
+        }
+      ]
+    },
+    "gitrepo": {
+      "type": "string",
+      "value": "",
+      "display": "Git Repository",
+      "desc": "HTTPS URL of a git repository to download on install, for example https://github.com/user/my-bot.git. Reinstalling pulls the latest commit. Leave empty to upload the files yourself",
+      "required": false,
+      "userEdit": true
+    },
+    "gitbranch": {
+      "type": "string",
+      "value": "",
+      "display": "Git Branch",
+      "desc": "Branch to check out. Empty means the default branch of the repository",
+      "required": false,
+      "userEdit": true
+    },
+    "gittoken": {
+      "type": "string",
+      "value": "",
+      "display": "Git Access Token",
+      "desc": "Personal access token for a private repository (GitHub, GitLab). Leave empty for public repositories",
+      "required": false,
+      "userEdit": true
+    },
+    "buildtarget": {
+      "type": "string",
+      "value": ".",
+      "display": "Build Target",
+      "desc": "Package to build, relative to the server folder: . (the module root) or a path such as ./cmd/server",
+      "required": true,
+      "userEdit": true
+    },
+    "startargs": {
+      "type": "string",
+      "value": "",
+      "display": "Start Arguments",
+      "desc": "Arguments passed to the app, for example -addr :8000",
+      "required": false,
+      "userEdit": true
+    },
+    "gorun": {
+      "type": "boolean",
+      "value": false,
+      "display": "Run with go run",
+      "desc": "Start the app with go run instead of building a binary first. go run does not pass the stop signal on, so the app gets no graceful shutdown",
+      "required": false,
+      "userEdit": true
+    }
+  },
+  "install": [
+    {
+      "if": "gitrepo != ''",
+      "type": "command",
+      "commands": [
+        "bash -c \"for f in main.go go.mod; do if grep -qs 'Placeholder written by Aether Panel' \\\"$f\\\"; then echo \\\"Removing the placeholder $f\\\"; rm -f \\\"$f\\\"; fi; done\""
+      ]
+    },
+    {
+      "if": "gitrepo != ''",
+      "type": "command",
+      "commands": [
+        "bash -c \"set -e; if [ -z \\\"$GIT_REPO\\\" ]; then exit 0; fi; if ! command -v git >/dev/null 2>&1; then if [ \\\"$(id -u)\\\" = 0 ] && command -v apt-get >/dev/null 2>&1; then echo \\\"Installing git in the install container\\\"; apt-get update -qq >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends git ca-certificates >/dev/null; else echo \\\"git is not installed, it is needed to download the repository\\\"; exit 1; fi; fi; g() { git -c safe.directory='*' -c init.defaultBranch=main -c advice.detachedHead=false \\\"$@\\\"; }; auth=(); if [ -n \\\"$GIT_TOKEN\\\" ]; then auth=(-c \\\"http.extraHeader=Authorization: Basic $(printf 'oauth2:%s' \\\"$GIT_TOKEN\\\" | base64 | tr -d '\\\\n')\\\"); fi; [ -d .git ] || g init -q; echo \\\"Fetching $GIT_REPO ${GIT_BRANCH:-(default branch)}\\\"; g \\\"${auth[@]}\\\" fetch -q --depth 1 \\\"$GIT_REPO\\\" \\\"${GIT_BRANCH:-HEAD}\\\"; g reset -q --hard FETCH_HEAD; echo \\\"Checked out $(g log -1 --format='%h %s')\\\"\""
+      ]
+    },
+    {
+      "if": "gitrepo == ''",
+      "type": "mkdir",
+      "target": ".aether/placeholder"
+    },
+    {
+      "if": "gitrepo == ''",
+      "type": "writefile",
+      "target": ".aether/placeholder/main.go",
+      "text": "// Placeholder written by Aether Panel. Replace it with your app (main.go and go.mod), or set a git\n// repository in the server settings and reinstall.\npackage main\n\nimport (\n\t\"fmt\"\n\t\"log\"\n\t\"net/http\"\n\t\"os\"\n\t\"runtime\"\n)\n\nfunc main() {\n\tport := os.Getenv(\"PORT\")\n\thttp.HandleFunc(\"/\", func(w http.ResponseWriter, r *http.Request) {\n\t\tfmt.Fprintf(w, \"Aether Panel: Go %s is running main.go. Upload your app, or set a git repository and reinstall.\\n\", runtime.Version())\n\t})\n\tlog.Printf(\"Aether Panel placeholder listening on port %s\", port)\n\tlog.Fatal(http.ListenAndServe(\":\"+port, nil))\n}\n"
+    },
+    {
+      "if": "gitrepo == ''",
+      "type": "writefile",
+      "target": ".aether/placeholder/go.mod",
+      "text": "// Placeholder written by Aether Panel: replace it with the go.mod of your module.\nmodule aether-placeholder\n\ngo 1.22\n"
+    },
+    {
+      "if": "gitrepo == ''",
+      "type": "command",
+      "commands": [
+        "bash -c \"if [ ! -e go.mod ] && [ ! -e main.go ]; then echo \\\"No Go code yet: writing a placeholder main.go and go.mod\\\"; cp .aether/placeholder/main.go .aether/placeholder/go.mod .; fi\""
+      ]
+    },
+    {
+      "type": "command",
+      "commands": [
+        "bash -c \"set -e; export GOPATH=\\\"$PWD/.aether/go\\\" GOCACHE=\\\"$PWD/.aether/go-build\\\" GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0=\\\"*\\\"; bin=\\\"$PWD/.aether/bin/app\\\"; mkdir -p .aether/bin; t=\\\"${buildtarget}\\\"; if [ \\\"$t\\\" != . ] && [ -f \\\"$t/go.mod\\\" ]; then cd \\\"$t\\\"; t=.; fi; if [ ! -f go.mod ]; then echo \\\"There is no go.mod, nothing to build\\\"; exit 0; fi; echo \\\"Downloading modules\\\"; go mod download; if [ \\\"${gorun}\\\" != true ]; then echo \\\"Building $t\\\"; go build -o \\\"$bin\\\" \\\"$t\\\"; fi\""
+      ]
+    }
+  ],
+  "run": {
+    "command": "bash -c \"set -e; unset GIT_TOKEN; export GOPATH=\\\"$PWD/.aether/go\\\" GOCACHE=\\\"$PWD/.aether/go-build\\\" GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0=\\\"*\\\"; if [ -f go.mod ] && ! grep -qs 'Placeholder written by Aether Panel' go.mod && grep -qs 'Placeholder written by Aether Panel' main.go; then echo \\\"Removing the placeholder main.go: go.mod is your own\\\"; rm -f main.go; fi; bin=\\\"$PWD/.aether/bin/app\\\"; mkdir -p .aether/bin; t=\\\"${buildtarget}\\\"; if [ \\\"$t\\\" != . ] && [ -f \\\"$t/go.mod\\\" ]; then cd \\\"$t\\\"; t=.; fi; if [ ! -f go.mod ]; then echo \\\"Aether Panel: there is no go.mod in the server folder. Upload your Go module, or set a git repository and reinstall.\\\"; exit 0; fi; if [ \\\"${gorun}\\\" = true ]; then echo \\\"Running ${buildtarget} with go run\\\"; exec go run \\\"$t\\\" ${startargs}; fi; echo \\\"Building ${buildtarget}\\\"; go build -o \\\"$bin\\\" \\\"$t\\\"; echo \\\"Starting ${buildtarget}\\\"; exec \\\"$bin\\\" ${startargs}\"",
+    "stopCode": 15,
+    "environmentVars": {
+      "PORT": "${port}",
+      "GOTOOLCHAIN": "auto",
+      "GOFLAGS": "-modcacherw",
+      "GIT_REPO": "${gitrepo}",
+      "GIT_BRANCH": "${gitbranch}",
+      "GIT_TOKEN": "${gittoken}"
+    },
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "docker",
+    "image": "golang:${goversion}",
+    "portBindings": [
+      "0.0.0.0:${port}:${port}/tcp"
+    ],
+    "hostConfig": {
+      "Init": true
+    }
+  },
+  "supportedEnvironments": [
+    {
+      "type": "docker",
+      "image": "golang:${goversion}",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp"
+      ],
+      "hostConfig": {
+        "Init": true
+      }
+    },
+    {
+      "type": "host"
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "binaries": [
+      "bash",
+      "go"
+    ]
+  }
+}
