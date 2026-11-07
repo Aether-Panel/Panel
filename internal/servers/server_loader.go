@@ -264,8 +264,8 @@ func Delete(id string) (err error) {
 	if err != nil {
 		return
 	}
-	err = os.Remove(filepath.Join(config.ServersFolder.Value(), safeID+".json"))
-	if err != nil {
+	// only logged: the server is already gone, and returning it made the panel keep its row
+	if err := os.Remove(filepath.Join(config.ServersFolder.Value(), safeID+".json")); err != nil && !os.IsNotExist(err) {
 		logging.Error.Printf("Error removing server: %s", err)
 	}
 	// and so does the folder a Docker server used as /tmp

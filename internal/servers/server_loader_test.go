@@ -102,3 +102,18 @@ func TestDelete_ForgetsTheServersInMemoryState(t *testing.T) {
 	assert.False(t, tracked, "a server made later with this id must not inherit its alert state")
 	assert.False(t, cached)
 }
+
+func TestDelete_AMissingDefinitionStillSucceeds(t *testing.T) {
+	p := newCrashTestServer(t)
+	p.Scheduler = NewDefaultScheduler(p.ID())
+	p.RunningEnvironment.RootDirectory = filepath.Join(config.ServersFolder.Value(), p.ID())
+	assert.NoError(t, os.MkdirAll(p.RunningEnvironment.RootDirectory, 0o755))
+	useLoadedServers(t, p)
+	t.Cleanup(func() { forgetServerState(p.ID()) })
+
+	// everything of the server goes; a .json already missing must not fail the delete, or
+	// the panel keeps the server it asked the node to remove
+	assert.NoError(t, Delete(p.ID()))
+	assert.Nil(t, GetFromCache(p.ID()))
+	assert.NoDirExists(t, p.RunningEnvironment.RootDirectory)
+}
