@@ -77,7 +77,12 @@ export function StepJsonEditor({ id, step, stepPath, issues, onApply }: Readonly
         autoCapitalize="off"
         autoComplete="off"
       />
-      <p id={problemId} aria-live="polite" className="empty:hidden">
+      {/* only whether the text parses is announced, once per change; the detail (which moves
+          with every keystroke) and the issues are read through aria-describedby */}
+      <p className="sr-only" aria-live="polite">
+        {problem ? t('templates.editor.steps.json.invalidState') : ''}
+      </p>
+      <p id={problemId} className="empty:hidden">
         {problem && (
           <span className="flex items-start gap-1.5 text-pretty text-xs text-destructive-bright">
             <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -87,7 +92,7 @@ export function StepJsonEditor({ id, step, stepPath, issues, onApply }: Readonly
           </span>
         )}
       </p>
-      <ul id={issuesListId} aria-live="polite" className="space-y-1 empty:hidden">
+      <ul id={issuesListId} className="space-y-1 empty:hidden">
         {issues.map((issue, index) => {
           const isError = issue.severity === 'error';
           const Icon = isError ? AlertCircle : AlertTriangle;

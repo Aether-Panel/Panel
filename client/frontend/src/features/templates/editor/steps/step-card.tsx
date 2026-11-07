@@ -8,7 +8,7 @@ import { getOperation } from '../../schema/operations';
 import { fieldId, useTemplateEditorActions } from '../editor-context';
 import { isPlainObject, pathKey, type Path } from '../paths';
 import { IssueCountBadges } from '../section-nav';
-import { DragHandle, MoveButtons, useSortableItem } from '../sortable';
+import { DragHandle, MoveButtons, useAnnounceMove, useSortableItem } from '../sortable';
 import { countIssues, type EditorIssue } from '../validation';
 import { conditionPreset } from './condition';
 import { ConditionField } from './condition-field';
@@ -48,6 +48,8 @@ export interface StepCardProps {
 }
 
 export const stepToggleId = (id: string) => `step-${id}-toggle`;
+/** The card's "…" button, where the focus returns when an action from its menu is cancelled. */
+export const stepMenuId = (id: string) => `step-${id}-menu`;
 
 /** The small tag that says when a step runs, next to its name. */
 function ConditionTag({ condition }: Readonly<{ condition: unknown }>) {
@@ -73,6 +75,7 @@ function StepCardView({ id, listPath, index, count, step, expanded, issues, acti
   const { t } = useTranslations();
   const { update } = useTemplateEditorActions();
   const { ref, style, isDragging, handleProps } = useSortableItem(id);
+  const announceMove = useAnnounceMove();
   const isObject = isPlainObject(step);
   const type = isObject && typeof step.type === 'string' ? step.type : undefined;
   const operation = type === undefined ? undefined : getOperation(type);
@@ -160,6 +163,7 @@ function StepCardView({ id, listPath, index, count, step, expanded, issues, acti
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
+              id={stepMenuId(id)}
               variant="ghost"
               size="icon"
               className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
@@ -208,11 +212,23 @@ function StepCardView({ id, listPath, index, count, step, expanded, issues, acti
               {t('templates.editor.steps.duplicate')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem disabled={index === 0} onSelect={() => actions.move(index, index - 1)}>
+            <DropdownMenuItem
+              disabled={index === 0}
+              onSelect={() => {
+                actions.move(index, index - 1);
+                announceMove(numbered, index, count);
+              }}
+            >
               <ArrowUp className="mr-2 h-4 w-4" aria-hidden="true" />
               {t('templates.editor.steps.moveUp')}
             </DropdownMenuItem>
-            <DropdownMenuItem disabled={index === count - 1} onSelect={() => actions.move(index, index + 1)}>
+            <DropdownMenuItem
+              disabled={index === count - 1}
+              onSelect={() => {
+                actions.move(index, index + 1);
+                announceMove(numbered, index + 2, count);
+              }}
+            >
               <ArrowDown className="mr-2 h-4 w-4" aria-hidden="true" />
               {t('templates.editor.steps.moveDown')}
             </DropdownMenuItem>

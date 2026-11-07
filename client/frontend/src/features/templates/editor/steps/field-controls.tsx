@@ -119,10 +119,10 @@ export function TextControl({ id, label, required = false, hint, placeholder, va
 
 /**
  * A whole number. With variables it is a text box (`${port}` is fine there); digits become a
- * JSON number unless the value was a string already (numberFromText).
+ * JSON number (numberFromText).
  */
 export function NumberControl({ id, label, required = false, hint, placeholder, value, issues, variables, onChange }: Readonly<ControlProps>) {
-  const { ref, onFocus, insert } = useInsertTarget((text) => onChange(numberFromText(text, value)));
+  const { ref, onFocus, insert } = useInsertTarget((text) => onChange(numberFromText(text)));
   if (!isEditableScalar(value)) return <NotEditableHere id={id} label={label} issues={issues} />;
   return (
     <TemplateField id={id} label={<FieldLabel label={label} required={required} />} hint={hint} issues={issues}>
@@ -135,7 +135,7 @@ export function NumberControl({ id, label, required = false, hint, placeholder, 
             className={cn('min-w-0 flex-1 font-mono text-[13px] tabular-nums', INVALID_CONTROL)}
             value={textValue(value)}
             inputMode={variables ? undefined : 'numeric'}
-            onChange={(e) => onChange(numberFromText(e.target.value, value))}
+            onChange={(e) => onChange(numberFromText(e.target.value))}
             placeholder={placeholder}
             autoComplete="off"
             spellCheck={false}

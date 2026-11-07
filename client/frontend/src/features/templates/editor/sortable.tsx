@@ -83,6 +83,19 @@ export function SortableList({ ids, onMove, itemLabel, children }: Readonly<{
 }
 
 /**
+ * Announces a move made some other way than the ↑ ↓ buttons (a menu's "Subir"), through the
+ * list's live region, in the words the buttons use.
+ */
+export function useAnnounceMove() {
+  const { t } = useTranslations();
+  const announce = useContext(AnnounceContext);
+  return useCallback(
+    (item: string, position: number, count: number) => announce(t('templates.editor.sortable.movedTo', { item, position, count })),
+    [announce, t],
+  );
+}
+
+/**
  * Ids for the items of a list whose items have none (a variable's options, steps): React and
  * drag and drop need an item to keep its id while it moves. Call move/insert/remove together
  * with the change itself so the ids follow; a list changed elsewhere (the JSON view) gets ids
@@ -163,7 +176,7 @@ export function DragHandle({ handleProps, label, className }: Readonly<{ handleP
  * ↑ and ↓ for an item at `index` of `count`. At an end the button stays focusable (aria-disabled),
  * so focus is not lost when an item reaches the top; it follows the item after the move.
  */
-export function MoveButtons({ index, count, label, onMove, min = 0, lockedReason, className }: Readonly<{
+export function MoveButtons({ index, count, label, onMove, min = 0, lockedReason, dense = false, className }: Readonly<{
   index: number;
   count: number;
   label: string;
@@ -172,6 +185,8 @@ export function MoveButtons({ index, count, label, onMove, min = 0, lockedReason
   min?: number;
   /** Why the item cannot move at all; both buttons are then off and describe it. */
   lockedReason?: string;
+  /** Narrower buttons on a phone, for rows whose input needs the room (a list of commands). */
+  dense?: boolean;
   className?: string;
 }>) {
   const { t } = useTranslations();
@@ -189,8 +204,10 @@ export function MoveButtons({ index, count, label, onMove, min = 0, lockedReason
     requestAnimationFrame(() => button?.focus());
   };
 
-  const buttonClass =
-    'grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-accent/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 aria-disabled:pointer-events-none aria-disabled:opacity-35';
+  const buttonClass = cn(
+    'grid h-8 place-items-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-accent/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 aria-disabled:pointer-events-none aria-disabled:opacity-35',
+    dense ? 'w-6 sm:w-8' : 'w-8',
+  );
   const described = locked ? { 'aria-describedby': reasonId, title: lockedReason } : {};
   return (
     <span className={cn('flex shrink-0 items-center', className)}>

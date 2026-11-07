@@ -92,32 +92,44 @@ export function ConditionField({ id, value, issues, onChange }: Readonly<{
   const { t } = useTranslations();
   const preset = conditionPreset(value);
   // "Personalizada" stays chosen while its expression is edited, even when it is emptied or
-  // happens to read like a preset
-  const [customChosen, setCustomChosen] = useState(false);
-  const mode: ConditionPreset = customChosen ? 'custom' : preset;
+  // comes to read like a preset: the input must not vanish under the cursor. A loaded custom
+  // expression starts it chosen; typing in the input keeps it so.
+  const [customChosen, setCustomChosen] = useState(() => preset === 'custom');
+  const mode: ConditionPreset = customChosen || preset === 'custom' ? 'custom' : preset;
+  // the custom expression last seen, so leaving "Personalizada" for a preset and coming back
+  // brings it back instead of losing it
+  const lastCustom = useRef(preset === 'custom' && typeof value === 'string' ? value : '');
+  if (mode === 'custom' && typeof value === 'string' && value.trim() !== '' && lastCustom.current !== value) lastCustom.current = value;
   const [menuOpen, setMenuOpen] = useState(false);
   const picked = useRef(false);
-  const write = (text: string) => onChange(text.trim() === '' ? undefined : text);
+  const write = (text: string) => {
+    setCustomChosen(true);
+    onChange(text.trim() === '' ? undefined : text);
+  };
   const { ref, onFocus } = useInsertTarget(write);
   const groupRef = useRef<HTMLDivElement>(null);
   const labelId = `${id}-label`;
   const hintId = `${id}-hint`;
 
-  const choose = (next: ConditionPreset, focusExpression: boolean) => {
+  const choose = (next: ConditionPreset) => {
+    if (next === mode) return;
     setCustomChosen(next === 'custom');
     if (next === 'none') onChange(undefined);
     else if (next === 'host' || next === 'docker') onChange(PRESET_EXPRESSIONS[next]);
-    // "custom" keeps the expression there is, to be extended
-    else if (focusExpression) requestAnimationFrame(() => document.getElementById(id)?.focus());
+    else {
+      // back to the expression written before, else the one there is (a preset), to be extended
+      if (lastCustom.current !== '') onChange(lastCustom.current);
+      requestAnimationFrame(() => document.getElementById(id)?.focus());
+    }
   };
 
-  // arrows move between the options, as in any radio group
+  // Arrows only move the focus between the options; Space or Enter (a click) chooses one.
+  // Choosing on every arrow would write each preset on the way and replace a custom expression.
   const onRadioKey = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
     const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
     if (!step) return;
     e.preventDefault();
     const next = CONDITION_PRESETS[(index + step + CONDITION_PRESETS.length) % CONDITION_PRESETS.length];
-    choose(next, false);
     groupRef.current?.querySelector<HTMLButtonElement>(`[data-preset="${next}"]`)?.focus();
   };
 
@@ -160,7 +172,7 @@ export function ConditionField({ id, value, issues, onChange }: Readonly<{
             tabIndex={mode === option ? 0 : -1}
             // goTo() on the condition lands on the option chosen, or in the expression
             id={mode === option && mode !== 'custom' ? id : undefined}
-            onClick={() => choose(option, true)}
+            onClick={() => choose(option)}
             onKeyDown={(e) => onRadioKey(e, index)}
             className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-md px-3 text-sm font-medium transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 aria-checked:bg-background aria-checked:text-foreground aria-checked:shadow-sm"
           >
@@ -175,7 +187,10 @@ export function ConditionField({ id, value, issues, onChange }: Readonly<{
             <Input
               ref={ref}
               id={id}
-              onFocus={onFocus}
+              onFocus={() => {
+                onFocus();
+                setCustomChosen(true);
+              }}
               className={cn('min-w-0 flex-1 font-mono text-[13px]', INVALID_CONTROL)}
               value={expression}
               onChange={(e) => write(e.target.value)}

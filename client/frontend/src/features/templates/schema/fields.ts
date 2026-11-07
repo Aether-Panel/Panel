@@ -17,7 +17,7 @@ export interface SelectOption {
  * - stringList: an array of strings, one per row
  * - keyValue: an object of string values
  * - number: a whole number; when the field takes variables it may also be a string of digits
- *   or one holding `${variable}`, and a string already there stays a string
+ *   or one holding `${variable}` (the form writes digits as a number, anything else as text)
  * - boolean: true or false
  * - select: one of the options, or any string when allowCustom (a version, `${variable}`); a
  *   field the node casts to a number (javadl's version) also takes a JSON number, per its schema

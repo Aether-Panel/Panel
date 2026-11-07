@@ -5,7 +5,7 @@ import type { OperationField } from '../../schema/fields';
 import type { JsonObject } from '../paths';
 import { conditionPreset, conditionReference, PRESET_EXPRESSIONS } from './condition';
 import {
-  clearedValue, copyStep, fieldKey, insertStep, newStep, numberFromText, readField, removeStep, renameEntry, stepHasContent, stepsAt, stepType, uniqueEntryKey,
+  clearedValue, copyStep, fieldKey, foldAfterContentChange, insertStep, newStep, numberFromText, readField, removeStep, renameEntry, stepHasContent, stepsAt, stepType, uniqueEntryKey,
   withStdinKey, writeField, writeFieldIn,
 } from './model';
 import { OPERATION_ICONS } from './operation-icons';
@@ -128,8 +128,8 @@ describe('writing a field', () => {
   it('returns the same step when nothing changes', () => {
     const step = { type: 'mkdir', target: 'x' };
     expect(writeField(step, target, 'x')).toBe(step);
-    const empty = { type: 'mkdir' };
-    expect(writeField(empty, target, '')).toBe(empty);
+    const empty = { type: 'alterfile' };
+    expect(writeField(empty, replace, '')).toBe(empty);
   });
 
   it('removes the key when an optional field is cleared, never writing ""', () => {
@@ -138,12 +138,26 @@ describe('writing a field', () => {
     expect(clearedValue(replace)).toBeUndefined();
   });
 
-  it('removes the key of a required field cleared too (the form then says it is required)', () => {
-    expect(writeField({ type: 'mkdir', target: 'x' }, target, '')).toEqual({ type: 'mkdir' });
+  it('keeps the key of a required field cleared, with its empty value, in its place', () => {
+    const next = writeField({ type: 'mkdir', target: 'x', if: 'y' }, target, '');
+    expect(next).toEqual({ type: 'mkdir', target: '', if: 'y' });
+    expect(Object.keys(next)).toEqual(['type', 'target', 'if']);
+    expect(writeField({ type: 'mkdir', target: 'x' }, target, undefined)).toEqual({ type: 'mkdir', target: '' });
+    expect(clearedValue(target)).toBe('');
   });
 
-  it('removes an emptied list', () => {
-    expect(writeField({ type: 'download', files: ['a'] }, files, [])).toEqual({ type: 'download' });
+  it('empties a required list instead of removing it, and removes an optional one', () => {
+    expect(writeField({ type: 'download', files: ['a'], if: 'x' }, files, [])).toEqual({ type: 'download', files: [], if: 'x' });
+    expect(clearedValue(files)).toEqual([]);
+    const extraArgs = field('steamgamedl', 'extraArgs');
+    expect(writeField({ type: 'steamgamedl', extraArgs: ['-beta'] }, extraArgs, [])).toEqual({ type: 'steamgamedl' });
+  });
+
+  it('a required field cleared still reports "required"', () => {
+    const issues = getOperation('mkdir')!.stepSchema.safeParse({ type: 'mkdir', target: '' }).error?.issues ?? [];
+    expect(issues.map((i) => i.message)).toContain('templates.editor.validation.required');
+    const list = getOperation('download')!.stepSchema.safeParse({ type: 'download', files: [] }).error?.issues ?? [];
+    expect(list.map((i) => i.message)).toContain('templates.editor.validation.required');
   });
 
   it('writes "" for a field whose factory reads "" as not given', () => {
@@ -171,9 +185,10 @@ describe('writing a field', () => {
     expect(writeField(step, appId, 'newer')).toEqual({ type: 'steamgamedl', appId: 'newer' });
   });
 
-  it('clearing a field under an older spelling removes it', () => {
+  it('clearing a field under an older spelling writes the field name in its place', () => {
     expect(writeField({ type: 'curseforge', fileID: '5' }, fileId, '')).toEqual({ type: 'curseforge', fileId: '' });
-    expect(writeField({ type: 'steamgamedl', appID: '5' }, appId, '')).toEqual({ type: 'steamgamedl' });
+    expect(writeField({ type: 'steamgamedl', appID: '5' }, appId, '')).toEqual({ type: 'steamgamedl', appId: '' });
+    expect(writeField({ type: 'steamgamedl', username: 'u', password: 'p' }, field('steamgamedl', 'username'), '')).toEqual({ type: 'steamgamedl', password: 'p' });
   });
 
   it('writes into the template at the step path, leaving non-objects alone', () => {
@@ -187,16 +202,22 @@ describe('writing a field', () => {
 
 describe('number fields', () => {
   it.each([
-    ['', undefined, undefined],
-    ['25', undefined, 25],
-    ['25', 7, 25],
-    ['-3', undefined, -3],
-    ['25', '7', '25'],
-    ['${port}', 25, '${port}'],
-    ['2x', undefined, '2x'],
-    ['99999999999999999999', undefined, '99999999999999999999'],
-  ])('%j (was %j) → %j', (text, previous, expected) => {
-    expect(numberFromText(text, previous)).toBe(expected);
+    ['', undefined],
+    ['25', 25],
+    ['-3', -3],
+    ['${port}', '${port}'],
+    // half typed or mistyped: kept as typed so its error shows, and a number again once fixed
+    ['-', '-'],
+    ['12a', '12a'],
+    ['99999999999999999999', '99999999999999999999'],
+  ])('%j → %j', (text, expected) => {
+    expect(numberFromText(text)).toBe(expected);
+  });
+
+  it('turns a string typed through back into a number', () => {
+    let value: unknown = 5;
+    for (const text of ['', '-', '-1', '-12']) value = numberFromText(text) ?? value;
+    expect(value).toBe(-12);
   });
 });
 
@@ -290,5 +311,21 @@ describe('maps and console settings', () => {
     expect(withStdinKey({ type: 'rcon', port: '1' }, 'port', '')).toEqual({ type: 'rcon' });
     expect(withStdinKey({ type: 'rconws' }, 'secure', false)).toEqual({ type: 'rconws', secure: false });
     expect(withStdinKey({ type: 'rconws', secure: false }, 'secure', undefined)).toEqual({ type: 'rconws' });
+  });
+});
+
+describe('folds opened by their content', () => {
+  const closed = { open: false, closedByUser: false };
+
+  it('opens when content needs to be seen, and stays open when it goes away', () => {
+    const opened = foldAfterContentChange(closed, true);
+    expect(opened.open).toBe(true);
+    expect(foldAfterContentChange(opened, false)).toBe(opened);
+  });
+
+  it('stays closed once the user closed it, and returns the same state when nothing changes', () => {
+    const userClosed = { open: false, closedByUser: true };
+    expect(foldAfterContentChange(userClosed, true)).toBe(userClosed);
+    expect(foldAfterContentChange(closed, false)).toBe(closed);
   });
 });

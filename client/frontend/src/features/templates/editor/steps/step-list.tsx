@@ -13,7 +13,7 @@ import { SortableList, useListIds } from '../sortable';
 import type { EditorIssue } from '../validation';
 import { copyStep, insertStep, newStep, removeStep, stepHasContent, stepsAt, stepType } from './model';
 import { OperationPalette } from './operation-palette';
-import { StepCard, stepToggleId, type StepActions } from './step-card';
+import { StepCard, stepMenuId, stepToggleId, type StepActions } from './step-card';
 
 // A list of steps the node runs in order: install, uninstall, and the run section's pre and post.
 // Each step is a card that folds to one line; steps are added from a searchable palette, moved by
@@ -56,6 +56,10 @@ export function StepList({ path, label, emptyTitle, emptyDescription }: Readonly
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   // the palette closes on a pick: the focus then goes to the new step, not back to the button
   const picked = useRef(false);
+  // the "…" button of the card whose menu opened the palette or the delete dialog: cancelling
+  // either hands the focus back there (the menu item that had it is gone)
+  const returnFocusTo = useRef<string | null>(null);
+  const deleted = useRef(false);
   const addId = `${fieldId(path)}-add`;
 
   // the latest values for the stable actions below
@@ -128,9 +132,14 @@ export function StepList({ path, label, emptyTitle, emptyDescription }: Readonly
         setExpanded((open) => new Set(open).add(id));
         focusSoon(stepToggleId(id));
       },
-      insertAfter: (index) => setPalette({ at: index + 1, after: index }),
+      insertAfter: (index) => {
+        returnFocusTo.current = stepMenuId(latest.current.ids[index]);
+        setPalette({ at: index + 1, after: index });
+      },
       remove: (index) => {
         if (stepHasContent(latest.current.steps[index])) {
+          returnFocusTo.current = stepMenuId(latest.current.ids[index]);
+          deleted.current = false;
           // once the menu has closed, so the dialog takes the focus from it
           setTimeout(() => setPendingDelete(index), 50);
           return;
@@ -178,7 +187,10 @@ export function StepList({ path, label, emptyTitle, emptyDescription }: Readonly
       type="button"
       variant="outline"
       className="w-full border-dashed bg-transparent text-muted-foreground hover:text-foreground"
-      onClick={() => setPalette({ at: latest.current.steps.length })}
+      onClick={() => {
+        returnFocusTo.current = null;
+        setPalette({ at: latest.current.steps.length });
+      }}
     >
       <Plus aria-hidden="true" />
       {t('templates.editor.steps.add')}
@@ -201,7 +213,11 @@ export function StepList({ path, label, emptyTitle, emptyDescription }: Readonly
           title={emptyTitle}
           description={emptyDescription}
           action={
-            <Button id={addId} type="button" variant="outline" size="sm" onClick={() => setPalette({ at: 0 })}>
+            <Button id={addId} type="button" variant="outline" size="sm" onClick={() => {
+                returnFocusTo.current = null;
+                setPalette({ at: 0 });
+              }}
+            >
               <Plus aria-hidden="true" />
               {t('templates.editor.steps.add')}
             </Button>
@@ -263,14 +279,25 @@ export function StepList({ path, label, emptyTitle, emptyDescription }: Readonly
         description={t('templates.editor.steps.palette.description')}
         onPick={add}
         onCloseAutoFocus={(e) => {
-          // after a pick the focus goes to the new step (focusSoon), not back to the button
-          if (picked.current) e.preventDefault();
+          // after a pick the focus goes to the new step (focusSoon); cancelled from a card's
+          // menu, back to that card's "…"; else the dialog returns it to "Añadir paso"
+          const target = returnFocusTo.current;
+          if (picked.current || target) e.preventDefault();
+          if (!picked.current && target) document.getElementById(target)?.focus();
           picked.current = false;
+          returnFocusTo.current = null;
         }}
       />
 
       <AlertDialog open={pendingDelete !== null} onOpenChange={(isOpen) => !isOpen && setPendingDelete(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent
+          onCloseAutoFocus={(e) => {
+            // deleted: the focus goes to the neighbour (deleteNow); cancelled: back to the "…"
+            e.preventDefault();
+            if (!deleted.current && returnFocusTo.current) document.getElementById(returnFocusTo.current)?.focus();
+            returnFocusTo.current = null;
+          }}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>{t('templates.editor.steps.deleteConfirm.title', { step: pendingName })}</AlertDialogTitle>
             <AlertDialogDescription>{t('templates.editor.steps.deleteConfirm.description')}</AlertDialogDescription>
@@ -280,6 +307,7 @@ export function StepList({ path, label, emptyTitle, emptyDescription }: Readonly
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
+                deleted.current = true;
                 if (pendingDelete !== null) deleteNow(pendingDelete);
                 setPendingDelete(null);
               }}

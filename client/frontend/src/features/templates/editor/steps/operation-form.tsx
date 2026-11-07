@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { ChevronRight } from '@/components/icons';
 import { useTranslations } from '@/contexts/translations-context';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,7 @@ import { KeyValueControl } from './key-value-control';
 import { fieldKey, isEmptyValue, writeFieldIn } from './model';
 import { StdinControl } from './stdin-control';
 import { StringListControl } from './string-list-control';
+import { useLatchedOpen } from './use-latched-open';
 
 // A step's form, drawn from the registry (schema/operations.ts): one control per argument, of
 // the kind its widget names, with its texts, required mark, placeholder and issues. Seldom used
@@ -102,8 +103,9 @@ export function OperationForm({ operation, step, stepPath, issues }: Readonly<{
 
   const basic = operation.fields.filter((f) => !f.advanced);
   const advanced = operation.fields.filter((f) => f.advanced);
-  const [advancedChoice, setAdvancedChoice] = useState<boolean | null>(null);
-  const advancedOpen = advancedChoice ?? anyInUse(advanced, step, stepPath, issues);
+  // opens for a value or an issue, then stays open until closed: clearing the only advanced
+  // value must not fold away the field being typed in
+  const { isOpen: advancedOpen, toggle: toggleAdvanced } = useLatchedOpen(anyInUse(advanced, step, stepPath, issues));
   const advancedId = `${fieldId(stepPath)}-advanced`;
 
   // arguments the form has no control for (a newer node's, a typo): kept, and named here
@@ -130,7 +132,7 @@ export function OperationForm({ operation, step, stepPath, issues }: Readonly<{
             type="button"
             aria-expanded={advancedOpen}
             aria-controls={advancedOpen ? advancedId : undefined}
-            onClick={() => setAdvancedChoice(!advancedOpen)}
+            onClick={toggleAdvanced}
             className="flex w-full items-center gap-2 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors duration-150 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
           >
             <ChevronRight

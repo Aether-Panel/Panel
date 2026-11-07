@@ -116,13 +116,12 @@ function Row({ sortId, entryKey, value, index, count, path, label, keyPlaceholde
             {variables && <InsertVariableButton compact onInsert={insert} className="h-9 w-9 shrink-0" />}
           </div>
         </div>
-        {/* on a phone the row needs the room: it moves by its handle there (touch or keyboard) */}
-        <MoveButtons index={index} count={count} label={name} onMove={onMove} className="mt-0.5 hidden sm:flex" />
+        <MoveButtons index={index} count={count} label={name} onMove={onMove} dense className="mt-0.5" />
         <button
           type="button"
           onClick={() => onRemove(index)}
           aria-label={t('templates.editor.steps.list.remove', { item: name })}
-          className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+          className="mt-0.5 grid h-8 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>

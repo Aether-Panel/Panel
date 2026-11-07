@@ -4169,7 +4169,8 @@
           "syntax": "The JSON isn't valid ({{detail}}); the step keeps its last valid version.",
           "notObject": "A step must be an object in braces; the step keeps its last valid version.",
           "unknownHint": "The panel has no form for “{{type}}”: it may come from a newer version or be a typo. Edit it here or change its type.",
-          "invalidHint": "This step isn't an object, so it can't run. Write it as {\"type\": …}."
+          "invalidHint": "This step isn't an object, so it can't run. Write it as {\"type\": …}.",
+          "invalidState": "The step's JSON isn't valid."
         },
         "palette": {
           "title": "Add step",

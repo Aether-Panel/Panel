@@ -43,11 +43,18 @@ export function readField(step: JsonObject, field: OperationField): unknown {
 }
 
 /**
- * What clearing a field writes: nothing (the key goes away), except for an argument whose
- * factory reads "" as not given (emptyIsUnset: curseforge's fileId), where "" keeps its place.
- * Any other "" would be a value the node reads, or rejects.
+ * What clearing a field writes:
+ * - an optional field: nothing, the key goes away; except an argument whose factory reads "" as
+ *   not given (emptyIsUnset: curseforge's fileId, backup's offsite), where "" keeps its place;
+ * - a required field: the control's empty value ("", [] or {}), so the key keeps its place in the
+ *   JSON while the form says it is required.
  */
-export function clearedValue(field: OperationField): '' | undefined {
+export function clearedValue(field: OperationField): '' | [] | Record<string, never> | undefined {
+  if (field.required) {
+    if (field.widget.kind === 'stringList') return [];
+    if (field.widget.kind === 'keyValue') return {};
+    return '';
+  }
   return field.emptyIsUnset ? '' : undefined;
 }
 
@@ -60,7 +67,7 @@ export function isEmptyValue(value: unknown): boolean {
 
 /**
  * The step with `value` for `field`, written under the field's own name:
- * - an empty value clears the field (see clearedValue);
+ * - an empty value clears the field (see clearedValue: removed, or the empty value of a required one);
  * - a switch turned back to the node's default removes the key, as if never set;
  * - an older spelling the value was under is replaced in place by the field's name (and any
  *   other spelling removed), so editing `appID` leaves one `appId` where it was.
@@ -99,14 +106,14 @@ export function writeFieldIn(template: JsonObject, stepPath: Path, field: Operat
 }
 
 /**
- * The value a number field's text stands for. Digits become a number, unless the value was a
- * string before ("25565" stays a string: the node casts either); anything else stays the text
- * typed, so `${port}` works where variables do and a typo shows its error instead of vanishing.
- * Empty text is undefined: the field is cleared.
+ * The value a number field's text stands for: a whole number becomes a JSON number (the node
+ * casts a digit string the same way, and some arguments read numbers only); anything else stays
+ * the text typed, so `${port}` works where variables do and a half typed or mistyped value shows
+ * its error instead of vanishing. Empty text is undefined: the field is cleared.
  */
-export function numberFromText(text: string, previous: unknown): number | string | undefined {
+export function numberFromText(text: string): number | string | undefined {
   if (text === '') return undefined;
-  if (/^-?\d+$/.test(text) && typeof previous !== 'string') {
+  if (/^-?\d+$/.test(text)) {
     const n = Number(text);
     if (Number.isSafeInteger(n)) return n;
   }
@@ -157,4 +164,18 @@ export function withStdinKey(config: JsonObject, key: string, value: unknown): J
   if (value === undefined || value === '') delete next[key];
   else next[key] = value;
   return next;
+}
+
+/** A fold's state: whether it is open, and whether the user closed it. */
+export interface FoldState {
+  open: boolean;
+  closedByUser: boolean;
+}
+
+/**
+ * A fold after its content changed: content that needs to be seen (`inUse`) opens it unless the
+ * user closed it; content that went away never closes it. The same state when nothing changes.
+ */
+export function foldAfterContentChange(state: FoldState, inUse: boolean): FoldState {
+  return inUse && !state.open && !state.closedByUser ? { open: true, closedByUser: false } : state;
 }

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from 'react';
+import { useLayoutEffect } from 'react';
 import { ChevronRight } from '@/components/icons';
 import { useTranslations } from '@/contexts/translations-context';
 import { cn } from '@/lib/utils';
@@ -7,6 +7,7 @@ import { IssueCountBadges } from '../section-nav';
 import { countIssues, isUnderPath } from '../validation';
 import { stepsAt } from './model';
 import { StepList } from './step-list';
+import { useLatchedOpen } from './use-latched-open';
 
 // Instalación: the steps that set up a server's files when it is installed (or reinstalled), and,
 // folded below, the optional ones that clean up when it is uninstalled.
@@ -16,14 +17,14 @@ export function InstallSection() {
   const { template, issues, focusRequest } = useTemplateEditor();
   const uninstallCount = stepsAt(template, ['uninstall']).length;
   const uninstallIssues = countIssues(issues.filter((i) => isUnderPath(i.path, 'uninstall')));
-  // folded unless it has steps or something to fix; the user's own choice wins after that
-  const [uninstallChoice, setUninstallChoice] = useState<boolean | null>(null);
-  const uninstallOpen = uninstallChoice ?? (uninstallCount > 0 || uninstallIssues.errors + uninstallIssues.warnings > 0);
+  // folded unless it has steps or something to fix, then open until the user closes it:
+  // deleting the last step keeps it open, so the focus can go to its "Añadir paso"
+  const { isOpen: uninstallOpen, toggle, open } = useLatchedOpen(uninstallCount > 0 || uninstallIssues.errors + uninstallIssues.warnings > 0);
 
   // goTo() on an uninstall step opens the fold before its card opens and the field is focused
   useLayoutEffect(() => {
-    if (focusRequest?.path[0] === 'uninstall') setUninstallChoice(true);
-  }, [focusRequest]);
+    if (focusRequest?.path[0] === 'uninstall') open();
+  }, [focusRequest, open]);
 
   return (
     <div className="divide-y divide-border/50">
@@ -41,7 +42,7 @@ export function InstallSection() {
           type="button"
           aria-expanded={uninstallOpen}
           aria-controls={uninstallOpen ? 'template-uninstall-body' : undefined}
-          onClick={() => setUninstallChoice(!uninstallOpen)}
+          onClick={toggle}
           className="flex w-full items-start gap-3 px-5 py-4 text-left transition-colors duration-150 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70 md:px-6"
         >
           <ChevronRight

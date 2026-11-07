@@ -83,14 +83,13 @@ function Row({ sortId, inputId, text, index, count, label, placeholder, mono, is
           autoComplete="off"
           spellCheck={false}
         />
-        {/* on a phone the line needs the room: rows move by their handle there (touch or keyboard) */}
-        {!phantom && <MoveButtons index={index} count={count} label={name} onMove={onMove} className="hidden sm:flex" />}
+        {!phantom && <MoveButtons index={index} count={count} label={name} onMove={onMove} dense />}
         {!phantom && (
           <button
             type="button"
             onClick={() => onRemove(index)}
             aria-label={t('templates.editor.steps.list.remove', { item: name })}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+            className="grid h-8 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -123,8 +122,14 @@ export function StringListControl({ id, path, label, required = false, hint, pla
   onChange: (value: string[]) => void;
 }>) {
   const { t } = useTranslations();
-  // a single string is read as a list of one, and any other value is left to the JSON
-  const editable = value === undefined || value === null || typeof value === 'string' || Array.isArray(value);
+  // a single string is read as a list of one; anything else, or a list holding something other
+  // than text, a number or a boolean, is left to the step's JSON: writing any row would turn
+  // that item into text
+  const editable =
+    value === undefined ||
+    value === null ||
+    typeof value === 'string' ||
+    (Array.isArray(value) && value.every((item) => ['string', 'number', 'boolean'].includes(typeof item)));
   let items: string[] = [];
   if (Array.isArray(value)) items = value.map(textValue);
   else if (typeof value === 'string') items = [value];
