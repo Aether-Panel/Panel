@@ -186,7 +186,7 @@ function StepCardView({ id, listPath, index, count, step, expanded, issues, acti
                   setJsonChosen(!json);
                   actions.expand(id);
                   // into the editor that now shows
-                  requestAnimationFrame(() => document.getElementById(json ? stepToggleId(id) : `step-${id}-json`)?.focus());
+                  requestAnimationFrame(() => document.getElementById(json ? stepToggleId(id) : fieldId(stepPath))?.focus());
                 }}
               >
                 {json ? <LayoutTemplate className="mr-2 h-4 w-4" aria-hidden="true" /> : <FileJson className="mr-2 h-4 w-4" aria-hidden="true" />}
@@ -262,7 +262,7 @@ function StepCardView({ id, listPath, index, count, step, expanded, issues, acti
                   {t(isObject ? 'templates.editor.steps.json.unknownHint' : 'templates.editor.steps.json.invalidHint', { type: type ?? '' })}
                 </p>
               )}
-              <StepJsonEditor id={`step-${id}-json`} step={step} stepPath={stepPath} issues={issues} onApply={(next) => update(stepPath, next)} />
+              <StepJsonEditor id={fieldId(stepPath)} step={step} stepPath={stepPath} issues={issues} onApply={(next) => update(stepPath, next)} />
             </>
           ) : (
             isObject &&
