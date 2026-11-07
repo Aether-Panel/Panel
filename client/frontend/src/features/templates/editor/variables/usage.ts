@@ -25,10 +25,12 @@ const STEP_TOKENS: Record<string, Record<string, readonly string[]>> = { scraper
 
 /**
  * Variables the panel reads by name, outside any command: the resource limits (cpu, memory,
- * disk), the address (ip, port), the MOTD the server settings show and the mod launcher the
- * world map and version detection look at. A template defines them without using them.
+ * disk), the address (ip, port), the MOTD the server settings show, the mod launcher the world
+ * map and version detection look at, and the Java and game versions modpack installs use
+ * (internal/servers/modpack_loader.go javaSetup, modpack.go's platform). A template defines them
+ * without using them.
  */
-export const PANEL_VARIABLES: ReadonlySet<string> = new Set(['cpu', 'memory', 'disk', 'ip', 'port', 'motd', 'modlauncher']);
+export const PANEL_VARIABLES: ReadonlySet<string> = new Set(['cpu', 'memory', 'disk', 'ip', 'port', 'motd', 'modlauncher', 'javaversion', 'version']);
 
 const TOKEN = /\$\{([^}]*)\}/g;
 // a CEL string literal: '…' or "…" with backslash escapes (triple quotes read as an empty literal
@@ -313,8 +315,10 @@ export function referenceCount(usage: VariableUsage, key: string): number {
 
 /**
  * Renames the variable `from` to `to` where it is used: its `${from}` tokens and, in conditions,
- * its bare name. Gives back the template (itself when nothing changed) and how many places
- * changed. The variable's own key and the groups are not touched here (see renameVariable).
+ * its bare name. A condition cannot read a name with a hyphen (or a leading digit), so when `to`
+ * is one of those the bare names stay as they are, and the condition warnings point at them.
+ * Gives back the template (itself when nothing changed) and how many places changed. The
+ * variable's own key and the groups are not touched here (see renameVariable).
  */
 export function renameVariableUsages(template: JsonObject, from: string, to: string): { template: JsonObject; count: number } {
   if (from === to) return { template, count: 0 };
@@ -326,13 +330,14 @@ export function renameVariableUsages(template: JsonObject, from: string, to: str
     return text.split(token).join(`\${${to}}`);
   };
   const name = conditionNamePattern(from);
+  const renameNames = CONDITION_SAFE_VARIABLE_KEY.test(to);
   const next = mapTemplate(template, {
     text: (value, _path, local) => replaceTokens(value, local),
     condition(value) {
       const withTokens = value.includes(token) ? value.split(token).join(`\${${to}}`) : value;
       const renamed = mapConditionCode(withTokens, (code) =>
         // keep tokens of other names intact while renaming bare names
-        code.replace(/\$\{[^}]*\}|[^$]+|\$/g, (part) => (part.startsWith('${') ? part : part.replace(name, to))),
+        code.replace(/\$\{[^}]*\}|[^$]+|\$/g, (part) => (part.startsWith('${') || !renameNames ? part : part.replace(name, to))),
       );
       if (renamed !== value) count++;
       return renamed;

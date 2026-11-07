@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import type { JsonObject } from '../paths';
 import { validateTemplate } from '../validation';
 import {
-  booleanValue, insertVariable, integerFromText, newOption, newVariable, optionValueFromText, sameOptionValue, uniqueVariableKey, withVariableType,
+  booleanValue, insertVariable, integerFromText, isPinnedKey, newOption, newVariable, optionValueFromText, sameOptionValue, uniqueVariableKey, usesOptions,
+  withVariableType,
 } from './model';
 import { conditionVariableKeys, undefinedConditionVariables, undefinedVariables, unusedVariables } from './rules';
 import { analyzeVariableUsage, deleteVariable, referenceCount, renameVariable, renameVariableUsages } from './usage';
@@ -94,7 +95,15 @@ describe('variable warnings', () => {
 
   it('warn about variables nothing uses, except the ones the panel reads', () => {
     const template = {
-      data: { memory: variable(), ip: variable(), unused: variable({ internal: true }), used: variable(), cond: variable() },
+      data: {
+        memory: variable(),
+        ip: variable(),
+        javaversion: variable(),
+        version: variable(),
+        unused: variable({ internal: true }),
+        used: variable(),
+        cond: variable(),
+      },
       run: { command: '${used}' },
       install: [{ type: 'mkdir', target: 'a', if: 'cond' }],
     };
@@ -154,6 +163,15 @@ describe('renaming a variable', () => {
     const t = { install: [{ type: 'mkdir', target: '${level-name}', if: "level-name != '' && name != ''" }] };
     expect(renameVariableUsages(t, 'level-name', 'levelName').template).toEqual({ install: [{ type: 'mkdir', target: '${levelName}', if: "levelName != '' && name != ''" }] });
     expect(renameVariableUsages(t, 'name', 'title').template.install).toEqual([{ type: 'mkdir', target: '${level-name}', if: "level-name != '' && title != ''" }]);
+  });
+
+  it('leaves conditions alone when the new key has a hyphen, which a condition cannot read', () => {
+    const t = { install: [{ type: 'mkdir', target: '${level}', if: "level != '' && '${level}' != 'x'" }] };
+    const { template: next, count } = renameVariableUsages(t, 'level', 'level-name');
+    expect(next.install).toEqual([{ type: 'mkdir', target: '${level-name}', if: "level != '' && '${level-name}' != 'x'" }]);
+    expect(count).toBe(2);
+    // the bare name left behind is reported, so the author sees what to fix
+    expect(undefinedConditionVariables({ data: { 'level-name': variable() }, ...next }).map((w) => w.params?.name)).toEqual(['level']);
   });
 
   it('keeps the key in place and follows it in the groups', () => {
@@ -218,6 +236,19 @@ describe('variable model', () => {
     expect(booleanValue('F')).toBe(false);
     expect(booleanValue(1)).toBe(true);
     expect(booleanValue('yes')).toBeUndefined();
+  });
+
+  it('shows a list whenever there are options, whatever the type', () => {
+    expect(usesOptions({ type: 'option' })).toBe(true);
+    expect(usesOptions({ type: 'string', options: [{ value: 'a' }] })).toBe(true);
+    expect(usesOptions({ type: 'string', options: [] })).toBe(false);
+    expect(usesOptions({ type: 'boolean', options: null })).toBe(false);
+  });
+
+  it('knows the keys JavaScript always lists first', () => {
+    for (const key of ['0', '1', '25', '4294967294']) expect(isPinnedKey(key), key).toBe(true);
+    for (const key of ['01', '-1', '1a', 'port', '4294967295', '']) expect(isPinnedKey(key), key).toBe(false);
+    expect(Object.keys({ port: 1, 25: 2 })).toEqual(['25', 'port']);
   });
 
   it('keeps an option value a number while it is one', () => {

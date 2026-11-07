@@ -9,7 +9,7 @@ import { isPlainObject, type JsonObject, type Path } from '../paths';
 import { IssueCountBadges } from '../section-nav';
 import { DragHandle, MoveButtons, useSortableItem } from '../sortable';
 import { countIssues, type EditorIssue } from '../validation';
-import { isKnownType, variableType } from './model';
+import { isKnownType, isPinnedKey, usesOptions, variableType } from './model';
 import { OptionList } from './option-list';
 import { DescriptionField, DisplayField, FlagSwitches, KeyField, TypeField, ValueField } from './variable-fields';
 
@@ -24,6 +24,8 @@ export interface VariableActions {
   /** Deletes the variable, or asks first when something uses it; true when it asks. */
   remove: (key: string) => boolean;
   isKeyTaken: (key: string) => boolean;
+  /** The editor's registerPendingCommit, for the key being typed. */
+  registerPendingCommit: (commit: () => void) => () => void;
 }
 
 export interface VariableCardProps {
@@ -34,8 +36,12 @@ export interface VariableCardProps {
   variable: unknown;
   index: number;
   count: number;
+  /** The first position a movable card can take: number-like keys stay above it (isPinnedKey). */
+  firstMovable: number;
   /** How many places use the variable. */
   uses: number;
+  /** How many of those are conditions reading it by name. */
+  conditionUses: number;
   expanded: boolean;
   /** The issues under data.<key>. */
   issues: readonly EditorIssue[];
@@ -46,9 +52,10 @@ export interface VariableCardProps {
 
 export const cardToggleId = (id: string) => `variable-${id}-toggle`;
 
-function VariableCardView({ id, variableKey, variable: raw, index, count, uses, expanded, issues, actions }: Readonly<VariableCardProps>) {
+function VariableCardView({ id, variableKey, variable: raw, index, count, firstMovable, uses, conditionUses, expanded, issues, actions }: Readonly<VariableCardProps>) {
   const { t } = useTranslations();
-  const { ref, style, isDragging, handleProps } = useSortableItem(id);
+  const pinned = isPinnedKey(variableKey);
+  const { ref, style, isDragging, handleProps } = useSortableItem(id, pinned);
   const variable: JsonObject = isPlainObject(raw) ? raw : {};
   const path = ['data', variableKey];
   const type = variableType(variable);
@@ -76,7 +83,10 @@ function VariableCardView({ id, variableKey, variable: raw, index, count, uses, 
       )}
     >
       <div className="flex items-center gap-1 py-1.5 pl-1.5 pr-1 sm:gap-1.5 sm:pl-2">
-        <DragHandle handleProps={handleProps} label={t('templates.editor.sortable.handle', { item: variableKey })} />
+        <DragHandle
+          handleProps={handleProps}
+          label={pinned ? t('templates.editor.variables.key.pinned') : t('templates.editor.sortable.handle', { item: variableKey })}
+        />
         <button
           type="button"
           id={cardToggleId(id)}
@@ -97,7 +107,14 @@ function VariableCardView({ id, variableKey, variable: raw, index, count, uses, 
           </span>
           <IssueCountBadges counts={countIssues(issues)} />
         </button>
-        <MoveButtons index={index} count={count} label={variableKey} onMove={actions.move} />
+        <MoveButtons
+          index={index}
+          count={count}
+          label={variableKey}
+          onMove={actions.move}
+          min={firstMovable}
+          lockedReason={pinned ? t('templates.editor.variables.key.pinned') : undefined}
+        />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -142,13 +159,13 @@ function VariableCardView({ id, variableKey, variable: raw, index, count, uses, 
       {expanded && (
         <div id={bodyId} className="space-y-5 border-t border-border/50 px-4 py-5 sm:px-5">
           <div className="grid gap-5 sm:grid-cols-2">
-            <KeyField variableKey={variableKey} uses={uses} issues={issues.filter((i) => i.path === `data.${variableKey}`)} actions={actions} />
+            <KeyField variableKey={variableKey} uses={uses} conditionUses={conditionUses} issues={issues.filter((i) => i.path === `data.${variableKey}`)} actions={actions} />
             <TypeField {...fieldProps} />
             <DisplayField {...fieldProps} />
             <ValueField {...fieldProps} />
           </div>
           <DescriptionField {...fieldProps} />
-          {type === 'option' && <OptionList {...fieldProps} />}
+          {usesOptions(variable) && <OptionList {...fieldProps} />}
           <FlagSwitches {...fieldProps} />
         </div>
       )}
@@ -169,7 +186,9 @@ export const VariableCard = memo(
     a.variable === b.variable &&
     a.index === b.index &&
     a.count === b.count &&
+    a.firstMovable === b.firstMovable &&
     a.uses === b.uses &&
+    a.conditionUses === b.conditionUses &&
     a.expanded === b.expanded &&
     a.issuesKey === b.issuesKey &&
     a.actions === b.actions,

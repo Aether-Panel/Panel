@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors,
   type Announcements, type DragEndEvent, type Modifier, type UniqueIdentifier,
@@ -118,10 +118,12 @@ export function useListIds(count: number) {
 }
 
 /** What a sortable item spreads: `ref` and `style` on its outer element, `handleProps` on its handle. */
-export function useSortableItem(id: string) {
+export function useSortableItem(id: string, disabled = false) {
   const { t } = useTranslations();
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id,
+    // an item that cannot move (its handle says why) is not picked up
+    disabled,
     attributes: { roleDescription: t('templates.editor.sortable.roleDescription') },
   });
   const style: CSSProperties = {
@@ -145,7 +147,7 @@ export function DragHandle({ handleProps, label, className }: Readonly<{ handleP
       aria-label={label}
       className={cn(
         // touch-none: on a phone the finger drags the item instead of scrolling the page
-        'grid h-8 w-6 shrink-0 cursor-grab touch-none place-items-center rounded-md text-muted-foreground/70 transition-colors duration-150 hover:bg-accent/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 active:cursor-grabbing',
+        'grid h-8 w-6 shrink-0 cursor-grab touch-none place-items-center rounded-md text-muted-foreground/70 transition-colors duration-150 hover:bg-accent/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 active:cursor-grabbing aria-disabled:cursor-not-allowed aria-disabled:opacity-35',
         className,
       )}
     >
@@ -158,20 +160,26 @@ export function DragHandle({ handleProps, label, className }: Readonly<{ handleP
  * ↑ and ↓ for an item at `index` of `count`. At an end the button stays focusable (aria-disabled),
  * so focus is not lost when an item reaches the top; it follows the item after the move.
  */
-export function MoveButtons({ index, count, label, onMove, className }: Readonly<{
+export function MoveButtons({ index, count, label, onMove, min = 0, lockedReason, className }: Readonly<{
   index: number;
   count: number;
   label: string;
   onMove: (from: number, to: number) => void;
+  /** The first position the item can take (items above it cannot be passed). */
+  min?: number;
+  /** Why the item cannot move at all; both buttons are then off and describe it. */
+  lockedReason?: string;
   className?: string;
 }>) {
   const { t } = useTranslations();
   const announce = useContext(AnnounceContext);
   const up = useRef<HTMLButtonElement>(null);
   const down = useRef<HTMLButtonElement>(null);
+  const reasonId = useId();
+  const locked = lockedReason !== undefined;
 
   const move = (to: number, button: HTMLButtonElement | null) => {
-    if (to < 0 || to >= count) return;
+    if (locked || to < min || to >= count) return;
     onMove(index, to);
     announce(t('templates.editor.sortable.movedTo', { item: label, position: to + 1, count }));
     // React may re-insert the item's element to reorder the list, which drops its focus
@@ -180,14 +188,21 @@ export function MoveButtons({ index, count, label, onMove, className }: Readonly
 
   const buttonClass =
     'grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-accent/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 aria-disabled:pointer-events-none aria-disabled:opacity-35';
+  const described = locked ? { 'aria-describedby': reasonId, title: lockedReason } : {};
   return (
     <span className={cn('flex shrink-0 items-center', className)}>
+      {locked && (
+        <span id={reasonId} className="sr-only">
+          {lockedReason}
+        </span>
+      )}
       <button
         ref={up}
         type="button"
         className={buttonClass}
         aria-label={t('templates.editor.sortable.moveUp', { item: label })}
-        aria-disabled={index === 0}
+        aria-disabled={locked || index <= min}
+        {...described}
         onClick={() => move(index - 1, up.current)}
       >
         <ArrowUp className="h-4 w-4" aria-hidden="true" />
@@ -197,7 +212,8 @@ export function MoveButtons({ index, count, label, onMove, className }: Readonly
         type="button"
         className={buttonClass}
         aria-label={t('templates.editor.sortable.moveDown', { item: label })}
-        aria-disabled={index === count - 1}
+        aria-disabled={locked || index === count - 1}
+        {...described}
         onClick={() => move(index + 1, down.current)}
       >
         <ArrowDown className="h-4 w-4" aria-hidden="true" />

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,7 +13,7 @@ import { FieldIssues, INVALID_CONTROL, issuesId, TemplateField, textValue } from
 import { pathKey, type JsonObject, type Path } from '../paths';
 import type { EditorIssue } from '../validation';
 import {
-  booleanValue, integerFromText, isValidVariableKey, sameOptionValue, variableOptions, variableType, withVariableType,
+  booleanValue, integerFromText, isPinnedKey, isValidVariableKey, sameOptionValue, usesOptions, variableOptions, variableType, withVariableType,
 } from './model';
 import type { VariableActions } from './variable-card';
 
@@ -31,9 +31,11 @@ export function issuesFor(issues: readonly EditorIssue[], path: Path): EditorIss
  * typed key could clash with another or be invalid, and renaming moves the uses along with it.
  * Escape goes back to the saved key.
  */
-export function KeyField({ variableKey, uses, issues, actions }: Readonly<{
+export function KeyField({ variableKey, uses, conditionUses, issues, actions }: Readonly<{
   variableKey: string;
   uses: number;
+  /** Uses that are conditions reading the key by name. */
+  conditionUses: number;
   issues: readonly EditorIssue[];
   actions: VariableActions;
 }>) {
@@ -66,9 +68,18 @@ export function KeyField({ variableKey, uses, issues, actions }: Readonly<{
     actions.rename(variableKey, draft, uses > 0 && renameUses);
   };
 
+  // a valid key still being typed counts as unsaved, and saving (Ctrl+S) writes it first
+  const { registerPendingCommit } = actions;
+  const commitRef = useRef(commit);
+  commitRef.current = commit;
+  const pending = changed && problem === null;
+  useEffect(() => (pending ? registerPendingCommit(() => commitRef.current()) : undefined), [pending, registerPendingCommit]);
+
   const hints = [t('templates.editor.variables.key.hint')];
   if (uses > 0) hints.push(uses === 1 ? t('templates.editor.variables.key.usedOne') : t('templates.editor.variables.key.usedMany', { count: uses }));
   const unsafe = isValidVariableKey(variableKey) && !CONDITION_SAFE_VARIABLE_KEY.test(variableKey);
+  // a condition cannot name a key with a hyphen, so renaming to one leaves conditions as they are
+  const keepsConditions = conditionUses > 0 && !CONDITION_SAFE_VARIABLE_KEY.test(draft);
 
   return (
     <div
@@ -85,6 +96,7 @@ export function KeyField({ variableKey, uses, issues, actions }: Readonly<{
           <>
             {hints.join(' ')}
             {unsafe && <span className="mt-1 block text-warning">{t('templates.editor.variables.key.conditionUnsafe', { token: `\${${variableKey}}` })}</span>}
+            {isPinnedKey(variableKey) && <span className="mt-1 block text-warning">{t('templates.editor.variables.key.pinned')}</span>}
           </>
         }
         issues={[...draftIssues, ...issues]}
@@ -120,6 +132,11 @@ export function KeyField({ variableKey, uses, issues, actions }: Readonly<{
               from: `\${${variableKey}}`,
               to: `\${${draft}}`,
             })}
+            {keepsConditions && (
+              <span className="mt-1 block text-warning">
+                {t(conditionUses === 1 ? 'templates.editor.variables.key.renameKeepsConditionOne' : 'templates.editor.variables.key.renameKeepsConditionMany', { count: conditionUses })}
+              </span>
+            )}
           </Label>
         </div>
       )}
@@ -177,23 +194,8 @@ export function ValueField({ path, variable, issues, update }: Readonly<PartProp
   const label = t('templates.editor.variables.value.label');
   const fieldIssues = issuesFor(issues, valuePath);
 
-  if (type === 'boolean') {
-    const checked = booleanValue(value) === true;
-    return (
-      <TemplateField id={id} label={label} issues={fieldIssues}>
-        {(props) => (
-          <div className="flex h-10 items-center gap-3">
-            <Switch {...props} checked={checked} onCheckedChange={(v) => update(valuePath, v)} />
-            <span className="text-sm text-muted-foreground" aria-hidden="true">
-              {t(checked ? 'templates.editor.variables.value.yes' : 'templates.editor.variables.value.no')}
-            </span>
-          </div>
-        )}
-      </TemplateField>
-    );
-  }
-
-  if (type === 'option') {
+  // the create form offers a list whenever there are options, whatever the type says
+  if (usesOptions(variable)) {
     const options = variableOptions(variable);
     const index = options.findIndex((o) => sameOptionValue(o.value, value));
     const hasCurrent = index < 0 && value !== undefined && value !== null && value !== '';
@@ -232,6 +234,22 @@ export function ValueField({ path, variable, issues, update }: Readonly<PartProp
               ))}
             </SelectContent>
           </Select>
+        )}
+      </TemplateField>
+    );
+  }
+
+  if (type === 'boolean') {
+    const checked = booleanValue(value) === true;
+    return (
+      <TemplateField id={id} label={label} issues={fieldIssues}>
+        {(props) => (
+          <div className="flex h-10 items-center gap-3">
+            <Switch {...props} checked={checked} onCheckedChange={(v) => update(valuePath, v)} />
+            <span className="text-sm text-muted-foreground" aria-hidden="true">
+              {t(checked ? 'templates.editor.variables.value.yes' : 'templates.editor.variables.value.no')}
+            </span>
+          </div>
         )}
       </TemplateField>
     );

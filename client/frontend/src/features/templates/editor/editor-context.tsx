@@ -29,6 +29,7 @@ export interface TemplateEditorValue {
   template: JsonObject;
   jsonText: string;
   jsonProblem: Document.JsonProblem | null;
+  /** Unsaved changes, counting edits a field holds back until it is left (see registerPendingCommit). */
   dirty: boolean;
   /** The name the template was opened or last saved under; undefined until a new one is saved. */
   originalName: string | undefined;
@@ -66,6 +67,15 @@ export interface TemplateEditorValue {
   releaseInsertTarget: (target: InsertTarget) => void;
   /** Inserts `text` at the caret of the field last focused; false when there is none. */
   insertIntoField: (text: string) => boolean;
+
+  /**
+   * For a field that writes its value only when it is left (a variable's key): while it holds a
+   * valid edit not written yet, it registers the function that writes it, and unregisters with
+   * the function returned. The edit then counts as unsaved, and saving writes it first.
+   */
+  registerPendingCommit: (commit: () => void) => () => void;
+  /** Writes every held-back edit now. Wrap it in flushSync to read the result right after. */
+  flushPendingCommits: () => void;
 }
 
 const TemplateEditorContext = createContext<TemplateEditorValue | null>(null);
@@ -100,6 +110,9 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
   const [section, setSection] = useState<EditorSectionId>('info');
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
   const insertTarget = useRef<InsertTarget | null>(null);
+  const pendingCommits = useRef(new Set<() => void>());
+  // how many fields hold an edit back, so `dirty` follows them
+  const [pendingCount, setPendingCount] = useState(0);
 
   const update = useCallback((path: Path, value: unknown) => setDoc((d) => Document.updateAt(d, path, value)), []);
   const remove = useCallback((path: Path) => setDoc((d) => Document.removeAt(d, path)), []);
@@ -143,6 +156,18 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
   const releaseInsertTarget = useCallback((target: InsertTarget) => {
     if (insertTarget.current === target) insertTarget.current = null;
   }, []);
+  const registerPendingCommit = useCallback((commit: () => void) => {
+    pendingCommits.current.add(commit);
+    setPendingCount(pendingCommits.current.size);
+    return () => {
+      pendingCommits.current.delete(commit);
+      setPendingCount(pendingCommits.current.size);
+    };
+  }, []);
+  const flushPendingCommits = useCallback(() => {
+    for (const commit of [...pendingCommits.current]) commit();
+  }, []);
+
   const insertIntoField = useCallback((text: string) => {
     if (!insertTarget.current) return false;
     insertTarget.current.insert(text);
@@ -154,7 +179,7 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
       template: doc.template,
       jsonText: doc.jsonText,
       jsonProblem: doc.jsonProblem,
-      dirty: Document.isDirty(doc),
+      dirty: Document.isDirty(doc) || pendingCount > 0,
       originalName,
       namesUnchecked: takenNames === null,
       recheckNames,
@@ -174,8 +199,10 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
       setInsertTarget,
       releaseInsertTarget,
       insertIntoField,
+      registerPendingCommit,
+      flushPendingCommits,
     }),
-    [doc, originalName, takenNames, recheckNames, update, remove, change, setJsonText, markSaved, issues, issuesAt, view, section, goTo, focusRequest, setInsertTarget, releaseInsertTarget, insertIntoField],
+    [doc, originalName, takenNames, recheckNames, update, remove, change, setJsonText, markSaved, issues, issuesAt, view, section, goTo, focusRequest, setInsertTarget, releaseInsertTarget, insertIntoField, pendingCount, registerPendingCommit, flushPendingCommits],
   );
 
   return <TemplateEditorContext.Provider value={value}>{children}</TemplateEditorContext.Provider>;

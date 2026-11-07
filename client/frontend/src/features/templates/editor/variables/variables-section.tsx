@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
@@ -10,12 +10,20 @@ import { fieldId, useTemplateEditor } from '../editor-context';
 import { isPlainObject, moveIn, type JsonObject } from '../paths';
 import { SortableList } from '../sortable';
 import { isUnderPath, type EditorIssue } from '../validation';
-import { insertVariable, newVariable, uniqueVariableKey } from './model';
-import { analyzeVariableUsage, deleteVariable, referenceCount, renameVariable, templateVariables } from './usage';
+import { insertVariable, isPinnedKey, newVariable, uniqueVariableKey } from './model';
+import { analyzeVariableUsage, deleteVariable, referenceCount, renameVariable, templateVariables, type VariableUsage } from './usage';
 import { cardToggleId, VariableCard, type VariableActions } from './variable-card';
 
 // Variables: the fields someone fills in when creating a server from the template. The list
-// order is the order of the keys in `data`, which is the order the create form shows them in.
+// order is the order of the keys in `data`, the order the create form shows them in. The
+// downloaded JSON keeps it; saving does not yet, because the panel rebuilds `data` from a Go map
+// (sorted by key) until the backend keeps the order.
+
+/** How many places use a variable, and how many of them are conditions reading its name. */
+function uses(usage: VariableUsage, key: string): { all: number; conditions: number } {
+  const references = usage.references.get(key) ?? [];
+  return { all: references.length, conditions: references.filter((r) => r.kind === 'condition').length };
+}
 
 const NO_ISSUES: readonly EditorIssue[] = [];
 
@@ -65,15 +73,17 @@ function focusSoon(elementId: string, select = false) {
 
 export function VariablesSection() {
   const { t } = useTranslations();
-  const { template, update, change, issues, focusRequest } = useTemplateEditor();
+  const { template, update, change, issues, focusRequest, registerPendingCommit } = useTemplateEditor();
   const variables = templateVariables(template);
   const keys = useMemo(() => Object.keys(variables), [variables]);
   const { ids, assign, rename: renameId } = useKeyIds(keys);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
-  // the uses only feed counts and hints: they may lag a keystroke behind, so typing stays quick
-  const usage = analyzeVariableUsage(useDeferredValue(template));
+  // the validation has already analysed this template object, so this reads the cache
+  const usage = analyzeVariableUsage(template);
+  // number-like keys always come first (isPinnedKey): nothing moves above them
+  const firstMovable = keys.filter(isPinnedKey).length;
   const undefinedNames = useMemo(
     () => [...new Set(usage.undefinedTokens.map((u) => u.name))].filter((name) => !Object.hasOwn(variables, name)),
     [usage, variables],
@@ -138,7 +148,12 @@ export function VariablesSection() {
           if (!next.delete(id)) next.add(id);
           return next;
         }),
-      move: (from, to) => change((tpl) => moveIn(tpl, ['data'], from, to)),
+      move: (from, to) => {
+        const { keys: current } = latest.current;
+        const target = Math.max(to, current.filter(isPinnedKey).length);
+        if (isPinnedKey(current[from] ?? '') || target === from) return;
+        change((tpl) => moveIn(tpl, ['data'], from, target));
+      },
       update,
       // the card keeps its id, so it stays mounted and the field keeps the focus
       rename: (from, to, withUses) => {
@@ -163,8 +178,9 @@ export function VariablesSection() {
         return false;
       },
       isKeyTaken: (key) => Object.hasOwn(latest.current.variables, key),
+      registerPendingCommit,
     }),
-    [change, update, renameId, addVariable, deleteNow],
+    [change, update, renameId, addVariable, deleteNow, registerPendingCommit],
   );
 
   const addNew = () => {
@@ -243,6 +259,7 @@ export function VariablesSection() {
               {keys.map((key, index) => {
                 const id = ids[index];
                 const own = cardIssues.get(key);
+                const used = uses(usage, key);
                 return (
                   <VariableCard
                     key={id}
@@ -251,7 +268,9 @@ export function VariablesSection() {
                     variable={variables[key]}
                     index={index}
                     count={keys.length}
-                    uses={referenceCount(usage, key)}
+                    firstMovable={firstMovable}
+                    uses={used.all}
+                    conditionUses={used.conditions}
                     expanded={expanded.has(id)}
                     issues={own?.list ?? NO_ISSUES}
                     issuesKey={own?.summary ?? ''}

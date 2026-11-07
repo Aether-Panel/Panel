@@ -105,6 +105,15 @@ export function variableOptions(variable: JsonObject): VariableOption[] {
   return Array.isArray(variable.options) ? variable.options.map((o) => (isPlainObject(o) ? o : { value: o })) : [];
 }
 
+/**
+ * Whether the create form shows the variable as a list to pick from: an option variable, or any
+ * variable with options (create-server-stepper's TemplateVariableInput checks the options first;
+ * community templates have text variables with options).
+ */
+export function usesOptions(variable: JsonObject): boolean {
+  return variableType(variable) === 'option' || variableOptions(variable).length > 0;
+}
+
 /** Whether two option values are the same choice: equal, or the same text ("1" and 1). */
 export function sameOptionValue(a: unknown, b: unknown): boolean {
   return Object.is(a, b) || (a !== null && b !== null && a !== undefined && b !== undefined && String(a) === String(b));
@@ -126,6 +135,14 @@ export function newOption(options: readonly VariableOption[]): VariableOption {
   let n = options.length + 1;
   while (taken.has(`option${n}`)) n++;
   return { value: `option${n}`, display: '' };
+}
+
+/**
+ * Whether JavaScript keeps `key` first in any object: a key that is an array index ("0", "25")
+ * is always listed before the others, in numeric order, so such a variable cannot be moved.
+ */
+export function isPinnedKey(key: string): boolean {
+  return /^(0|[1-9]\d*)$/.test(key) && Number(key) < 2 ** 32 - 1;
 }
 
 /** Whether `key` may name a variable (the node's token rules; see VARIABLE_KEY). */

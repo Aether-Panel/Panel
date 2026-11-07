@@ -3334,7 +3334,8 @@
         "variables": {
           "label": "Variables",
           "description": "What people fill in when they create a server: port, version, password…",
-          "countLabel": "{{count}} variables"
+          "countLabelOne": "1 variable",
+          "countLabelMany": "{{count}} variables"
         },
         "install": {
           "label": "Installation",
@@ -4008,7 +4009,10 @@
           "keyInvalid": "Only letters, digits, hyphens and underscores, no spaces.",
           "keyTaken": "Another variable already has this key.",
           "renameUsesOne": "Also change its use: {{from}} → {{to}}",
-          "renameUsesMany": "Also change its {{count}} uses: {{from}} → {{to}}"
+          "renameUsesMany": "Also change its {{count}} uses: {{from}} → {{to}}",
+          "pinned": "A key that is only a number always comes first in the list: it cannot be moved.",
+          "renameKeepsConditionOne": "The condition that reads it by name is not changed: a condition cannot read a key with a hyphen or a leading digit.",
+          "renameKeepsConditionMany": "The {{count}} conditions that read it by name are not changed: a condition cannot read a key with a hyphen or a leading digit."
         },
         "type": {
           "label": "Type",
@@ -4047,7 +4051,9 @@
           "add": "Add option",
           "none": "No options yet.",
           "empty": "(empty)",
-          "numbered": "option {{n}}"
+          "numbered": "option {{n}}",
+          "notOptionType": "This variable's type is \"{{type}}\", but it has options: the create-server form still shows this list.",
+          "removeAll": "Remove the options"
         },
         "flags": {
           "required": {

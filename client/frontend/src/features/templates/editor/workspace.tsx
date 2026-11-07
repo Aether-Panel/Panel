@@ -1,4 +1,5 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { PageHeader } from '@/components/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -130,7 +131,7 @@ function JsonPanel({ split }: Readonly<{ split: boolean }>) {
 export function EditorWorkspace() {
   const { t } = useTranslations();
   const editor = useTemplateEditor();
-  const { template, jsonText, dirty, originalName, issues, blocked, markSaved, update } = editor;
+  const { template, jsonText, dirty, originalName, issues, blocked, markSaved, update, flushPendingCommits } = editor;
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -182,7 +183,14 @@ export function EditorWorkspace() {
     if (errorCount > 0) setConfirmOpen(true);
     else void save();
   };
-  useSaveShortcut(requestSave);
+  // the shortcut can come while a field still holds an edit back (a key being typed): it is
+  // written first, synchronously, and the save then reads this render's fresh closure
+  const requestSaveRef = useRef(requestSave);
+  requestSaveRef.current = requestSave;
+  useSaveShortcut(() => {
+    flushSync(() => flushPendingCommits());
+    requestSaveRef.current();
+  });
 
   const download = () => {
     const url = URL.createObjectURL(new Blob([jsonText], { type: 'application/json' }));

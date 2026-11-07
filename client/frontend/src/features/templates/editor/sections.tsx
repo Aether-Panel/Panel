@@ -10,7 +10,7 @@ import { VariablesSection } from './variables/variables-section';
 // The editor's sections, in menu order. A section is a component that edits its part of the
 // template through useTemplateEditor(); the page draws the frame (title, description, counts)
 // around it. To fill a section, swap its component; its texts are
-// templates.editor.sections.<id>.label|description (and .countLabel with an item count).
+// templates.editor.sections.<id>.label|description (and .countLabelOne|countLabelMany with an item count).
 
 export type EditorSectionId = 'info' | 'variables' | 'install' | 'run' | 'environment' | 'requirements' | 'advanced';
 

@@ -3334,7 +3334,8 @@
         "variables": {
           "label": "Variables",
           "description": "Lo que rellena quien crea un servidor: puerto, versión, contraseña…",
-          "countLabel": "{{count}} variables"
+          "countLabelOne": "1 variable",
+          "countLabelMany": "{{count}} variables"
         },
         "install": {
           "label": "Instalación",
@@ -4008,7 +4009,10 @@
           "keyInvalid": "Solo letras, números, guiones y guiones bajos, sin espacios.",
           "keyTaken": "Ya hay otra variable con esta clave.",
           "renameUsesOne": "Cambiar también su uso: {{from}} → {{to}}",
-          "renameUsesMany": "Cambiar también sus {{count}} usos: {{from}} → {{to}}"
+          "renameUsesMany": "Cambiar también sus {{count}} usos: {{from}} → {{to}}",
+          "pinned": "Una clave que es solo un número va siempre la primera de la lista: no se puede mover.",
+          "renameKeepsConditionOne": "La condición que la lee por su nombre no cambia: una condición no puede leer una clave con guion o que empieza por número.",
+          "renameKeepsConditionMany": "Las {{count}} condiciones que la leen por su nombre no cambian: una condición no puede leer una clave con guion o que empieza por número."
         },
         "type": {
           "label": "Tipo",
@@ -4047,7 +4051,9 @@
           "add": "Añadir opción",
           "none": "Aún no hay opciones.",
           "empty": "(vacía)",
-          "numbered": "opción {{n}}"
+          "numbered": "opción {{n}}",
+          "notOptionType": "Esta variable es de tipo «{{type}}», pero tiene opciones: al crear un servidor se elige igualmente de esta lista.",
+          "removeAll": "Quitar las opciones"
         },
         "flags": {
           "required": {

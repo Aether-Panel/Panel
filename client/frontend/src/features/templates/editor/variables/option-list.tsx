@@ -1,14 +1,14 @@
 import { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, X } from '@/components/icons';
+import { AlertTriangle, Plus, Trash2, X } from '@/components/icons';
 import { useTranslations } from '@/contexts/translations-context';
 import { fieldId } from '../editor-context';
 import { FieldIssues, INVALID_CONTROL, issuesId, textValue } from '../field';
 import { pathKey, type JsonObject, type Path } from '../paths';
 import { DragHandle, MoveButtons, SortableList, useListIds, useSortableItem } from '../sortable';
 import { isUnderPath, type EditorIssue } from '../validation';
-import { newOption, optionValueFromText, variableOptions, type VariableOption } from './model';
+import { isKnownType, newOption, optionValueFromText, variableOptions, variableType, type VariableOption } from './model';
 
 // The choices of an option variable: a value (what the template receives) and the text users
 // see, in the order the create form lists them.
@@ -86,6 +86,8 @@ export function OptionList({ path, variable, issues, update }: Readonly<{
 }>) {
   const { t } = useTranslations();
   const options = variableOptions(variable);
+  const type = variableType(variable);
+  const typeLabel = isKnownType(type) ? t(`templates.editor.variables.type.${type}`) : type;
   const optionsPath = [...path, 'options'];
   const list = useListIds(options.length);
   const headingId = `${fieldId(optionsPath)}-heading`;
@@ -122,6 +124,29 @@ export function OptionList({ path, variable, issues, update }: Readonly<{
         <h4 id={headingId} className="text-sm font-medium">{t('templates.editor.variables.options.title')}</h4>
         <p className="text-pretty text-xs text-muted-foreground">{t('templates.editor.variables.options.hint')}</p>
       </div>
+      {type !== 'option' && (
+        // another type with options still shows as a list in the create form
+        <div className="space-y-2.5 rounded-lg border border-warning/30 bg-warning/10 px-3.5 py-3">
+          <p className="flex items-start gap-2 text-pretty text-xs text-warning">
+            <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>{t('templates.editor.variables.options.notOptionType', { type: typeLabel })}</span>
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="ml-5 h-8 bg-background/60"
+            onClick={() => {
+              update(optionsPath, undefined);
+              // the list goes away with them: the type is what decides the field now
+              requestAnimationFrame(() => document.getElementById(fieldId([...path, 'type']))?.focus());
+            }}
+          >
+            <Trash2 aria-hidden="true" />
+            {t('templates.editor.variables.options.removeAll')}
+          </Button>
+        </div>
+      )}
       <FieldIssues id={issuesId(fieldId(optionsPath))} issues={listIssues} />
       {options.length > 0 ? (
         <>

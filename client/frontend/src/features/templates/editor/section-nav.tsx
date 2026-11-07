@@ -46,7 +46,7 @@ function ItemCount({ section, template }: Readonly<{ section: EditorSection; tem
   return (
     <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
       <span aria-hidden="true">{count}</span>
-      <span className="sr-only">{t(`templates.editor.sections.${section.id}.countLabel`, { count })}</span>
+      <span className="sr-only">{t(`templates.editor.sections.${section.id}.${count === 1 ? 'countLabelOne' : 'countLabelMany'}`, { count })}</span>
     </span>
   );
 }
