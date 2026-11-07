@@ -1,12 +1,12 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { getOperation, OPERATIONS, templateOperationsByCategory } from '../../schema/operations';
-import type { OperationField } from '../../schema/fields';
+import { widgetSchema, type OperationField } from '../../schema/fields';
 import type { JsonObject } from '../paths';
 import { conditionPreset, conditionReference, PRESET_EXPRESSIONS } from './condition';
 import {
-  clearedValue, copyStep, fieldKey, foldAfterContentChange, insertStep, newStep, numberFromText, readField, removeStep, renameEntry, stepHasContent, stepsAt, stepType, uniqueEntryKey,
-  withStdinKey, writeField, writeFieldIn,
+  clearedValue, copyStep, fieldKey, foldAfterContentChange, insertStep, moveEntry, newStep, numberFromText, readField, removeStep, renameEntry, stepHasContent, stepsAt, stepType,
+  uniqueEntryKey, withStdinKey, writeField, writeFieldIn,
 } from './model';
 import { OPERATION_ICONS } from './operation-icons';
 import { matchOperation } from './palette-search';
@@ -253,7 +253,11 @@ describe('step lists', () => {
     expect(stepType({ type: 'mkdir' })).toBe('mkdir');
     expect(stepType({ type: 3 })).toBeUndefined();
     expect(stepHasContent({ type: 'mkdir' })).toBe(false);
-    expect(stepHasContent({ type: 'mkdir', target: '' })).toBe(true);
+    // a cleared required field keeps its key with an empty value: nothing to lose
+    expect(stepHasContent({ type: 'mkdir', target: '' })).toBe(false);
+    expect(stepHasContent({ type: 'download', files: [] })).toBe(false);
+    expect(stepHasContent({ type: 'mkdir', target: 'world' })).toBe(true);
+    expect(stepHasContent({ type: 'mkdir', if: "env == 'host'" })).toBe(true);
     expect(stepHasContent(null)).toBe(true);
   });
 });
@@ -311,6 +315,33 @@ describe('maps and console settings', () => {
     expect(withStdinKey({ type: 'rcon', port: '1' }, 'port', '')).toEqual({ type: 'rcon' });
     expect(withStdinKey({ type: 'rconws' }, 'secure', false)).toEqual({ type: 'rconws', secure: false });
     expect(withStdinKey({ type: 'rconws', secure: false }, 'secure', undefined)).toEqual({ type: 'rconws' });
+  });
+});
+
+describe('moving map entries', () => {
+  it('moves an entry and keeps the others in order', () => {
+    const env = { A: '1', B: '2', C: '3' };
+    expect(moveEntry(env, 0, 2)).toEqual({ object: { B: '2', C: '3', A: '1' }, to: 2 });
+    expect(Object.keys(moveEntry(env, 2, 0)!.object)).toEqual(['C', 'A', 'B']);
+    expect(moveEntry(env, 1, 1)).toBeNull();
+    expect(moveEntry(env, 5, 0)).toBeNull();
+  });
+
+  it('never moves a number-like name, nor anything above one (JavaScript lists those first)', () => {
+    const env = { 10: 'x', 2: 'y', A: '1', B: '2' };
+    expect(Object.keys(env)).toEqual(['2', '10', 'A', 'B']);
+    expect(moveEntry(env, 0, 3)).toBeNull();
+    // a drop among them lands just below them
+    expect(moveEntry(env, 3, 0)).toEqual({ object: { 2: 'y', 10: 'x', B: '2', A: '1' }, to: 2 });
+    expect(Object.keys(moveEntry(env, 3, 0)!.object)).toEqual(['2', '10', 'B', 'A']);
+    expect(moveEntry(env, 2, 1)).toBeNull();
+  });
+
+  it('checks a required map for at least one entry', () => {
+    const required = widgetSchema({ kind: 'keyValue' }, true, false);
+    expect(required.safeParse({}).success).toBe(false);
+    expect(required.safeParse({ A: '1' }).success).toBe(true);
+    expect(widgetSchema({ kind: 'keyValue' }, false, false).safeParse({}).success).toBe(true);
   });
 });
 

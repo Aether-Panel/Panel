@@ -3360,11 +3360,6 @@
           "description": "Variable groups, statistics, status query and keep-alive."
         }
       },
-      "placeholder": {
-        "title": "Form on its way",
-        "description": "For now, \"{{section}}\" is edited in the JSON view. Everything you write there is kept when you save.",
-        "openJson": "Open the JSON view"
-      },
       "info": {
         "identity": {
           "title": "Identity",
@@ -3950,7 +3945,15 @@
         "undefinedVariable": "{{token}} is not a variable of the template: the node leaves the text as it is. Create it in Variables, or ignore this if it is a shell variable.",
         "undefinedConditionVariable": "The condition reads \"{{name}}\", which is not a variable: the step will fail when it is evaluated.",
         "unusedVariable": "No command, step or condition uses this variable.",
-        "conditionVariableKey": "\"{{name}}\" has a hyphen or starts with a digit, so a condition cannot read it by name: write {{token}} instead."
+        "conditionVariableKey": "\"{{name}}\" has a hyphen or starts with a digit, so a condition cannot read it by name: write {{token}} instead.",
+        "noDefaultCommand": "Every entry has a condition: if none holds, the server has nothing to start with. Leave one without a condition as the default command.",
+        "extraDefaultCommand": "The node only uses the first entry without a condition: this one will never be used. Give it a condition or remove it.",
+        "stopCommandIgnored": "There is also a signal code, and with it the node never sends this command. Remove one of the two.",
+        "noStopMethod": "There's no stop command or signal code: on stop, the panel will send an empty line to the console and the server most likely won't stop.",
+        "thirdPartyImage": "Third-party image. The project only uses its own images (ghcr.io/aether-panel/…) or official Docker Hub images such as ubuntu or eclipse-temurin: a third-party image can change or vanish without notice. If a program is missing, it gets added to our images.",
+        "keepAliveFrequency": "The node can't read this frequency and won't send the command. Use a duration with a unit, such as 30s, 5m or 1h30m.",
+        "keepAliveIncomplete": "The keep-alive needs both the frequency and the command: with only one, nothing is sent.",
+        "groupUnknownVariable": "“{{key}}” isn't a variable of the template: the group can't show it."
       },
       "sortable": {
         "handle": "Drag to move \"{{item}}\"",
@@ -4131,7 +4134,8 @@
           "add": "Add",
           "none": "None yet.",
           "keyRequired": "Enter a name.",
-          "keyTaken": "Another one already has this name."
+          "keyTaken": "Another one already has this name.",
+          "pinned": "A name that is only a number always comes first: it can't be moved."
         },
         "condition": {
           "label": "When it runs",
@@ -4211,6 +4215,294 @@
         "secure": {
           "label": "Secure connection (wss://)",
           "help": "Turn it off if the game only accepts unencrypted ws://."
+        }
+      },
+      "jsonBlock": {
+        "invalidState": "The JSON isn't valid.",
+        "syntax": "The JSON isn't valid ({{detail}}). The last valid one is kept.",
+        "notObject": "It has to be an object: { … }. The last valid one is kept."
+      },
+      "run": {
+        "optional": "(optional)",
+        "start": {
+          "title": "Start",
+          "description": "The command that starts the server. It can be a single one, or several, each with the condition it is used under."
+        },
+        "command": {
+          "shape": "Command",
+          "single": "One command",
+          "conditional": "By condition",
+          "singleBlocked": "To go back to one command, leave a single entry and remove its condition.",
+          "singleBlockedKeys": "This entry has settings of its own (such as its console) that a single command doesn't keep. Remove them in the JSON view to go back to one command.",
+          "label": "Start command",
+          "hint": "What the node runs in the server's folder. Variables such as ${memory} are replaced with their value.",
+          "line": "Command",
+          "entry": "Entry {{n}}",
+          "defaultTag": "Default",
+          "remove": "Remove “{{item}}”",
+          "conditionHelp": "The node uses the first entry whose condition holds.",
+          "conditionNone": "Without a condition it is the default command: used when no other condition holds.",
+          "conditionalHint": "On start, the node tries the entries in order and uses the first whose condition holds; if none does, it uses the first one without a condition.",
+          "extraKeys": "It also has {{keys}}, which the form doesn't show. They're kept; you can change them in the JSON view.",
+          "add": "Add command",
+          "conditionLabel": "When it is used"
+        },
+        "workingDirectory": {
+          "label": "Working directory",
+          "hint": "It is saved in the template, but this node doesn't use it: the server always starts in its own folder."
+        },
+        "stop": {
+          "title": "Stop",
+          "description": "How the server is asked to stop: with a command in its console or a signal to its process.",
+          "mode": "How it stops",
+          "removeCommand": "Remove the command",
+          "command": {
+            "choice": "Stop command",
+            "label": "Stop command",
+            "hint": "What is typed into the console to shut the server down, such as stop, quit or exit."
+          },
+          "code": {
+            "choice": "Signal code",
+            "label": "Signal code",
+            "hint": "The number of the signal sent to the process. The usual ones are 15 (SIGTERM) and 2 (SIGINT, like pressing Ctrl+C).",
+            "pick": "Common"
+          },
+          "signals": {
+            "SIGTERM": "Asks the program to shut down. The most common one.",
+            "SIGINT": "Like pressing Ctrl+C in the console: many servers save and exit.",
+            "SIGKILL": "Ends it at once, without letting it save. Only if it ignores the others.",
+            "SIGHUP": "Tells it the terminal closed. Few programs exit on it.",
+            "SIGQUIT": "Asks it to quit; some programs write a debug dump first."
+          }
+        },
+        "environmentVars": {
+          "title": "Environment variables",
+          "description": "The environment variables the server's process starts with.",
+          "label": "Environment variables",
+          "hint": "A name and its value per row. The value can use template variables such as ${port}.",
+          "keyPlaceholder": "NAME",
+          "valuePlaceholder": "value or ${variable}"
+        },
+        "console": {
+          "title": "Console",
+          "description": "How the panel sends the commands typed into the server's console.",
+          "label": "Console input",
+          "hint": "Almost always the standard input. Some games only take commands over RCON or telnet."
+        },
+        "behaviour": {
+          "title": "Automatic start and restart",
+          "description": "What the node does on its own with servers created from this template. Each server can change it later in its settings.",
+          "autostart": {
+            "label": "Start when the node starts",
+            "hint": "The server starts by itself when the node boots."
+          },
+          "autorecover": {
+            "label": "Restart if it crashes",
+            "hint": "If the process exits with a code other than the expected one, it is started again."
+          },
+          "autorestart": {
+            "label": "Restart if it stops",
+            "hint": "If the process exits with the expected code (without anyone stopping it from the panel), it is started again."
+          },
+          "expectedExitCode": {
+            "label": "Expected exit code",
+            "hint": "The code the server exits with when it shuts down cleanly; with any other, the panel treats it as a crash. Stopped by a signal, many programs exit with 128 plus the signal (143 with SIGTERM)."
+          }
+        },
+        "pre": {
+          "title": "Before start",
+          "description": "Steps run every time the server starts, right before the start command: updating the game, regenerating its config…",
+          "empty": {
+            "title": "No steps before start",
+            "description": "The server starts straight away with its command. Add a step if something has to be prepared every time."
+          }
+        },
+        "post": {
+          "title": "After stop",
+          "description": "Steps run when the server's process exits. They can read ${success} and ${exitCode}.",
+          "empty": {
+            "title": "No steps after stop",
+            "description": "Nothing else happens when it exits. Add a step if something has to be cleaned up or copied."
+          }
+        }
+      },
+      "environment": {
+        "default": {
+          "title": "Default environment",
+          "description": "Where servers created from this template run, unless another one is picked."
+        },
+        "supported": {
+          "title": "Supported environments",
+          "description": "The ones offered when creating a server. When Docker is picked, the first Docker environment in the list is used, with its image and ports.",
+          "item": "Environment {{n}}: {{type}}",
+          "remove": "Remove “{{item}}”",
+          "add": "Add environment",
+          "empty": {
+            "title": "No supported environments",
+            "description": "Creating a server only uses the default environment. Add Docker to choose between the host and a container."
+          }
+        },
+        "type": {
+          "label": "Type",
+          "hint": {
+            "docker": "In a Docker container, isolated from the node, with the image below.",
+            "host": "Directly on the node, with the programs it has installed.",
+            "unset": "Without one, the server has nowhere to run until someone changes it."
+          }
+        },
+        "types": {
+          "unset": "Not set",
+          "host": "Host",
+          "docker": "Docker",
+          "tty": "tty (same as host)",
+          "standard": "standard (same as host)"
+        },
+        "image": {
+          "label": "Image",
+          "hint": "An image from ghcr.io/aether-panel/ or an official Docker Hub one. The tag can use a variable, such as eclipse-temurin:${javaversion}."
+        },
+        "portBindings": {
+          "label": "Ports",
+          "hint": "One per row, as in docker run -p: IP:node port:container port/protocol."
+        },
+        "advanced": "Advanced Docker options",
+        "networkName": {
+          "label": "Network",
+          "hint": "bridge publishes the ports above; host shares the node's network and doesn't use them."
+        },
+        "containerRoot": {
+          "label": "Server folder in the container",
+          "hint": "Where the server's files are mounted inside the container. It has to be an absolute path."
+        },
+        "bindings": {
+          "label": "Mounted folders",
+          "hint": "A folder on the node and where it shows up inside the container.",
+          "newKey": "/path/on/the/node"
+        },
+        "labels": {
+          "label": "Container labels",
+          "hint": "Docker labels for the container. They can use variables."
+        },
+        "hostConfig": {
+          "label": "hostConfig",
+          "hint": "Container settings as the Docker API defines them (HostConfig), for example { \"Init\": true }."
+        },
+        "config": {
+          "label": "config",
+          "hint": "Image settings as the Docker API defines them (Config)."
+        },
+        "extraKeys": "It also has {{keys}}, which the form doesn't show. They're kept; you can change them in the JSON view.",
+        "extraKeysHost": "It also has {{keys}}: settings this kind of environment doesn't use. They're kept in case you switch back to Docker."
+      },
+      "requirements": {
+        "any": "With none ticked, any will do.",
+        "platform": {
+          "title": "System and architecture",
+          "description": "The node refuses to install the template on a system or architecture that isn't ticked."
+        },
+        "os": {
+          "label": "Operating system",
+          "hint": "Saved as {{value}}.",
+          "values": {
+            "linux": "Linux",
+            "windows": "Windows",
+            "darwin": "macOS"
+          }
+        },
+        "arch": {
+          "label": "Architecture",
+          "hint": "Saved as {{value}}.",
+          "values": {
+            "amd64": "x86-64 (amd64)",
+            "arm64": "64-bit ARM (arm64)",
+            "386": "32-bit x86 (386)",
+            "arm": "32-bit ARM (arm)"
+          }
+        },
+        "binaries": {
+          "title": "Programs",
+          "description": "The programs the node must have installed. Only checked on host: in Docker the image provides them.",
+          "label": "Required programs",
+          "hint": "One per row, as named in the PATH. To accept any of several, separate them with ||, as in java || java21."
+        },
+        "extraKeys": "It also has {{keys}}, which the form doesn't show. They're kept; you can change them in the JSON view."
+      },
+      "advanced": {
+        "extraKeys": "It also has {{keys}}, which the form doesn't show. They're kept; you can change them in the JSON view.",
+        "groups": {
+          "title": "Variable groups",
+          "description": "They sort the variables into blocks on the server's settings page. Those in no group are shown apart.",
+          "add": "Add group",
+          "remove": "Remove the group “{{group}}”",
+          "untitled": "Group {{n}}",
+          "countOne": "1 variable",
+          "countMany": "{{count}} variables",
+          "conditionHelp": "The group is only shown when its condition holds.",
+          "conditionNone": "Always shown.",
+          "orderHint": "The settings page shows the groups in the order of this list; “Order” is kept for templates that use it.",
+          "displayField": {
+            "label": "Name",
+            "placeholder": "General"
+          },
+          "orderField": {
+            "label": "Order"
+          },
+          "descriptionField": {
+            "label": "Description"
+          },
+          "variables": {
+            "label": "Variables",
+            "hint": "In the order they're shown inside the group.",
+            "add": "Add",
+            "remove": "Remove “{{key}}” from the group",
+            "missing": "(doesn't exist)",
+            "none": "The template has no variables yet.",
+            "inOther": "already in “{{group}}”"
+          },
+          "empty": {
+            "title": "No groups",
+            "description": "All variables are shown together in the server's settings."
+          },
+          "conditionLabel": "When it is shown"
+        },
+        "stats": {
+          "title": "Stats",
+          "description": "Usage data the panel shows besides CPU and memory.",
+          "type": {
+            "label": "Extra stats",
+            "hint": "Java memory asks the Java virtual machine for its memory use (heap) with jcmd.",
+            "jcmd": "Java memory (jcmd)"
+          },
+          "cmd": {
+            "label": "jcmd program",
+            "hint": "Docker only: the jcmd command inside the container."
+          }
+        },
+        "query": {
+          "title": "Status query",
+          "description": "How the panel asks the game how many players are online.",
+          "type": {
+            "label": "Protocol",
+            "minecraft": "Minecraft (server list ping)",
+            "source": "Steam (A2S)",
+            "hint": {
+              "unset": "When not set, the panel tries the Steam query (A2S) and stops trying for a while if the game doesn't answer.",
+              "minecraft": "Uses the server's IP and port (the ip and port variables).",
+              "source": "Uses the query port (queryport or its variants) or, without one, port.",
+              "other": "The panel doesn't know this protocol and won't query the status."
+            }
+          }
+        },
+        "keepAlive": {
+          "title": "Keep-alive",
+          "description": "A command sent to the console every so often while the server runs.",
+          "hint": "The frequency is a duration with a unit: 30s, 5m, 1h30m. Both fields are needed.",
+          "frequency": {
+            "label": "Every"
+          },
+          "command": {
+            "label": "Command"
+          }
         }
       }
     }

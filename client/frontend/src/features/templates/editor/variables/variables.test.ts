@@ -118,7 +118,7 @@ describe('variable warnings', () => {
   });
 
   it('show up in the validation under the place they are about', () => {
-    const issues = validateTemplate({ name: 't', environment: { type: 'host' }, data: { a: variable() }, run: { command: '${b}' } }, { takenNames: [] });
+    const issues = validateTemplate({ name: 't', environment: { type: 'host' }, data: { a: variable() }, run: { command: '${b}', stop: 'stop' } }, { takenNames: [] });
     expect(issues.map((i) => `${i.path} ${i.messageKey}`)).toEqual([
       'run.command templates.editor.warnings.undefinedVariable',
       'data.a templates.editor.warnings.unusedVariable',

@@ -13,8 +13,10 @@ import type { EditorSectionId } from './sections';
 export type EditorView = 'form' | 'json' | 'split';
 
 /**
- * The field goTo() was last asked to show. A section that folds parts away (the variable cards)
- * opens the one holding it; `seq` tells two requests for the same path apart.
+ * The field goTo() is bringing into view. A section that folds parts away (the variable cards,
+ * a step's advanced options) opens the one holding it in a layout effect; `seq` tells two
+ * requests for the same path apart. The request is withdrawn (null) once the field has the
+ * focus, so a part mounted later (a card the user opens) does not act on it again.
  */
 export interface FocusRequest {
   path: Path;
@@ -94,6 +96,15 @@ export type TemplateEditorActions = Pick<
 >;
 
 const TemplateEditorActionsContext = createContext<TemplateEditorActions | null>(null);
+const FocusRequestContext = createContext<FocusRequest | null>(null);
+
+/**
+ * The pending goTo() request alone: it changes only when goTo() is called, so a memoized part
+ * (a step card's advanced options) can react to it without re-rendering on every edit.
+ */
+export function useFocusRequest(): FocusRequest | null {
+  return useContext(FocusRequestContext);
+}
 
 /**
  * The editor's stable functions without its state: a component that only writes (a field in a
@@ -129,6 +140,7 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
   const [view, setViewState] = useState<EditorView>('form');
   const [section, setSection] = useState<EditorSectionId>('info');
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
+  const focusSeq = useRef(0);
   const insertTarget = useRef<InsertTarget | null>(null);
   // how many fields hold an edit back, so `dirty` follows them
   const [pendingCount, setPendingCount] = useState(0);
@@ -172,14 +184,22 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
     setSection(target);
     setViewState((v) => (v === 'json' ? 'form' : v));
     if (!path) return;
-    setFocusRequest((previous) => ({ path, seq: (previous?.seq ?? 0) + 1 }));
-    // after the section has rendered (and opened what holds the field, in a layout effect)
-    requestAnimationFrame(() => {
-      const el = document.getElementById(fieldId(path));
+    setFocusRequest({ path, seq: ++focusSeq.current });
+  }, [pendingCommits]);
+
+  // The field is focused once the request has been rendered: the section is shown and what holds
+  // the field has opened (in its layout effects). Doing it from goTo() itself would race React's
+  // render when goTo() is not called from a user event. Then the request is withdrawn.
+  useEffect(() => {
+    if (!focusRequest) return;
+    const frame = requestAnimationFrame(() => {
+      const el = document.getElementById(fieldId(focusRequest.path));
       el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       el?.focus({ preventScroll: true });
+      setFocusRequest((current) => (current === focusRequest ? null : current));
     });
-  }, [pendingCommits]);
+    return () => cancelAnimationFrame(frame);
+  }, [focusRequest]);
 
   const setInsertTarget = useCallback((target: InsertTarget) => {
     insertTarget.current = target;
@@ -234,7 +254,9 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
 
   return (
     <TemplateEditorActionsContext.Provider value={actions}>
-      <TemplateEditorContext.Provider value={value}>{children}</TemplateEditorContext.Provider>
+      <FocusRequestContext.Provider value={focusRequest}>
+        <TemplateEditorContext.Provider value={value}>{children}</TemplateEditorContext.Provider>
+      </FocusRequestContext.Provider>
     </TemplateEditorActionsContext.Provider>
   );
 }

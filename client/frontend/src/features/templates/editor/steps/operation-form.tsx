@@ -1,9 +1,9 @@
 import { useRef } from 'react';
-import { ChevronRight } from '@/components/icons';
 import { useTranslations } from '@/contexts/translations-context';
 import { cn } from '@/lib/utils';
 import type { OperationField, SelectOption } from '../../schema/fields';
 import type { OperationDefinition } from '../../schema/operations';
+import { AdvancedFold } from '../advanced-fold';
 import { fieldId, useTemplateEditorActions } from '../editor-context';
 import { pathKey, type JsonObject, type Path } from '../paths';
 import { isUnderPath, type EditorIssue } from '../validation';
@@ -12,7 +12,6 @@ import { KeyValueControl } from './key-value-control';
 import { fieldKey, isEmptyValue, writeFieldIn } from './model';
 import { StdinControl } from './stdin-control';
 import { StringListControl } from './string-list-control';
-import { useLatchedOpen } from './use-latched-open';
 
 // A step's form, drawn from the registry (schema/operations.ts): one control per argument, of
 // the kind its widget names, with its texts, required mark, placeholder and issues. Seldom used
@@ -103,10 +102,12 @@ export function OperationForm({ operation, step, stepPath, issues }: Readonly<{
 
   const basic = operation.fields.filter((f) => !f.advanced);
   const advanced = operation.fields.filter((f) => f.advanced);
-  // opens for a value or an issue, then stays open until closed: clearing the only advanced
-  // value must not fold away the field being typed in
-  const { isOpen: advancedOpen, toggle: toggleAdvanced } = useLatchedOpen(anyInUse(advanced, step, stepPath, issues));
-  const advancedId = `${fieldId(stepPath)}-advanced`;
+  // goTo() on an advanced argument (under its name or an older spelling) opens the fold
+  const holdsAdvanced = (target: Path) => {
+    if (target.length <= stepPath.length || pathKey(target.slice(0, stepPath.length)) !== pathKey(stepPath)) return false;
+    const key = String(target[stepPath.length]);
+    return advanced.some((f) => f.name === key || f.aliases?.includes(key));
+  };
 
   // arguments the form has no control for (a newer node's, a typo): kept, and named here
   const known = new Set(operation.fields.flatMap((f) => [f.name, ...(f.aliases ?? [])]));
@@ -127,27 +128,17 @@ export function OperationForm({ operation, step, stepPath, issues }: Readonly<{
       {operation.fields.length === 0 && <p className="text-pretty text-sm text-muted-foreground">{t('templates.editor.steps.noFields')}</p>}
       {basic.length > 0 && grid(basic)}
       {advanced.length > 0 && (
-        <div className="rounded-xl border border-border/60">
-          <button
-            type="button"
-            aria-expanded={advancedOpen}
-            aria-controls={advancedOpen ? advancedId : undefined}
-            onClick={toggleAdvanced}
-            className="flex w-full items-center gap-2 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors duration-150 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
-          >
-            <ChevronRight
-              className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-panel motion-reduce:transition-none', advancedOpen && 'rotate-90')}
-              aria-hidden="true"
-            />
-            <span className="min-w-0 flex-1">{t('templates.editor.steps.advanced')}</span>
-            <span className="hidden truncate text-xs font-normal text-muted-foreground sm:block">{advanced.map((f) => t(f.labelKey)).join(', ')}</span>
-          </button>
-          {advancedOpen && (
-            <div id={advancedId} className="border-t border-border/50 p-4">
-              {grid(advanced)}
-            </div>
-          )}
-        </div>
+        // opens for a value or an issue, then stays open until closed: clearing the only advanced
+        // value must not fold away the field being typed in
+        <AdvancedFold
+          id={`${fieldId(stepPath)}-advanced`}
+          label={t('templates.editor.steps.advanced')}
+          summary={advanced.map((f) => t(f.labelKey)).join(', ')}
+          inUse={anyInUse(advanced, step, stepPath, issues)}
+          holds={holdsAdvanced}
+        >
+          {grid(advanced)}
+        </AdvancedFold>
       )}
       {extra.length > 0 && (
         <p className="text-pretty text-xs text-muted-foreground">

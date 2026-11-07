@@ -80,12 +80,18 @@ function ConditionCommand({ onPick }: Readonly<{ onPick: (snippet: Snippet) => v
   );
 }
 
-export function ConditionField({ id, value, issues, onChange }: Readonly<{
+export function ConditionField({ id, value, issues, label, help, noneHint, onChange }: Readonly<{
   /** fieldId of the step's `if`. */
   id: string;
   value: unknown;
   /** The issues about the condition (a name no variable has, a hyphenated key…). */
   issues: readonly EditorIssue[];
+  /** What the condition is about; a step's by default ("Cuándo se ejecuta"). */
+  label?: string;
+  /** What the condition decides, under its label; a step's by default ("the step is skipped…"). */
+  help?: string;
+  /** What having no condition means; for a step, that it always runs. */
+  noneHint?: string;
   /** The new expression; undefined removes the condition. */
   onChange: (value: string | undefined) => void;
 }>) {
@@ -96,10 +102,10 @@ export function ConditionField({ id, value, issues, onChange }: Readonly<{
   // expression starts it chosen; typing in the input keeps it so.
   const [customChosen, setCustomChosen] = useState(() => preset === 'custom');
   const mode: ConditionPreset = customChosen || preset === 'custom' ? 'custom' : preset;
-  // the custom expression last seen, so leaving "Personalizada" for a preset and coming back
-  // brings it back instead of losing it
-  const lastCustom = useRef(preset === 'custom' && typeof value === 'string' ? value : '');
-  if (mode === 'custom' && typeof value === 'string' && value.trim() !== '' && lastCustom.current !== value) lastCustom.current = value;
+  // the custom expression as it was when "Personalizada" was left for another option, so coming
+  // back brings it back instead of losing it; saved only then, so a half erased expression is
+  // never what comes back
+  const lastCustom = useRef('');
   const [menuOpen, setMenuOpen] = useState(false);
   const picked = useRef(false);
   const write = (text: string) => {
@@ -113,6 +119,7 @@ export function ConditionField({ id, value, issues, onChange }: Readonly<{
 
   const choose = (next: ConditionPreset) => {
     if (next === mode) return;
+    if (mode === 'custom' && typeof value === 'string' && value.trim() !== '') lastCustom.current = value;
     setCustomChosen(next === 'custom');
     if (next === 'none') onChange(undefined);
     else if (next === 'host' || next === 'docker') onChange(PRESET_EXPRESSIONS[next]);
@@ -147,14 +154,14 @@ export function ConditionField({ id, value, issues, onChange }: Readonly<{
   };
 
   const expression = typeof value === 'string' ? value : textValue(value);
-  let hint = t('templates.editor.steps.condition.hintNone');
+  let hint = noneHint ?? t('templates.editor.steps.condition.hintNone');
   if (mode === 'host' || mode === 'docker') hint = t('templates.editor.steps.condition.hintPreset', { expression: expression.trim() });
 
   return (
     <div className="space-y-3">
       <div className="space-y-1">
-        <p id={labelId} className="text-sm font-medium leading-none">{t('templates.editor.steps.condition.label')}</p>
-        <p className="text-pretty text-xs text-muted-foreground">{t('templates.editor.steps.condition.help')}</p>
+        <p id={labelId} className="text-sm font-medium leading-none">{label ?? t('templates.editor.steps.condition.label')}</p>
+        <p className="text-pretty text-xs text-muted-foreground">{help ?? t('templates.editor.steps.condition.help')}</p>
       </div>
       <div
         ref={groupRef}

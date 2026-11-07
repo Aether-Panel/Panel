@@ -76,8 +76,10 @@ export function widgetSchema(widget: FieldWidget, required: boolean, variables: 
       const list = z.array(z.string({ error: typeError() }), { error: typeError() });
       return required ? list.min(1, { error: msg('required') }) : list;
     }
-    case 'keyValue':
-      return z.record(z.string(), z.string({ error: typeError() }), { error: typeError() });
+    case 'keyValue': {
+      const map = z.record(z.string(), z.string({ error: typeError() }), { error: typeError() });
+      return required ? map.refine((m) => Object.keys(m).length > 0, { error: msg('required') }) : map;
+    }
     case 'number': {
       return variables ? numberOrVariable({ ...widget, required, emptyIsUnset }) : integerSchema({ ...widget, required });
     }

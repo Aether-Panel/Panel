@@ -1,4 +1,7 @@
+import { ADVANCED_WARNING_RULES } from './advanced/model';
+import { ENVIRONMENT_WARNING_RULES } from './environment/rules';
 import { isPlainObject, type JsonObject, type Path } from './paths';
+import { RUN_WARNING_RULES } from './run/rules';
 import { VARIABLE_WARNING_RULES } from './variables/rules';
 
 // Warnings: what the node accepts but probably not as the author meant. The template schema
@@ -46,7 +49,14 @@ export const defaultEnvironment: WarningRule = (template) => {
   return typeof type === 'string' && type !== '' ? [] : [{ path: ['environment', 'type'], code: 'noDefaultEnvironment' }];
 };
 
-export const WARNING_RULES: readonly WarningRule[] = [integerVariableValue, defaultEnvironment, ...VARIABLE_WARNING_RULES];
+export const WARNING_RULES: readonly WarningRule[] = [
+  integerVariableValue,
+  defaultEnvironment,
+  ...VARIABLE_WARNING_RULES,
+  ...RUN_WARNING_RULES,
+  ...ENVIRONMENT_WARNING_RULES,
+  ...ADVANCED_WARNING_RULES,
+];
 
 /** Every warning the rules find in `template`, in rule order. */
 export function templateWarnings(template: JsonObject, rules: readonly WarningRule[] = WARNING_RULES): TemplateWarning[] {

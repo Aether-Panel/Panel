@@ -3360,11 +3360,6 @@
           "description": "Grupos de variables, estadísticas, consulta del estado y keep-alive."
         }
       },
-      "placeholder": {
-        "title": "Formulario en preparación",
-        "description": "Por ahora, «{{section}}» se edita en la vista JSON. Todo lo que escribas allí se conserva al guardar.",
-        "openJson": "Abrir la vista JSON"
-      },
       "info": {
         "identity": {
           "title": "Identidad",
@@ -3950,7 +3945,15 @@
         "undefinedVariable": "{{token}} no es ninguna variable de la plantilla: el nodo deja el texto tal cual. Créala en Variables, o ignora el aviso si es una variable del shell.",
         "undefinedConditionVariable": "La condición lee «{{name}}», que no es ninguna variable: el paso fallará al evaluarla.",
         "unusedVariable": "Ningún comando, paso ni condición usa esta variable.",
-        "conditionVariableKey": "«{{name}}» lleva guion o empieza por número, y una condición no puede leerla por su nombre: escribe {{token}} en su lugar."
+        "conditionVariableKey": "«{{name}}» lleva guion o empieza por número, y una condición no puede leerla por su nombre: escribe {{token}} en su lugar.",
+        "noDefaultCommand": "Todas las entradas tienen condición: si no se cumple ninguna, el servidor no tiene con qué arrancar. Deja una sin condición como comando por defecto.",
+        "extraDefaultCommand": "El nodo solo usa la primera entrada sin condición: esta no se usará nunca. Ponle una condición o quítala.",
+        "stopCommandIgnored": "Hay también un código de señal, y con él el nodo no envía este comando. Quita uno de los dos.",
+        "noStopMethod": "No hay comando de parada ni código de señal: al parar, el panel enviará una línea vacía a la consola y el servidor seguramente no se detendrá.",
+        "thirdPartyImage": "Imagen de terceros. El proyecto solo usa sus propias imágenes (ghcr.io/aether-panel/…) o imágenes oficiales de Docker Hub, como ubuntu o eclipse-temurin: una imagen de terceros puede cambiar o desaparecer sin aviso. Si falta algún programa, se añade a nuestras imágenes.",
+        "keepAliveFrequency": "El nodo no entiende esta frecuencia y no enviará el comando. Usa una duración con unidad, como 30s, 5m o 1h30m.",
+        "keepAliveIncomplete": "El keep-alive necesita la frecuencia y el comando: con solo uno, no se envía nada.",
+        "groupUnknownVariable": "«{{key}}» no es ninguna variable de la plantilla: el grupo no puede mostrarla."
       },
       "sortable": {
         "handle": "Arrastrar para mover «{{item}}»",
@@ -4131,7 +4134,8 @@
           "add": "Añadir",
           "none": "Aún no hay ninguno.",
           "keyRequired": "Escribe un nombre.",
-          "keyTaken": "Ya hay otro con este nombre."
+          "keyTaken": "Ya hay otro con este nombre.",
+          "pinned": "Un nombre que es solo un número va siempre el primero: no se puede mover."
         },
         "condition": {
           "label": "Cuándo se ejecuta",
@@ -4211,6 +4215,294 @@
         "secure": {
           "label": "Conexión segura (wss://)",
           "help": "Desactívalo si el juego solo acepta ws:// sin cifrar."
+        }
+      },
+      "jsonBlock": {
+        "invalidState": "El JSON no es válido.",
+        "syntax": "El JSON no es válido ({{detail}}). Se mantiene el último que sí lo era.",
+        "notObject": "Tiene que ser un objeto: { … }. Se mantiene el último válido."
+      },
+      "run": {
+        "optional": "(opcional)",
+        "start": {
+          "title": "Arranque",
+          "description": "El comando que inicia el servidor. Puede ser uno solo o varios, cada uno con la condición en la que se usa."
+        },
+        "command": {
+          "shape": "Comando",
+          "single": "Un comando",
+          "conditional": "Según condición",
+          "singleBlocked": "Para volver a un solo comando, deja una única entrada y quítale la condición.",
+          "singleBlockedKeys": "Esta entrada tiene ajustes propios (como su consola) que un solo comando no guarda. Quítalos en la vista JSON para volver a un solo comando.",
+          "label": "Comando de arranque",
+          "hint": "Lo que el nodo ejecuta en la carpeta del servidor. Las variables, como ${memory}, se sustituyen por su valor.",
+          "line": "Comando",
+          "entry": "Entrada {{n}}",
+          "defaultTag": "Por defecto",
+          "remove": "Quitar «{{item}}»",
+          "conditionHelp": "El nodo usa la primera entrada cuya condición se cumple.",
+          "conditionNone": "Sin condición es el comando por defecto: se usa cuando no se cumple ninguna otra.",
+          "conditionalHint": "Al arrancar, el nodo prueba las entradas en orden y usa la primera cuya condición se cumple; si no se cumple ninguna, usa la primera sin condición.",
+          "extraKeys": "También tiene {{keys}}, que el formulario no muestra. Se conservan; puedes cambiarlos en la vista JSON.",
+          "add": "Añadir comando",
+          "conditionLabel": "Cuándo se usa"
+        },
+        "workingDirectory": {
+          "label": "Carpeta de trabajo",
+          "hint": "Se guarda en la plantilla, pero este nodo no la usa: el servidor arranca siempre en su propia carpeta."
+        },
+        "stop": {
+          "title": "Parada",
+          "description": "Cómo se pide al servidor que se detenga: con un comando en su consola o con una señal a su proceso.",
+          "mode": "Cómo se detiene",
+          "removeCommand": "Quitar el comando",
+          "command": {
+            "choice": "Comando de parada",
+            "label": "Comando de parada",
+            "hint": "Lo que se escribe en la consola para cerrar el servidor, como stop, quit o exit."
+          },
+          "code": {
+            "choice": "Código de señal",
+            "label": "Código de señal",
+            "hint": "El número de la señal que se envía al proceso. Las habituales son 15 (SIGTERM) y 2 (SIGINT, como pulsar Ctrl+C).",
+            "pick": "Habituales"
+          },
+          "signals": {
+            "SIGTERM": "Pide al programa que se cierre. La más habitual.",
+            "SIGINT": "Como pulsar Ctrl+C en la consola: muchos servidores guardan y se cierran.",
+            "SIGKILL": "Lo cierra al momento, sin dejarle guardar. Solo si no responde a otra.",
+            "SIGHUP": "Aviso de que se cerró el terminal. Pocos programas la usan para salir.",
+            "SIGQUIT": "Le pide salir; algunos programas escriben antes un volcado de depuración."
+          }
+        },
+        "environmentVars": {
+          "title": "Variables de entorno",
+          "description": "Las variables de entorno con las que arranca el proceso del servidor.",
+          "label": "Variables de entorno",
+          "hint": "Un nombre y su valor por fila. El valor puede usar variables de la plantilla, como ${port}.",
+          "keyPlaceholder": "NOMBRE",
+          "valuePlaceholder": "valor o ${variable}"
+        },
+        "console": {
+          "title": "Consola",
+          "description": "Por dónde envía el panel los comandos que se escriben en la consola del servidor.",
+          "label": "Entrada de la consola",
+          "hint": "Casi siempre la entrada estándar. Algunos juegos solo aceptan comandos por RCON o telnet."
+        },
+        "behaviour": {
+          "title": "Arranque y reinicio automáticos",
+          "description": "Lo que hace el nodo por su cuenta con los servidores creados desde esta plantilla. Cada servidor puede cambiarlo después en sus ajustes.",
+          "autostart": {
+            "label": "Iniciar al arrancar el nodo",
+            "hint": "El servidor se inicia solo cuando el nodo arranca."
+          },
+          "autorecover": {
+            "label": "Reiniciar si se cae",
+            "hint": "Si el proceso termina con un código distinto del esperado, se vuelve a iniciar."
+          },
+          "autorestart": {
+            "label": "Reiniciar si se para",
+            "hint": "Si el proceso termina con el código esperado (sin que nadie lo pare desde el panel), se vuelve a iniciar."
+          },
+          "expectedExitCode": {
+            "label": "Código de salida esperado",
+            "hint": "El código con el que el servidor sale cuando se cierra bien; con otro, el panel lo trata como una caída. Al pararlo con una señal, muchos programas salen con 128 más la señal (143 con SIGTERM)."
+          }
+        },
+        "pre": {
+          "title": "Antes de arrancar",
+          "description": "Pasos que se ejecutan cada vez que se inicia el servidor, justo antes del comando de arranque: actualizar el juego, regenerar la configuración…",
+          "empty": {
+            "title": "Sin pasos antes de arrancar",
+            "description": "El servidor arranca directamente con su comando. Añade un paso si hay que preparar algo cada vez."
+          }
+        },
+        "post": {
+          "title": "Después de parar",
+          "description": "Pasos que se ejecutan cuando el proceso del servidor termina. Pueden leer ${success} y ${exitCode}.",
+          "empty": {
+            "title": "Sin pasos después de parar",
+            "description": "Al terminar no se hace nada más. Añade un paso si hay que limpiar o copiar algo."
+          }
+        }
+      },
+      "environment": {
+        "default": {
+          "title": "Entorno por defecto",
+          "description": "Dónde se ejecutan los servidores creados desde esta plantilla, si no se elige otro."
+        },
+        "supported": {
+          "title": "Entornos admitidos",
+          "description": "Los que se ofrecen al crear un servidor. Si se elige Docker, se usa el primer entorno Docker de la lista, con su imagen y sus puertos.",
+          "item": "Entorno {{n}}: {{type}}",
+          "remove": "Quitar «{{item}}»",
+          "add": "Añadir entorno",
+          "empty": {
+            "title": "Sin entornos admitidos",
+            "description": "Al crear un servidor solo se usa el entorno por defecto. Añade Docker para poder elegir entre el host y un contenedor."
+          }
+        },
+        "type": {
+          "label": "Tipo",
+          "hint": {
+            "docker": "En un contenedor Docker, aislado del nodo, con la imagen indicada.",
+            "host": "Directamente en el nodo, con los programas que tenga instalados.",
+            "unset": "Sin elegir, el servidor no tiene dónde ejecutarse hasta que alguien lo cambie."
+          }
+        },
+        "types": {
+          "unset": "Sin definir",
+          "host": "Host",
+          "docker": "Docker",
+          "tty": "tty (igual que host)",
+          "standard": "standard (igual que host)"
+        },
+        "image": {
+          "label": "Imagen",
+          "hint": "Una imagen de ghcr.io/aether-panel/ o una oficial de Docker Hub. La etiqueta puede usar una variable, como eclipse-temurin:${javaversion}."
+        },
+        "portBindings": {
+          "label": "Puertos",
+          "hint": "Uno por fila, como en docker run -p: IP:puerto del nodo:puerto del contenedor/protocolo."
+        },
+        "advanced": "Opciones avanzadas de Docker",
+        "networkName": {
+          "label": "Red",
+          "hint": "bridge publica los puertos de arriba; host comparte la red del nodo y no los usa."
+        },
+        "containerRoot": {
+          "label": "Carpeta del servidor en el contenedor",
+          "hint": "Dónde se montan los archivos del servidor dentro del contenedor. Tiene que ser una ruta absoluta."
+        },
+        "bindings": {
+          "label": "Carpetas montadas",
+          "hint": "Una carpeta del nodo y dónde aparece dentro del contenedor.",
+          "newKey": "/ruta/en/el/nodo"
+        },
+        "labels": {
+          "label": "Etiquetas del contenedor",
+          "hint": "Etiquetas de Docker para el contenedor. Pueden usar variables."
+        },
+        "hostConfig": {
+          "label": "hostConfig",
+          "hint": "Ajustes del contenedor tal como los define la API de Docker (HostConfig), por ejemplo { \"Init\": true }."
+        },
+        "config": {
+          "label": "config",
+          "hint": "Ajustes de la imagen tal como los define la API de Docker (Config)."
+        },
+        "extraKeys": "También tiene {{keys}}, que el formulario no muestra. Se conservan; puedes cambiarlos en la vista JSON.",
+        "extraKeysHost": "También tiene {{keys}}: ajustes que este tipo de entorno no usa. Se conservan por si vuelves a Docker."
+      },
+      "requirements": {
+        "any": "Sin marcar ninguno, vale cualquiera.",
+        "platform": {
+          "title": "Sistema y arquitectura",
+          "description": "El nodo se niega a instalar la plantilla en un sistema o una arquitectura que no estén marcados."
+        },
+        "os": {
+          "label": "Sistema operativo",
+          "hint": "Se guarda como {{value}}.",
+          "values": {
+            "linux": "Linux",
+            "windows": "Windows",
+            "darwin": "macOS"
+          }
+        },
+        "arch": {
+          "label": "Arquitectura",
+          "hint": "Se guarda como {{value}}.",
+          "values": {
+            "amd64": "x86-64 (amd64)",
+            "arm64": "ARM de 64 bits (arm64)",
+            "386": "x86 de 32 bits (386)",
+            "arm": "ARM de 32 bits (arm)"
+          }
+        },
+        "binaries": {
+          "title": "Programas",
+          "description": "Los programas que el nodo tiene que tener instalados. Solo se comprueba en host: en Docker los pone la imagen.",
+          "label": "Programas necesarios",
+          "hint": "Uno por fila, tal como se llaman en el PATH. Para aceptar cualquiera de varios, sepáralos con ||, como java || java21."
+        },
+        "extraKeys": "También tiene {{keys}}, que el formulario no muestra. Se conservan; puedes cambiarlos en la vista JSON."
+      },
+      "advanced": {
+        "extraKeys": "También tiene {{keys}}, que el formulario no muestra. Se conservan; puedes cambiarlos en la vista JSON.",
+        "groups": {
+          "title": "Grupos de variables",
+          "description": "Ordenan las variables en bloques en la página de ajustes del servidor. Las que no están en ningún grupo se muestran aparte.",
+          "add": "Añadir grupo",
+          "remove": "Quitar el grupo «{{group}}»",
+          "untitled": "Grupo {{n}}",
+          "countOne": "1 variable",
+          "countMany": "{{count}} variables",
+          "conditionHelp": "El grupo solo se muestra cuando su condición se cumple.",
+          "conditionNone": "Se muestra siempre.",
+          "orderHint": "La página de ajustes muestra los grupos en el orden de esta lista; «Orden» se guarda para las plantillas que lo usan.",
+          "displayField": {
+            "label": "Nombre",
+            "placeholder": "General"
+          },
+          "orderField": {
+            "label": "Orden"
+          },
+          "descriptionField": {
+            "label": "Descripción"
+          },
+          "variables": {
+            "label": "Variables",
+            "hint": "En el orden en que se muestran dentro del grupo.",
+            "add": "Añadir",
+            "remove": "Quitar «{{key}}» del grupo",
+            "missing": "(no existe)",
+            "none": "La plantilla aún no tiene variables.",
+            "inOther": "ya en «{{group}}»"
+          },
+          "empty": {
+            "title": "Sin grupos",
+            "description": "Las variables se muestran todas juntas en los ajustes del servidor."
+          },
+          "conditionLabel": "Cuándo se muestra"
+        },
+        "stats": {
+          "title": "Estadísticas",
+          "description": "Datos de uso que el panel muestra, además de CPU y memoria.",
+          "type": {
+            "label": "Estadísticas adicionales",
+            "hint": "Memoria de Java pide a la máquina virtual de Java su uso de memoria (heap) con jcmd.",
+            "jcmd": "Memoria de Java (jcmd)"
+          },
+          "cmd": {
+            "label": "Programa jcmd",
+            "hint": "Solo en Docker: el comando jcmd dentro del contenedor."
+          }
+        },
+        "query": {
+          "title": "Consulta del estado",
+          "description": "Cómo pregunta el panel al juego cuántos jugadores hay conectados.",
+          "type": {
+            "label": "Protocolo",
+            "minecraft": "Minecraft (ping de la lista de servidores)",
+            "source": "Steam (A2S)",
+            "hint": {
+              "unset": "Sin definir, el panel prueba la consulta de Steam (A2S) y deja de intentarlo un rato si el juego no contesta.",
+              "minecraft": "Usa la IP y el puerto del servidor (las variables ip y port).",
+              "source": "Usa el puerto de consulta (queryport o variantes) o, si no hay, port.",
+              "other": "El panel no conoce este protocolo y no consultará el estado."
+            }
+          }
+        },
+        "keepAlive": {
+          "title": "Keep-alive",
+          "description": "Un comando que se envía a la consola cada cierto tiempo mientras el servidor está en marcha.",
+          "hint": "La frecuencia es una duración con unidad: 30s, 5m, 1h30m. Hacen falta los dos campos.",
+          "frequency": {
+            "label": "Cada"
+          },
+          "command": {
+            "label": "Comando"
+          }
         }
       }
     }

@@ -1,8 +1,11 @@
 import type { ComponentType } from 'react';
 import { Download, Info, ListChecks, Package, Play, Settings2, SlidersHorizontal, type AppIcon } from '@/components/icons';
+import { AdvancedSection } from './advanced/advanced-section';
+import { EnvironmentSection } from './environment/environment-section';
 import { InfoSection } from './info-section';
 import type { JsonObject } from './paths';
-import { PlaceholderSection } from './placeholder-section';
+import { RequirementsSection } from './requirements/requirements-section';
+import { RunSection } from './run/run-section';
 import { InstallSection } from './steps/install-section';
 import { stepsAt } from './steps/model';
 import { countIssues, isUnderPath, type EditorIssue, type IssueCounts } from './validation';
@@ -56,10 +59,10 @@ export const EDITOR_SECTIONS: readonly EditorSection[] = [
   section('info', Info, InfoSection, (issues) => countIssues(issues.filter((i) => i.path === '' || ['name', 'display', 'type', 'icon'].some((key) => isUnderPath(i.path, key))))),
   section('variables', SlidersHorizontal, VariablesSection, countUnder('data'), (template) => Object.keys(templateVariables(template)).length),
   section('install', Download, InstallSection, countUnder('install', 'uninstall'), (template) => stepsAt(template, ['install']).length + stepsAt(template, ['uninstall']).length),
-  section('run', Play, PlaceholderSection, countUnder('run')),
-  section('environment', Package, PlaceholderSection, countUnder('environment', 'supportedEnvironments')),
-  section('requirements', ListChecks, PlaceholderSection, countUnder('requirements')),
-  section('advanced', Settings2, PlaceholderSection, countUnder('groups', 'stats', 'query', 'keepAlive')),
+  section('run', Play, RunSection, countUnder('run')),
+  section('environment', Package, EnvironmentSection, countUnder('environment', 'supportedEnvironments')),
+  section('requirements', ListChecks, RequirementsSection, countUnder('requirements')),
+  section('advanced', Settings2, AdvancedSection, countUnder('groups', 'stats', 'query', 'keepAlive')),
 ];
 
 export function getSection(id: EditorSectionId): EditorSection {

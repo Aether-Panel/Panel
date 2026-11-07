@@ -1,6 +1,7 @@
 import type { OperationDefinition } from '../../schema/operations';
 import type { OperationField } from '../../schema/fields';
 import { deleteIn, getIn, isPlainObject, setIn, type JsonObject, type Path } from '../paths';
+import { isPinnedKey } from '../variables/model';
 
 // The pure side of the step lists (install, uninstall, run.pre, run.post): reading a step's
 // arguments the way the node does and writing them back without touching anything else. The
@@ -25,10 +26,13 @@ export function newStep(operation: OperationDefinition): JsonObject {
   return { type: operation.key };
 }
 
-/** Whether a step holds anything besides its type, so deleting it loses something. */
+/**
+ * Whether a step holds anything besides its type, so deleting it loses something. An empty
+ * value (a required field cleared, which keeps its key as "" or []) is nothing to lose.
+ */
 export function stepHasContent(step: unknown): boolean {
   if (!isPlainObject(step)) return step !== undefined;
-  return Object.keys(step).some((key) => key !== 'type');
+  return Object.entries(step).some(([key, value]) => key !== 'type' && !isEmptyValue(value));
 }
 
 /** The key that holds the field's value now: its own name, else an older spelling in use. */
@@ -156,6 +160,21 @@ export function uniqueEntryKey(base: string, taken: Iterable<string>): string {
 export function renameEntry(object: JsonObject, from: string, to: string): JsonObject {
   if (from === to || !Object.hasOwn(object, from) || Object.hasOwn(object, to)) return object;
   return Object.fromEntries(Object.entries(object).map(([key, value]) => [key === from ? to : key, value]));
+}
+
+/**
+ * The map with its entry at `from` moved to `to`, and where it went. A number-like key (see
+ * isPinnedKey) is always listed first by JavaScript, so it never moves and a drop among such keys
+ * lands just below them. Null when nothing would move.
+ */
+export function moveEntry(object: JsonObject, from: number, to: number): { object: JsonObject; to: number } | null {
+  const entries = Object.entries(object);
+  if (from < 0 || from >= entries.length || isPinnedKey(entries[from][0])) return null;
+  const target = Math.min(entries.length - 1, Math.max(to, entries.filter(([key]) => isPinnedKey(key)).length));
+  if (target === from) return null;
+  const [entry] = entries.splice(from, 1);
+  entries.splice(target, 0, entry);
+  return { object: Object.fromEntries(entries), to: target };
 }
 
 /** A console configuration with `key` set to `value`, or without it when the value is empty. */

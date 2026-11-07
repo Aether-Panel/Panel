@@ -46,7 +46,8 @@ export function StdinControl({ id, path, label, hint, value, issues, onChange }:
   return (
     <fieldset id={id} tabIndex={-1} className="space-y-4 rounded-xl border border-border/60 bg-background/30 p-4 outline-none" aria-describedby={hint ? hintId : undefined}>
       <legend className="sr-only">{label}</legend>
-      <div className="space-y-2">
+      {/* the legend is the first child, so space-y would push this block down */}
+      <div className="!mt-0 space-y-2">
         <Label htmlFor={typeId} className="text-sm font-medium">
           <FieldLabel label={label} />
         </Label>
