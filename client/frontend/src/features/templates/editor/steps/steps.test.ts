@@ -6,7 +6,7 @@ import type { JsonObject } from '../paths';
 import { conditionPreset, conditionReference, PRESET_EXPRESSIONS } from './condition';
 import {
   clearedValue, copyStep, fieldKey, foldAfterContentChange, insertStep, moveEntry, newStep, numberFromText, readField, removeStep, renameEntry, stepHasContent, stepsAt, stepType,
-  uniqueEntryKey, withStdinKey, writeField, writeFieldIn,
+  pastedLines, uniqueEntryKey, withStdinKey, writeField, writeFieldIn,
 } from './model';
 import { OPERATION_ICONS } from './operation-icons';
 import { matchOperation } from './palette-search';
@@ -358,5 +358,24 @@ describe('folds opened by their content', () => {
     const userClosed = { open: false, closedByUser: true };
     expect(foldAfterContentChange(userClosed, true)).toBe(userClosed);
     expect(foldAfterContentChange(closed, false)).toBe(closed);
+  });
+});
+
+describe('pasted lines', () => {
+  it.each([
+    ['a\nb', ['a', 'b']],
+    ['a\r\nb\rc', ['a', 'b', 'c']],
+    ['a\n\nb\n\n\n', ['a', '', 'b']],
+    ['a\r\n\r\n', ['a']],
+    ['\n\n', ['']],
+    ['\na', ['', 'a']],
+    ['', ['']],
+  ])('%j makes the rows %j', (text, rows) => {
+    expect(pastedLines(text)).toEqual(rows);
+  });
+
+  it('reads a long run of line breaks in one pass', () => {
+    expect(pastedLines(`a${'\n'.repeat(50_000)}b`)).toHaveLength(50_001);
+    expect(pastedLines('\n'.repeat(50_000))).toEqual(['']);
   });
 });

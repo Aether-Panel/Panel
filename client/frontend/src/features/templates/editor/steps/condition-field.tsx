@@ -60,20 +60,26 @@ function ConditionCommand({ onPick }: Readonly<{ onPick: (snippet: Snippet) => v
           </CommandGroup>
         )}
         <CommandGroup heading={t('templates.editor.insertVariable.builtinGroup')}>
-          {BUILTIN_NAMES.map((name) => (
-            <CommandItem key={name} value={`${name} ${t(`templates.editor.steps.condition.builtin.${name}`)}`} onSelect={() => onPick({ text: name })}>
-              <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{name}</span>
-              <span className="max-w-[60%] truncate text-xs text-muted-foreground">{t(`templates.editor.steps.condition.builtin.${name}`)}</span>
-            </CommandItem>
-          ))}
+          {BUILTIN_NAMES.map((name) => {
+            const description = t(`templates.editor.steps.condition.builtin.${name}`);
+            return (
+              <CommandItem key={name} value={`${name} ${description}`} onSelect={() => onPick({ text: name })}>
+                <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{name}</span>
+                <span className="max-w-[60%] truncate text-xs text-muted-foreground">{description}</span>
+              </CommandItem>
+            );
+          })}
         </CommandGroup>
         <CommandGroup heading={t('templates.editor.steps.condition.functions')}>
-          {FUNCTIONS.map(({ name, snippet }) => (
-            <CommandItem key={name} value={`${name} ${t(`templates.editor.steps.condition.function.${name}`)}`} onSelect={() => onPick(snippet)}>
-              <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{snippet.text}</span>
-              <span className="max-w-[55%] truncate text-xs text-muted-foreground">{t(`templates.editor.steps.condition.function.${name}`)}</span>
-            </CommandItem>
-          ))}
+          {FUNCTIONS.map(({ name, snippet }) => {
+            const description = t(`templates.editor.steps.condition.function.${name}`);
+            return (
+              <CommandItem key={name} value={`${name} ${description}`} onSelect={() => onPick(snippet)}>
+                <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{snippet.text}</span>
+                <span className="max-w-[55%] truncate text-xs text-muted-foreground">{description}</span>
+              </CommandItem>
+            );
+          })}
         </CommandGroup>
       </CommandList>
     </Command>

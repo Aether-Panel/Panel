@@ -29,7 +29,7 @@ export const VARIABLE_KEY = /^[A-Za-z0-9_-]+$/;
  * Keys a condition (`if`) can read: CEL identifiers, so no hyphens and no leading digit. A key
  * outside this is still valid, only unusable in conditions, so it deserves a warning, not an error.
  */
-export const CONDITION_SAFE_VARIABLE_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
+export const CONDITION_SAFE_VARIABLE_KEY = /^[A-Za-z_]\w*$/;
 
 /** A condition in CEL (`env == 'host'`); the node evaluates it, so only its type is checked. */
 export const conditionSchema = z.string({ error: typeError() });
@@ -62,18 +62,26 @@ export function numberOrVariable(bounds: { min?: number; max?: number; required?
   });
 }
 
+/** A Go duration with its units: "30s", "1h30m", "1.5h". */
+const GO_DURATION = /^(\d+(\.\d+)?(ns|us|µs|ms|s|m|h))+$/;
+/** A bare number, which cast reads as nanoseconds. */
+const NANOSECONDS = /^\d+$/;
+
 /**
  * What Go's cast.ToDurationE reads: a duration such as "30s" or "1h30m", a bare number of
- * nanoseconds, or a `${variable}` replaced before the step runs. Only sleep's required duration
- * uses it, so "" is reported as missing.
+ * nanoseconds, or (anywhere in the text) a `${variable}` replaced before the step runs. One
+ * pattern made of the three, so the JSON view's schema checks it too.
  */
+export const NODE_DURATION = new RegExp([GO_DURATION, NANOSECONDS, VARIABLE_TOKEN].map((part) => part.source).join('|'));
+
+/** A sleep's duration (NODE_DURATION). Only sleep's required duration uses it, so "" is reported as missing. */
 export const durationSchema = z.union(
   [
     z.number().int().nonnegative(),
     z
       .string()
       .min(1, { error: msg('required'), abort: true })
-      .regex(/^(\d+(\.\d+)?(ns|us|µs|ms|s|m|h))+$|^\d+$|\$\{[^}]+\}/, { error: msg('invalidDuration') }),
+      .regex(NODE_DURATION, { error: msg('invalidDuration') }),
   ],
   { error: typeError('invalidDuration', true) },
 );

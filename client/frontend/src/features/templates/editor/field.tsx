@@ -8,10 +8,16 @@ import type { EditorIssue } from './validation';
 /** An invalid control gets the error colour on its border, next to the message under it. */
 export const INVALID_CONTROL = 'aria-[invalid=true]:border-destructive/70';
 
-/** A value as a text input shows it: a string as is, nothing for a missing one, else its text. */
+/**
+ * A value as a text input shows it: a string as is, nothing for a missing one, a number or a
+ * switch as its text, and an object or a list (which no text field holds in a valid template)
+ * as its JSON rather than "[object Object]".
+ */
 export function textValue(value: unknown): string {
   if (typeof value === 'string') return value;
-  return value == null ? '' : String(value);
+  if (value === undefined || value === null) return '';
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+  return JSON.stringify(value) ?? '';
 }
 
 /** The id of the element listing a field's issues, for the control's aria-describedby. */

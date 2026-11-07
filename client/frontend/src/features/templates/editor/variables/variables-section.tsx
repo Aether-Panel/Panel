@@ -52,10 +52,10 @@ function useKeyIds(keys: readonly string[]) {
     byKey.set(to, id);
   }, []);
   const ids = useMemo(() => {
-    const list = keys.map(assign);
+    const list = keys.map((key) => assign(key));
     // a deleted key's id goes with it, so a variable added later under that key starts folded
     const { byKey } = state.current;
-    for (const key of [...byKey.keys()]) if (!keys.includes(key)) byKey.delete(key);
+    for (const key of byKey.keys()) if (!keys.includes(key)) byKey.delete(key);
     return list;
   }, [keys, assign]);
   return { ids, assign, rename };

@@ -100,9 +100,18 @@ export function usesOptions(variable: JsonObject): boolean {
   return variableType(variable) === 'option' || variableOptions(variable).length > 0;
 }
 
+/** An option value's text, which the node compares choices by; undefined for anything but text, a number or a switch. */
+function optionText(value: unknown): string | undefined {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return undefined;
+}
+
 /** Whether two option values are the same choice: equal, or the same text ("1" and 1). */
 export function sameOptionValue(a: unknown, b: unknown): boolean {
-  return Object.is(a, b) || (a !== null && b !== null && a !== undefined && b !== undefined && String(a) === String(b));
+  if (Object.is(a, b)) return true;
+  const text = optionText(a);
+  return text !== undefined && text === optionText(b);
 }
 
 /**

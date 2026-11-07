@@ -26,11 +26,16 @@ export function newGroup(groups: readonly unknown[]): JsonObject {
   return group;
 }
 
+/** A number as time.ParseDuration reads it: 5, 1.5, 1. or .5. */
+const DURATION_NUMBER = /(?:\d+(?:\.\d*)?|\.\d+)/;
+/** time.ParseDuration's units, with both spellings of the micro sign. */
+const DURATION_UNIT = /(?:ns|us|µs|μs|ms|s|m|h)/;
+
 /**
  * What time.ParseDuration reads (the keep-alive's frequency is parsed with it): numbers, each
  * with a unit, such as 30s, 5m or 1h30m. The node turns down zero and negative ones as well.
  */
-const GO_DURATION = /^(?:(?:\d+(?:\.\d*)?|\.\d+)(?:ns|us|µs|μs|ms|s|m|h))+$/;
+export const GO_DURATION = new RegExp(`^(?:${DURATION_NUMBER.source}${DURATION_UNIT.source})+$`);
 
 export function isPositiveDuration(value: unknown): boolean {
   if (typeof value !== 'string') return false;

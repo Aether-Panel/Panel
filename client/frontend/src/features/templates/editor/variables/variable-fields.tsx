@@ -19,6 +19,11 @@ import {
 } from './model';
 import type { VariableActions } from './variable-card';
 
+type Translate = ReturnType<typeof useTranslations>['t'];
+
+/** How a template writes a use of the variable `key`: `${key}`. */
+const variableToken = (key: string) => `\${${key}}`;
+
 // The controls of one variable card. Each writes its own key of the variable through the
 // editor's update(), so every other key of the variable is kept as it is.
 
@@ -26,6 +31,31 @@ import type { VariableActions } from './variable-card';
 export function issuesFor(issues: readonly EditorIssue[], path: Path): EditorIssue[] {
   const key = pathKey(path);
   return issues.filter((i) => i.path === key);
+}
+
+/** What is wrong with a key typed over `variableKey`; null when it can be written (or is unchanged). */
+function keyProblem(draft: string, variableKey: string, isKeyTaken: (key: string) => boolean): string | null {
+  if (draft === variableKey) return null;
+  if (draft === '') return 'keyRequired';
+  if (!isValidVariableKey(draft)) return 'keyInvalid';
+  if (isKeyTaken(draft)) return 'keyTaken';
+  return null;
+}
+
+/** The toast that says a key left invalid in its field was dropped, not written. */
+function warnKeyNotApplied(t: Translate, lost: { draft: string; key: string; problem: string }) {
+  sileo.warning({
+    title: t('templates.editor.variables.key.notAppliedTitle'),
+    // an emptied key has nothing to quote, and "type a key" reads oddly once the field is gone
+    description:
+      lost.problem === 'keyRequired'
+        ? t('templates.editor.variables.key.notAppliedEmpty', { key: lost.key })
+        : t('templates.editor.variables.key.notApplied', {
+            draft: lost.draft,
+            key: lost.key,
+            reason: t(`templates.editor.variables.key.${lost.problem}`),
+          }),
+  });
 }
 
 /**
@@ -55,12 +85,7 @@ export function KeyField({ variableKey, uses, conditionUses, issues, actions }: 
   const path = ['data', variableKey];
   const id = fieldId(path);
   const changed = draft !== variableKey;
-  let problem: string | null = null;
-  if (changed) {
-    if (draft === '') problem = 'keyRequired';
-    else if (!isValidVariableKey(draft)) problem = 'keyInvalid';
-    else if (actions.isKeyTaken(draft)) problem = 'keyTaken';
-  }
+  const problem = keyProblem(draft, variableKey, actions.isKeyTaken);
   const draftIssues: EditorIssue[] = problem
     ? [{ path: pathKey(path), messageKey: `templates.editor.variables.key.${problem}`, severity: 'error', blocking: false }]
     : [];
@@ -86,20 +111,7 @@ export function KeyField({ variableKey, uses, conditionUses, issues, actions }: 
   useEffect(
     () => () => {
       const lost = invalidDraft.current;
-      if (!lost) return;
-      const translate = tRef.current;
-      sileo.warning({
-        title: translate('templates.editor.variables.key.notAppliedTitle'),
-        // an emptied key has nothing to quote, and "type a key" reads oddly once the field is gone
-        description:
-          lost.problem === 'keyRequired'
-            ? translate('templates.editor.variables.key.notAppliedEmpty', { key: lost.key })
-            : translate('templates.editor.variables.key.notApplied', {
-                draft: lost.draft,
-                key: lost.key,
-                reason: translate(`templates.editor.variables.key.${lost.problem}`),
-              }),
-      });
+      if (lost) warnKeyNotApplied(tRef.current, lost);
     },
     [],
   );
@@ -107,8 +119,6 @@ export function KeyField({ variableKey, uses, conditionUses, issues, actions }: 
   const hints = [t('templates.editor.variables.key.hint')];
   if (uses > 0) hints.push(uses === 1 ? t('templates.editor.variables.key.usedOne') : t('templates.editor.variables.key.usedMany', { count: uses }));
   const unsafe = isValidVariableKey(variableKey) && !CONDITION_SAFE_VARIABLE_KEY.test(variableKey);
-  // a condition cannot name a key with a hyphen, so renaming to one leaves conditions as they are
-  const keepsConditions = conditionUses > 0 && !CONDITION_SAFE_VARIABLE_KEY.test(draft);
 
   return (
     <div
@@ -124,7 +134,7 @@ export function KeyField({ variableKey, uses, conditionUses, issues, actions }: 
         hint={
           <>
             {hints.join(' ')}
-            {unsafe && <span className="mt-1 block text-warning">{t('templates.editor.variables.key.conditionUnsafe', { token: `\${${variableKey}}` })}</span>}
+            {unsafe && <span className="mt-1 block text-warning">{t('templates.editor.variables.key.conditionUnsafe', { token: variableToken(variableKey) })}</span>}
             {isPinnedKey(variableKey) && <span className="mt-1 block text-warning">{t('templates.editor.variables.key.pinned')}</span>}
           </>
         }
@@ -153,22 +163,48 @@ export function KeyField({ variableKey, uses, conditionUses, issues, actions }: 
         )}
       </TemplateField>
       {changed && !problem && uses > 0 && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-border/60 bg-background/40 px-3 py-2.5">
-          <Checkbox id={`${id}-rename-uses`} checked={renameUses} onCheckedChange={(v) => setRenameUses(v === true)} className="mt-0.5" />
-          <Label htmlFor={`${id}-rename-uses`} className="text-pretty text-xs font-normal leading-relaxed text-muted-foreground">
-            {t(uses === 1 ? 'templates.editor.variables.key.renameUsesOne' : 'templates.editor.variables.key.renameUsesMany', {
-              count: uses,
-              from: `\${${variableKey}}`,
-              to: `\${${draft}}`,
-            })}
-            {keepsConditions && (
-              <span className="mt-1 block text-warning">
-                {t(conditionUses === 1 ? 'templates.editor.variables.key.renameKeepsConditionOne' : 'templates.editor.variables.key.renameKeepsConditionMany', { count: conditionUses })}
-              </span>
-            )}
-          </Label>
-        </div>
+        <RenameUsesChoice
+          id={`${id}-rename-uses`}
+          from={variableKey}
+          to={draft}
+          uses={uses}
+          // a condition cannot name a key with a hyphen, so renaming to one leaves conditions as they are
+          keptConditions={CONDITION_SAFE_VARIABLE_KEY.test(draft) ? 0 : conditionUses}
+          checked={renameUses}
+          onCheckedChange={setRenameUses}
+        />
       )}
+    </div>
+  );
+}
+
+/** Whether a rename also rewrites the key's `${…}` uses, offered while a valid new key is typed. */
+function RenameUsesChoice({ id, from, to, uses, keptConditions, checked, onCheckedChange }: Readonly<{
+  id: string;
+  from: string;
+  to: string;
+  uses: number;
+  /** Conditions reading the key by name that the rename leaves as they are. */
+  keptConditions: number;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}>) {
+  const { t } = useTranslations();
+  return (
+    <div className="flex items-start gap-2.5 rounded-lg border border-border/60 bg-background/40 px-3 py-2.5">
+      <Checkbox id={id} checked={checked} onCheckedChange={(v) => onCheckedChange(v === true)} className="mt-0.5" />
+      <Label htmlFor={id} className="text-pretty text-xs font-normal leading-relaxed text-muted-foreground">
+        {t(uses === 1 ? 'templates.editor.variables.key.renameUsesOne' : 'templates.editor.variables.key.renameUsesMany', {
+          count: uses,
+          from: variableToken(from),
+          to: variableToken(to),
+        })}
+        {keptConditions > 0 && (
+          <span className="mt-1 block text-warning">
+            {t(keptConditions === 1 ? 'templates.editor.variables.key.renameKeepsConditionOne' : 'templates.editor.variables.key.renameKeepsConditionMany', { count: keptConditions })}
+          </span>
+        )}
+      </Label>
     </div>
   );
 }

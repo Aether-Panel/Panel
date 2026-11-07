@@ -25,8 +25,10 @@ export function blankTemplate(): JsonObject {
 
 /** `template` with its name first, so the JSON view opens with it; the other keys keep their order. */
 function withName(template: JsonObject, name: string): JsonObject {
-  // the first object fixes the key's place, the last one its value
-  return Object.assign({ name }, template, { name });
+  // the first `name` fixes the key's place; setting it again after the spread fixes its value
+  const named: JsonObject = { name, ...template };
+  named.name = name;
+  return named;
 }
 
 /**

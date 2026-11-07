@@ -18,6 +18,11 @@ const UNSET = '__unset__';
 /** The types that connect to the game over the network. */
 const NETWORK_TYPES = new Set<string>(['rcon', 'rconws', 'telnet']);
 
+/** A console type as the select shows it: text as is, any other JSON value (which the schema flags) as its JSON. */
+function consoleTypeText(type: unknown): string {
+  return typeof type === 'string' ? type : JSON.stringify(type) ?? '';
+}
+
 export function StdinControl({ id, path, label, hint, value, issues, onChange }: Readonly<{
   /** fieldId of the configuration's path. */
   id: string;
@@ -35,7 +40,7 @@ export function StdinControl({ id, path, label, hint, value, issues, onChange }:
   const config: JsonObject | undefined = isPlainObject(value) ? value : undefined;
   // "" is the standard input too (the node reads both alike)
   const rawType = config?.type;
-  const type = rawType === undefined || rawType === '' ? 'stdin' : String(rawType);
+  const type = rawType === undefined || rawType === '' ? 'stdin' : consoleTypeText(rawType);
   const known = (STDIN_TYPES as readonly string[]).includes(type);
   const selected = config === undefined ? UNSET : type;
   const own = (key: string) => issues.filter((i) => i.path === pathKey([...path, key]));
@@ -56,7 +61,7 @@ export function StdinControl({ id, path, label, hint, value, issues, onChange }:
           onValueChange={(next) => {
             if (next === UNSET) onChange(undefined);
             // the other settings stay: switching back to that type finds them again
-            else onChange({ ...(config ?? {}), type: next });
+            else onChange({ ...config, type: next });
           }}
         >
           <SelectTrigger

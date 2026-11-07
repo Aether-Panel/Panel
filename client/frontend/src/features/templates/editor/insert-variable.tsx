@@ -45,12 +45,15 @@ function VariableCommand({ onPick }: Readonly<{ onPick: (key: string) => void }>
           </CommandGroup>
         )}
         <CommandGroup heading={t('templates.editor.insertVariable.builtinGroup')}>
-          {BUILTIN_VARIABLES.map((key) => (
-            <CommandItem key={key} value={`${key} ${t(`templates.editor.insertVariable.builtin.${key}`)}`} onSelect={() => onPick(key)}>
-              <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{`\${${key}}`}</span>
-              <span className="max-w-[45%] truncate text-xs text-muted-foreground">{t(`templates.editor.insertVariable.builtin.${key}`)}</span>
-            </CommandItem>
-          ))}
+          {BUILTIN_VARIABLES.map((key) => {
+            const description = t(`templates.editor.insertVariable.builtin.${key}`);
+            return (
+              <CommandItem key={key} value={`${key} ${description}`} onSelect={() => onPick(key)}>
+                <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{`\${${key}}`}</span>
+                <span className="max-w-[45%] truncate text-xs text-muted-foreground">{description}</span>
+              </CommandItem>
+            );
+          })}
         </CommandGroup>
       </CommandList>
     </Command>

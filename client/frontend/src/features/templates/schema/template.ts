@@ -31,7 +31,7 @@ const stepListSchema = z.array(stepSchema, { error: typeError() }).nullable();
 export const VARIABLE_TYPES = ['string', 'integer', 'boolean', 'option'] as const;
 
 /** strconv.ParseBool, which cast.ToBoolE uses for strings. */
-const GO_BOOL_STRINGS = ['1', 't', 'T', 'TRUE', 'true', 'True', '0', 'f', 'F', 'FALSE', 'false', 'False'];
+const GO_BOOL_STRINGS = new Set(['1', 't', 'T', 'TRUE', 'true', 'True', '0', 'f', 'F', 'FALSE', 'false', 'False']);
 
 export const variableOptionSchema = z.looseObject({
   value: z.union([z.string(), z.number(), z.boolean()], { error: typeError() }),
@@ -57,7 +57,7 @@ export const variableSchema = z
     // the editor to raise, not something this schema can express).
     if (v.type !== 'boolean') return;
     const value = v.value;
-    const ok = typeof value === 'boolean' || typeof value === 'number' || (typeof value === 'string' && GO_BOOL_STRINGS.includes(value));
+    const ok = typeof value === 'boolean' || typeof value === 'number' || (typeof value === 'string' && GO_BOOL_STRINGS.has(value));
     if (!ok) ctx.addIssue({ code: 'custom', path: ['value'], message: msg('invalidBoolean') });
   });
 

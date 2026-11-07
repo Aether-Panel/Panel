@@ -258,6 +258,11 @@ describe('variable model', () => {
     expect(optionValueFromText('16', '8')).toBe('16');
     expect(sameOptionValue(1, '1')).toBe(true);
     expect(sameOptionValue('', null)).toBe(false);
+    expect(sameOptionValue(true, 'true')).toBe(true);
+    expect(sameOptionValue(null, null)).toBe(true);
+    expect(sameOptionValue(undefined, 'undefined')).toBe(false);
+    // no option value is an object: two of them are not one choice by their "[object Object]" text
+    expect(sameOptionValue({ a: 1 }, { b: 2 })).toBe(false);
     expect(newOption([{ value: 'option2' }])).toEqual({ value: 'option3', display: '' });
   });
 });

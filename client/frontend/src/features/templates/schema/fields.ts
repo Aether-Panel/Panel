@@ -63,15 +63,26 @@ export interface OperationField {
   schema: z.ZodType;
 }
 
+/** Text, which "" leaves missing when it is required. */
+function textSchema(required: boolean): z.ZodType {
+  const s = z.string({ error: typeError() });
+  return required ? s.min(1, { error: msg('required') }) : s;
+}
+
+/** A select's value: one of its options (or "" when that means unset), or any text when allowCustom. */
+function selectSchema(widget: Extract<FieldWidget, { kind: 'select' }>, required: boolean, emptyIsUnset: boolean): z.ZodType {
+  if (widget.allowCustom) return textSchema(required);
+  const values = widget.options.map((o) => o.value);
+  return z.enum((emptyIsUnset ? [...values, ''] : values) as [string, ...string[]], { error: typeError('invalidOption', required) });
+}
+
 /** The schema of a value edited with this control, before it is made optional. */
 export function widgetSchema(widget: FieldWidget, required: boolean, variables: boolean, emptyIsUnset = false): z.ZodType {
   switch (widget.kind) {
     case 'text':
     case 'multiline':
-    case 'path': {
-      const s = z.string({ error: typeError() });
-      return required ? s.min(1, { error: msg('required') }) : s;
-    }
+    case 'path':
+      return textSchema(required);
     case 'stringList': {
       const list = z.array(z.string({ error: typeError() }), { error: typeError() });
       return required ? list.min(1, { error: msg('required') }) : list;
@@ -85,14 +96,8 @@ export function widgetSchema(widget: FieldWidget, required: boolean, variables: 
     }
     case 'boolean':
       return z.boolean({ error: typeError() });
-    case 'select': {
-      if (!widget.allowCustom) {
-        const values = widget.options.map((o) => o.value);
-        return z.enum((emptyIsUnset ? [...values, ''] : values) as [string, ...string[]], { error: typeError('invalidOption', required) });
-      }
-      const s = z.string({ error: typeError() });
-      return required ? s.min(1, { error: msg('required') }) : s;
-    }
+    case 'select':
+      return selectSchema(widget, required, emptyIsUnset);
     case 'stdin':
       return stdinSchema.nullable();
   }

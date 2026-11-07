@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { JsonObject } from '../paths';
 import { joinAlternatives, parseAlternatives, toggleAlternative } from '../requirements/model';
 import { writeOptional } from '../write';
-import { groupVariables, groupVariablesRule, isPositiveDuration, keepAliveRule, newGroup } from './model';
+import { GO_DURATION, groupVariables, groupVariablesRule, isPositiveDuration, keepAliveRule, newGroup } from './model';
 
 const FIXTURES = new URL('../../schema/__fixtures__/community/', import.meta.url);
 const community = readdirSync(FIXTURES)
@@ -64,6 +64,12 @@ describe('keep-alive', () => {
     ['', false],
   ])('%s is a usable frequency: %s', (value, ok) => {
     expect(isPositiveDuration(value)).toBe(ok);
+  });
+
+  it('builds the duration pattern from its parts without changing what it accepts', () => {
+    // the single literal it was written as before being split into named parts
+    expect(GO_DURATION.source).toBe(String.raw`^(?:(?:\d+(?:\.\d*)?|\.\d+)(?:ns|us|µs|μs|ms|s|m|h))+$`);
+    expect(GO_DURATION.flags).toBe('');
   });
 
   it('warns about a frequency the node cannot read, or a half filled keep-alive', () => {

@@ -22,7 +22,8 @@ const EDITOR = '/templates/editor/';
 
 /** The editor opened on a copy of `template`. */
 export function duplicateHref(template: Pick<ListedTemplate, 'repoId' | 'name'>): string {
-  return `${EDITOR}?${new URLSearchParams({ from: `${template.repoId}:${template.name}` })}`;
+  const from = `${template.repoId}:${template.name}`;
+  return `${EDITOR}?${new URLSearchParams({ from })}`;
 }
 
 type Step = 'choose' | 'preset' | 'duplicate';
@@ -62,7 +63,7 @@ function moveBetweenItems(event: KeyboardEvent<HTMLElement>, before?: HTMLElemen
   event.preventDefault();
   if (event.key === 'ArrowUp' && at === 0 && before) before.focus();
   else if (event.key === 'Home') items[0].focus();
-  else if (event.key === 'End') items[items.length - 1].focus();
+  else if (event.key === 'End') items.at(-1)?.focus();
   else items[Math.min(Math.max(at + (event.key === 'ArrowDown' ? 1 : -1), 0), items.length - 1)].focus();
 }
 
@@ -108,7 +109,8 @@ function DuplicateList({ templates, loading }: Readonly<{ templates: ListedTempl
   const listRef = useRef<HTMLUListElement>(null);
   const shown = templates.filter((tpl) => matchesTemplate(tpl, query));
   // how many match, said once the user stops typing
-  const count = loading ? '' : t(shown.length === 1 ? 'templates.chooser.duplicate.resultsOne' : 'templates.chooser.duplicate.resultsMany', { count: shown.length });
+  const resultsKey = shown.length === 1 ? 'templates.chooser.duplicate.resultsOne' : 'templates.chooser.duplicate.resultsMany';
+  const count = loading ? '' : t(resultsKey, { count: shown.length });
   const announced = useSettled(count, 600);
 
   const onSearchKey = (event: KeyboardEvent<HTMLInputElement>) => {

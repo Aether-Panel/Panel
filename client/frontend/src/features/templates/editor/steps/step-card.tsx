@@ -1,20 +1,17 @@
-import { memo, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { AlertTriangle, ArrowDown, ArrowUp, ChevronRight, Copy, FileJson, GitBranch, LayoutTemplate, MoreHorizontal, Plus, Trash2 } from '@/components/icons';
+import { memo, useState } from 'react';
+import { ChevronRight, GitBranch } from '@/components/icons';
 import { useTranslations } from '@/contexts/translations-context';
 import { cn } from '@/lib/utils';
-import { getOperation } from '../../schema/operations';
-import { fieldId, useTemplateEditorActions } from '../editor-context';
+import { getOperation, type OperationDefinition } from '../../schema/operations';
+import { fieldId } from '../editor-context';
 import { isPlainObject, pathKey, type Path } from '../paths';
 import { IssueCountBadges } from '../section-nav';
-import { DragHandle, MoveButtons, useAnnounceMove, useSortableItem } from '../sortable';
+import { DragHandle, MoveButtons, useSortableItem } from '../sortable';
 import { countIssues, type EditorIssue } from '../validation';
 import { conditionPreset } from './condition';
-import { ConditionField } from './condition-field';
 import { operationIcon } from './operation-icons';
-import { OperationForm } from './operation-form';
-import { StepJsonEditor } from './step-json';
+import { StepCardBody } from './step-card-body';
+import { StepCardMenu } from './step-card-menu';
 import { stepSummary } from './summary';
 
 /** What a card does to its list; one stable object, so a card re-renders only for its own step. */
@@ -48,8 +45,7 @@ export interface StepCardProps {
 }
 
 export const stepToggleId = (id: string) => `step-${id}-toggle`;
-/** The card's "…" button, where the focus returns when an action from its menu is cancelled. */
-export const stepMenuId = (id: string) => `step-${id}-menu`;
+export { stepMenuId } from './step-card-menu';
 
 /** The small tag that says when a step runs, next to its name. */
 function ConditionTag({ condition }: Readonly<{ condition: unknown }>) {
@@ -71,11 +67,27 @@ function ConditionTag({ condition }: Readonly<{ condition: unknown }>) {
   );
 }
 
+type Translate = ReturnType<typeof useTranslations>['t'];
+
+/** The step's name: its operation's, else its type as written, else that it is no valid step. */
+function stepName(t: Translate, operation: OperationDefinition | undefined, type: string | undefined): string {
+  if (operation) return t(operation.labelKey);
+  if (type !== undefined) return type;
+  return t('templates.editor.steps.invalidStep');
+}
+
+/** A line of prose about a step that has no summary of its arguments; '' when it has one. */
+function stepNote(t: Translate, summary: string, operation: OperationDefinition | undefined, hasForm: boolean, type: string | undefined): string {
+  if (summary) return '';
+  if (operation?.fields.length === 0) return t(operation.helpKey);
+  if (hasForm) return t('templates.editor.steps.notFilled');
+  if (type !== undefined) return t('templates.editor.steps.unknownType');
+  return '';
+}
+
 function StepCardView({ id, listPath, index, count, step, expanded, issues, actions }: Readonly<StepCardProps>) {
   const { t } = useTranslations();
-  const { update } = useTemplateEditorActions();
   const { ref, style, isDragging, handleProps } = useSortableItem(id);
-  const announceMove = useAnnounceMove();
   const isObject = isPlainObject(step);
   const type = isObject && typeof step.type === 'string' ? step.type : undefined;
   const operation = type === undefined ? undefined : getOperation(type);
@@ -89,24 +101,19 @@ function StepCardView({ id, listPath, index, count, step, expanded, issues, acti
   const stepPath = [...listPath, index];
   const bodyId = `step-${id}-body`;
   const Icon = operationIcon(operation);
-  // a menu action that moves the focus elsewhere keeps the menu from handing it back as it closes
-  const focusMoved = useRef(false);
 
-  let name: string;
-  if (operation) name = t(operation.labelKey);
-  else if (type !== undefined) name = type;
-  else name = t('templates.editor.steps.invalidStep');
+  const name = stepName(t, operation, type);
   const numbered = t('templates.editor.steps.numbered', { n: index + 1, name });
-
   // the arguments, in mono like the values they are; else a line of prose about the step
   const summary = stepSummary(step);
-  let note = '';
-  if (!summary && operation && operation.fields.length === 0) note = t(operation.helpKey);
-  else if (!summary && hasForm) note = t('templates.editor.steps.notFilled');
-  else if (!summary && type !== undefined) note = t('templates.editor.steps.unknownType');
+  const note = stepNote(t, summary, operation, hasForm, type);
 
-  const ifIssues = issues.filter((i) => i.path === pathKey([...stepPath, 'if']));
-  const formIssues = issues.filter((i) => !ifIssues.includes(i));
+  const toggleJson = () => {
+    setJsonChosen(!json);
+    actions.expand(id);
+    // into the editor that now shows
+    requestAnimationFrame(() => document.getElementById(json ? stepToggleId(id) : fieldId(stepPath))?.focus());
+  };
 
   return (
     <li
@@ -160,128 +167,10 @@ function StepCardView({ id, listPath, index, count, step, expanded, issues, acti
           <IssueCountBadges counts={countIssues(issues)} />
         </button>
         <MoveButtons index={index} count={count} label={numbered} onMove={actions.move} />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              id={stepMenuId(id)}
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-              aria-label={t('templates.editor.steps.menu', { step: numbered })}
-            >
-              <MoreHorizontal aria-hidden="true" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            onCloseAutoFocus={(e) => {
-              if (focusMoved.current) e.preventDefault();
-              focusMoved.current = false;
-            }}
-          >
-            {hasForm && (
-              <DropdownMenuItem
-                onSelect={() => {
-                  focusMoved.current = true;
-                  setJsonChosen(!json);
-                  actions.expand(id);
-                  // into the editor that now shows
-                  requestAnimationFrame(() => document.getElementById(json ? stepToggleId(id) : fieldId(stepPath))?.focus());
-                }}
-              >
-                {json ? <LayoutTemplate className="mr-2 h-4 w-4" aria-hidden="true" /> : <FileJson className="mr-2 h-4 w-4" aria-hidden="true" />}
-                {t(json ? 'templates.editor.steps.useForm' : 'templates.editor.steps.editJson')}
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem
-              onSelect={() => {
-                focusMoved.current = true;
-                actions.insertAfter(index);
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-              {t('templates.editor.steps.insertAfter')}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => {
-                focusMoved.current = true;
-                actions.duplicate(index);
-              }}
-            >
-              <Copy className="mr-2 h-4 w-4" aria-hidden="true" />
-              {t('templates.editor.steps.duplicate')}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              disabled={index === 0}
-              onSelect={() => {
-                actions.move(index, index - 1);
-                announceMove(numbered, index, count);
-              }}
-            >
-              <ArrowUp className="mr-2 h-4 w-4" aria-hidden="true" />
-              {t('templates.editor.steps.moveUp')}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={index === count - 1}
-              onSelect={() => {
-                actions.move(index, index + 1);
-                announceMove(numbered, index + 2, count);
-              }}
-            >
-              <ArrowDown className="mr-2 h-4 w-4" aria-hidden="true" />
-              {t('templates.editor.steps.moveDown')}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive-bright focus:bg-destructive/10 focus:text-destructive-bright"
-              onSelect={() => {
-                focusMoved.current = true;
-                actions.remove(index);
-              }}
-            >
-              <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
-              {t('common.delete')}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <StepCardMenu id={id} index={index} count={count} numbered={numbered} hasForm={hasForm} json={json} onToggleJson={toggleJson} actions={actions} />
       </div>
 
-      {expanded && (
-        <div id={bodyId} className="space-y-5 border-t border-border/50 px-3 py-4 sm:px-5 sm:py-5">
-          {operation && !operation.templates && (
-            <p className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5 text-xs text-warning">
-              <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span className="text-pretty">{t('templates.editor.steps.taskOnly')}</span>
-            </p>
-          )}
-          {json ? (
-            <>
-              {!hasForm && (
-                <p className="text-pretty text-xs text-muted-foreground">
-                  {t(isObject ? 'templates.editor.steps.json.unknownHint' : 'templates.editor.steps.json.invalidHint', { type: type ?? '' })}
-                </p>
-              )}
-              <StepJsonEditor id={fieldId(stepPath)} step={step} stepPath={stepPath} issues={issues} onApply={(next) => update(stepPath, next)} />
-            </>
-          ) : (
-            isObject &&
-            operation && (
-              <>
-                <OperationForm operation={operation} step={step} stepPath={stepPath} issues={formIssues} />
-                <div className="border-t border-border/50 pt-5">
-                  <ConditionField
-                    id={fieldId([...stepPath, 'if'])}
-                    value={step.if}
-                    issues={ifIssues}
-                    onChange={(next) => update([...stepPath, 'if'], next)}
-                  />
-                </div>
-              </>
-            )
-          )}
-        </div>
-      )}
+      {expanded && <StepCardBody id={bodyId} step={step} stepPath={stepPath} type={type} operation={operation} json={json} issues={issues} />}
     </li>
   );
 }

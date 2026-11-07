@@ -11,6 +11,7 @@ import { pathKey, type Path } from '../paths';
 import { DragHandle, MoveButtons, SortableList, useListIds, useSortableItem } from '../sortable';
 import { isUnderPath, type EditorIssue } from '../validation';
 import { FieldLabel, NotEditableHere } from './field-controls';
+import { pastedLines } from './model';
 import { useInsertTarget } from './use-insert-target';
 
 // A list of strings, one per row: the commands of a command step, the URLs of a download, the
@@ -198,7 +199,7 @@ export function StringListControl({ id, path, label, required = false, hint, pla
     const pasted = e.clipboardData.getData('text');
     if (!pasted.includes('\n')) return;
     e.preventDefault();
-    const lines = pasted.replace(/\r\n?/g, '\n').replace(/\n+$/, '').split('\n');
+    const lines = pastedLines(pasted);
     const input = e.currentTarget;
     const before = input.value.slice(0, input.selectionStart ?? input.value.length);
     const after = input.value.slice(input.selectionEnd ?? input.value.length);

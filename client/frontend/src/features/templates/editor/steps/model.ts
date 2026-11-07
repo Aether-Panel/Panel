@@ -78,16 +78,22 @@ export function isEmptyValue(value: unknown): boolean {
  * Every other key of the step stays as it was.
  */
 export function writeField(step: JsonObject, field: OperationField, value: unknown): JsonObject {
-  let next: unknown = value;
-  if (isEmptyValue(value)) next = clearedValue(field);
-  else if (field.widget.kind === 'boolean' && !field.required && value === field.defaultValue) next = undefined;
-
+  const next = writtenValue(field, value);
   const aliases = (field.aliases ?? []).filter((alias) => Object.hasOwn(step, alias));
-  if (aliases.length === 0) {
-    if (next === undefined) return Object.hasOwn(step, field.name) ? deleteIn(step, [field.name]) : step;
-    return setIn(step, [field.name], next);
-  }
+  if (aliases.length > 0) return writeOverAliases(step, field, aliases, next);
+  if (next === undefined) return Object.hasOwn(step, field.name) ? deleteIn(step, [field.name]) : step;
+  return setIn(step, [field.name], next);
+}
 
+/** What writeField stores for `value`; undefined removes the key. */
+function writtenValue(field: OperationField, value: unknown): unknown {
+  if (isEmptyValue(value)) return clearedValue(field);
+  if (field.widget.kind === 'boolean' && !field.required && value === field.defaultValue) return undefined;
+  return value;
+}
+
+/** writeField for a step that spells the field with one or more of `aliases` (those it holds). */
+function writeOverAliases(step: JsonObject, field: OperationField, aliases: readonly string[], next: unknown): JsonObject {
   // the field's name takes the place of the first spelling in use, unless it is there already
   const renameAt = Object.hasOwn(step, field.name) ? field.name : aliases[0];
   const entries: [string, unknown][] = [];
@@ -144,7 +150,18 @@ export function removeStep(template: JsonObject, listPath: Path, index: number):
 
 /** A deep copy of a step (it is plain JSON), so editing the copy leaves the original alone. */
 export function copyStep(step: unknown): unknown {
-  return step === undefined ? undefined : JSON.parse(JSON.stringify(step));
+  return step === undefined ? undefined : structuredClone(step);
+}
+
+/**
+ * Pasted text as list rows: one per line (\r\n, \r or \n), without the empty lines it ends with,
+ * which a copied block usually carries. Text of only line breaks is one empty row.
+ */
+export function pastedLines(text: string): string[] {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  // popped rather than trimmed with a regex, which would backtrack on long runs of line breaks
+  while (lines.length > 1 && lines.at(-1) === '') lines.pop();
+  return lines;
 }
 
 /** `base`, else `base_2`, `base_3`… whichever is not taken: the name of a new map entry. */

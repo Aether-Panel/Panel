@@ -17,7 +17,7 @@ function line(value: unknown): string {
 /** The name a download is saved under: the last part of the URL's path. */
 export function fileNameOf(url: string): string {
   const path = url.split(/[?#]/)[0].replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]*/i, '');
-  const last = path.split('/').filter(Boolean).pop();
+  const last = path.split('/').findLast(Boolean);
   return last ?? url;
 }
 
@@ -33,7 +33,12 @@ function firstAndMore(values: readonly string[]): string {
 }
 
 const arrow = (from: string, to: string) => (from && to ? `${from} → ${to}` : from || (to && `→ ${to}`));
-const strings = (value: unknown): string[] => (Array.isArray(value) ? value.map(line).filter(Boolean) : line(value) ? [line(value)] : []);
+/** The texts of a value: a list's lines, or the value's own line when it has one. */
+function strings(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(line).filter(Boolean);
+  const text = line(value);
+  return text ? [text] : [];
+}
 
 type Summarize = (arg: (name: string) => string, raw: (name: string) => unknown) => string;
 

@@ -37,7 +37,7 @@ const TOKEN = /\$\{([^}]*)\}/g;
 // followed by another one, which is still outside the code)
 const LITERAL = /'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g;
 // an identifier that is not part of a longer name, a number or a member access (a.b)
-const IDENTIFIER = /(?<![A-Za-z0-9_.$])[A-Za-z_][A-Za-z0-9_]*(?![A-Za-z0-9_])/g;
+const IDENTIFIER = /(?<![A-Za-z0-9_.$])[A-Za-z_]\w*(?!\w)/g;
 
 /** A place in the template that names a variable. */
 export interface VariableReference {
@@ -63,14 +63,14 @@ export function templateVariables(template: JsonObject): JsonObject {
   return isPlainObject(template.data) ? template.data : {};
 }
 
-const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
 /**
  * A key as a condition reads it. A key that is not a CEL identifier (server-port) is matched
  * with its hyphens, so `server-port` is found whole and `port` inside it is not.
  */
 function conditionNamePattern(name: string): RegExp {
-  return new RegExp(`(?<![A-Za-z0-9_.$-])${escapeRegExp(name)}(?![A-Za-z0-9_-])(?!\\s*\\()`, 'g');
+  return new RegExp(String.raw`(?<![A-Za-z0-9_.$-])${escapeRegExp(name)}(?![A-Za-z0-9_-])(?!\s*\()`, 'g');
 }
 
 /** Applies `fn` to the parts of a condition outside its string literals. */
@@ -155,16 +155,17 @@ function mapRun(run: unknown, visitor: Visitor): unknown {
   return mapObject(run, (value, key) => {
     const path = ['run', key];
     if (key === 'pre' || key === 'post') return mapSteps(value, path, key === 'post', visitor);
-    if (key === 'command' && Array.isArray(value)) {
-      return mapList(value, (entry, i) =>
-        isPlainObject(entry)
-          ? mapObject(entry, (v, k) =>
-              k === 'if' ? (typeof v === 'string' ? visitor.condition(v, [...path, i, k]) : v) : mapTexts(v, [...path, i, k], NONE, visitor),
-            )
-          : entry,
-      );
-    }
+    if (key === 'command' && Array.isArray(value)) return mapList(value, (entry, i) => mapCommandEntry(entry, [...path, i], visitor));
     return mapTexts(value, path, NONE, visitor);
+  });
+}
+
+/** One entry of a conditional command list: its `if` is a condition, the rest texts. */
+function mapCommandEntry(entry: unknown, path: Path, visitor: Visitor): unknown {
+  if (!isPlainObject(entry)) return entry;
+  return mapObject(entry, (v, k) => {
+    if (k !== 'if') return mapTexts(v, [...path, k], NONE, visitor);
+    return typeof v === 'string' ? visitor.condition(v, [...path, k]) : v;
   });
 }
 

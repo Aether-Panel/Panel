@@ -221,6 +221,8 @@ export function CommandEditor() {
   };
   const entries = commandEntries(value);
   const someConditional = entries.some(hasCondition);
+  // why the list cannot go back to one command: conditions, or entries keyed other than "default"
+  const singleBlockedKey = someConditional || entries.length > 1 ? 'templates.editor.run.command.singleBlocked' : 'templates.editor.run.command.singleBlockedKeys';
 
   return (
     <div className="space-y-4">
@@ -238,9 +240,7 @@ export function CommandEditor() {
               value: 'single',
               label: t('templates.editor.run.command.single'),
               disabledReason:
-                mode === 'conditional' && !canMakeSingle(value)
-                  ? t(someConditional || entries.length > 1 ? 'templates.editor.run.command.singleBlocked' : 'templates.editor.run.command.singleBlockedKeys')
-                  : undefined,
+                mode === 'conditional' && !canMakeSingle(value) ? t(singleBlockedKey) : undefined,
             },
             { value: 'conditional', label: t('templates.editor.run.command.conditional') },
           ]}

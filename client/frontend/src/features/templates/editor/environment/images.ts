@@ -36,10 +36,7 @@ export function imageSource(reference: unknown): ImageSource {
   if (typeof reference !== 'string') return 'unknown';
   const image = reference.trim().toLowerCase();
   if (image === '') return 'unknown';
-  // the repository: without the digest, and without the tag after the last path component
-  const withoutDigest = image.split('@')[0];
-  const parts = withoutDigest.split('/');
-  parts[parts.length - 1] = parts[parts.length - 1].split(':')[0];
+  const parts = repositoryParts(image);
   const repository = parts.join('/');
   if (repository.includes('${')) return 'unknown';
   if (`${repository}/`.startsWith(PROJECT_IMAGE_PREFIX) && repository.length > PROJECT_IMAGE_PREFIX.length) return 'project';
@@ -47,9 +44,21 @@ export function imageSource(reference: unknown): ImageSource {
   // a first component with a dot or a port, or localhost, names a registry
   const first = parts[0];
   const hasRegistry = parts.length > 1 && (first.includes('.') || first.includes(':') || first === 'localhost');
-  if (hasRegistry && VENDOR_REGISTRIES.has(first) && parts[parts.length - 1] !== '') return 'official';
+  if (hasRegistry && VENDOR_REGISTRIES.has(first) && parts.at(-1) !== '') return 'official';
   if (hasRegistry && !DOCKER_HUB.has(first)) return 'thirdParty';
-  const path = hasRegistry ? parts.slice(1) : parts;
+  return dockerHubSource(hasRegistry ? parts.slice(1) : parts);
+}
+
+/** The repository's path components: without the digest, and without the tag after the last one. */
+function repositoryParts(image: string): string[] {
+  const parts = image.split('@')[0].split('/');
+  const last = parts.length - 1;
+  parts[last] = parts[last].split(':')[0];
+  return parts;
+}
+
+/** Where a Docker Hub repository comes from, by its path (namespace/name, or just a name). */
+function dockerHubSource(path: readonly string[]): ImageSource {
   if (VENDOR_REPOSITORIES.has(path.join('/'))) return 'official';
   if (path.length === 1 && path[0] !== '') return 'official';
   if (path.length === 2 && path[0] === 'library' && path[1] !== '') return 'official';

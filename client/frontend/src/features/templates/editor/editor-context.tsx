@@ -148,7 +148,7 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
   const [doc, setDoc] = useState(() => Document.createDocument(initialTemplate, saved));
   const [originalName, setOriginalName] = useState(openedAs);
   const [takenNames, setTakenNames] = useState(initialTakenNames);
-  const [view, setViewState] = useState<EditorView>('form');
+  const [shownView, setShownView] = useState<EditorView>('form');
   const [section, setSection] = useState<EditorSectionId>('info');
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
   const focusSeq = useRef(0);
@@ -187,7 +187,7 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
   const setView = useCallback(
     (next: EditorView) => {
       pendingCommits.flush();
-      setViewState(next);
+      setShownView(next);
     },
     [pendingCommits],
   );
@@ -195,7 +195,7 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
   const goTo = useCallback((target: EditorSectionId, path?: Path) => {
     pendingCommits.flush();
     setSection(target);
-    setViewState((v) => (v === 'json' ? 'form' : v));
+    setShownView((v) => (v === 'json' ? 'form' : v));
     if (!path) return;
     setFocusRequest({ path, seq: ++focusSeq.current });
   }, [pendingCommits]);
@@ -247,7 +247,7 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
       issues,
       issuesAt,
       blocked: doc.jsonProblem !== null || issues.some((i) => i.blocking),
-      view,
+      view: shownView,
       setView,
       section,
       goTo,
@@ -259,7 +259,7 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
       flushPendingCommits,
       registerHeldIssue,
     }),
-    [doc, originalName, takenNames, recheckNames, update, remove, change, setJsonText, markSaved, issues, issuesAt, view, section, goTo, focusRequest, setInsertTarget, releaseInsertTarget, insertIntoField, pendingCount, heldIssues, registerPendingCommit, flushPendingCommits, registerHeldIssue],
+    [doc, originalName, takenNames, recheckNames, update, remove, change, setJsonText, markSaved, issues, issuesAt, shownView, section, goTo, focusRequest, setInsertTarget, releaseInsertTarget, insertIntoField, pendingCount, heldIssues, registerPendingCommit, flushPendingCommits, registerHeldIssue],
   );
 
   const actions = useMemo<TemplateEditorActions>(

@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { NODE_DURATION } from './common';
 import { issueMessageKey, issuePath } from './issues';
 import { templateJsonSchema } from './json-schema';
 import { getOperation } from './operations';
@@ -169,6 +170,15 @@ describe('template schema', () => {
       expect(issues({ ...base, install: [{ type: 'sleep', duration }] })).toEqual([]);
     }
     expect(issues({ ...base, install: [{ type: 'sleep', duration: 'soon' }] })).toEqual(['install.0.duration: templates.editor.validation.invalidDuration']);
+  });
+
+  it('builds the duration pattern from its parts without changing what it accepts', () => {
+    // the single literal it was written as before being split into named parts; the JSON view's
+    // schema carries it as is
+    expect(NODE_DURATION.source).toBe(String.raw`^(\d+(\.\d+)?(ns|us|µs|ms|s|m|h))+$|^\d+$|\$\{[^}]+\}`);
+    expect(NODE_DURATION.flags).toBe('');
+    for (const duration of ['1.5h', '300ms', '2µs', '10', 'x${wait}y']) expect(NODE_DURATION.test(duration), duration).toBe(true);
+    for (const duration of ['', '1.h', '5 m', '1d', '${}', '-1s']) expect(NODE_DURATION.test(duration), duration).toBe(false);
   });
 
   it('flags JSON types the node cannot decode', () => {

@@ -24,8 +24,10 @@ export function createPendingCommits(onSizeChange: (size: number) => void = () =
       };
     },
     flush() {
-      // a commit usually unregisters itself as it writes, so iterate over a copy
-      for (const commit of [...commits]) commit();
+      // over a snapshot: a commit usually unregisters itself as it writes, one registered meanwhile
+      // waits for the next flush, and one removed meanwhile still writes what it held
+      const snapshot = [...commits];
+      for (const commit of snapshot) commit();
     },
     get size() {
       return commits.size;
