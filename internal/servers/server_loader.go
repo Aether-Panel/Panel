@@ -264,9 +264,12 @@ func Delete(id string) (err error) {
 	if err != nil {
 		return
 	}
-	// only logged: the server is already gone, and returning it made the panel keep its row
+	// one already gone is fine; any other failure is returned at the end, after the rest of the
+	// clean-up, so the panel keeps the row of a server whose .json would load again at boot
+	var definitionErr error
 	if err := os.Remove(filepath.Join(config.ServersFolder.Value(), safeID+".json")); err != nil && !os.IsNotExist(err) {
 		logging.Error.Printf("Error removing server: %s", err)
+		definitionErr = err
 	}
 	// and so does the folder a Docker server used as /tmp
 	if tmp := program.RunningEnvironment.GetTmpDirectory(); tmp != "" {
@@ -290,7 +293,7 @@ func Delete(id string) (err error) {
 	// after leaving the cache, so a periodic pass still on the server cannot bring it back
 	forgetPeriodic(safeID)
 	forgetServerState(safeID)
-	return
+	return definitionErr
 }
 
 // DeleteBackups removes every backup of the server kept on this node, for when the server

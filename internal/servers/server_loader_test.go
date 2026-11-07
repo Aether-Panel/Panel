@@ -117,3 +117,19 @@ func TestDelete_AMissingDefinitionStillSucceeds(t *testing.T) {
 	assert.Nil(t, GetFromCache(p.ID()))
 	assert.NoDirExists(t, p.RunningEnvironment.RootDirectory)
 }
+
+func TestDelete_ADefinitionThatCannotGoIsReportedAfterTheCleanUp(t *testing.T) {
+	p := newCrashTestServer(t)
+	p.Scheduler = NewDefaultScheduler(p.ID())
+	p.RunningEnvironment.RootDirectory = filepath.Join(config.ServersFolder.Value(), p.ID())
+	assert.NoError(t, os.MkdirAll(p.RunningEnvironment.RootDirectory, 0o755))
+	// a folder with something in it where the .json should be: os.Remove cannot take it
+	stuck := filepath.Join(config.ServersFolder.Value(), p.ID()+".json")
+	assert.NoError(t, os.MkdirAll(filepath.Join(stuck, "inside"), 0o755))
+	useLoadedServers(t, p)
+	t.Cleanup(func() { forgetServerState(p.ID()) })
+
+	assert.Error(t, Delete(p.ID()), "the panel must keep the row while the .json is still there")
+	assert.Nil(t, GetFromCache(p.ID()), "the rest of the clean-up still runs")
+	assert.NoDirExists(t, p.RunningEnvironment.RootDirectory)
+}

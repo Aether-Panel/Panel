@@ -184,12 +184,13 @@ docker builder prune -f --max-used-space 3GB >/dev/null 2>&1 \
 # Las imágenes nuestras que se quedan sin etiqueta y sin uso: compilaciones anteriores del panel
 # (unos 400 MB cada una) y versiones anteriores de ghcr.io/aether-panel/*. Se reconocen por el
 # entrypoint del panel o por la etiqueta source del repositorio; las demás imágenes del equipo
-# no son nuestras y no se tocan. docker image rm se niega si algún contenedor aún la usa.
+# no son nuestras y no se tocan (salvo una hecha a partir de las nuestras, que hereda esas marcas
+# y también está sin etiqueta ni uso). docker image rm se niega si algún contenedor aún la usa.
 echo "[INFO] Borrando imágenes antiguas del panel..."
 for img in $(docker images -f dangling=true -q 2>/dev/null || true); do
     entrypoint=$(docker image inspect -f '{{json .Config.Entrypoint}}' "$img" 2>/dev/null || true)
-    source=$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.source"}}' "$img" 2>/dev/null || true)
-    case "$entrypoint|$source" in
+    src=$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.source"}}' "$img" 2>/dev/null || true)
+    case "$entrypoint|$src" in
         *'/SkyPanel/bin/entrypoint.sh'*|*'|https://github.com/Aether-Panel/'*)
             docker image rm "$img" >/dev/null 2>&1 || true ;;
     esac
