@@ -4194,7 +4194,8 @@
           "notObject": "A step must be an object in braces; the step keeps its last valid version.",
           "unknownHint": "The panel has no form for \"{{type}}\": it may come from a newer version or be a typo. Edit it here or change its type.",
           "invalidHint": "This step isn't an object, so it can't run. Write it as {\"type\": …}.",
-          "invalidState": "The step's JSON isn't valid."
+          "invalidState": "The step's JSON isn't valid.",
+          "unapplied": "This step's JSON isn't valid and hasn't been applied: fix it to save."
         },
         "palette": {
           "title": "Add step",
@@ -4240,7 +4241,8 @@
       "jsonBlock": {
         "invalidState": "The JSON isn't valid.",
         "syntax": "The JSON isn't valid ({{detail}}). The last valid one is kept.",
-        "notObject": "It has to be an object: { … }. The last valid one is kept."
+        "notObject": "It has to be an object: { … }. The last valid one is kept.",
+        "unapplied": "This JSON isn't valid and hasn't been applied: fix or empty it to save."
       },
       "run": {
         "optional": "(optional)",
@@ -5232,7 +5234,8 @@
     "ErrPluginsNotMinecraft": "Plugins and mods are only for Minecraft: Java Edition servers.",
     "ErrNodeJoinCode": "That join code does not exist, was already used or has expired: generate a new one in the panel.",
     "ErrNodeJoinLocal": "The panel's own node is installed with the panel: it is not deployed on another machine.",
-    "ErrNodeJoinURL": "First set the panel's base URL in Settings → General (for example https://panel.yourdomain.com): the new node reaches the panel there."
+    "ErrNodeJoinURL": "First set the panel's base URL in Settings → General (for example https://panel.yourdomain.com): the new node reaches the panel there.",
+    "ErrTemplateTooLarge": "The template is larger than 2 MB, the most the panel stores."
   },
   "apiErrorValues": {
     "ErrDiscordTestFailed": {

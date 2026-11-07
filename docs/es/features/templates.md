@@ -187,6 +187,9 @@ El panel necesita salida HTTPS hacia el índice (o hacia los servidores Git). Ve
 - Las credenciales de un repositorio privado solo se pueden indicar al añadirlo con la API; no hay forma de cambiarlas después salvo quitar el repositorio y añadirlo de nuevo.
 - No hay botón en la web para añadir o quitar repositorios Git; se hace mediante la API. Mientras `templates.url` esté definido, los repositorios añadidos no se muestran.
 - Con un índice en `templates.url`, los cambios publicados en el índice tardan hasta 5 minutos en verse (la caché en memoria se pierde al reiniciar el panel).
+- El editor lee la plantilla como lo hace el navegador, así que reescribe los números que este no guarda tal cual: un entero mayor que 2^53 (9007199254740992) pierde sus últimas cifras y un número escrito como `1.0` se guarda como `1`. Escribe entre comillas los identificadores largos (un Steam64 o un ID de Discord): `"76561198000000000"`.
+- El editor compara los nombres de plantilla sin distinguir mayúsculas ni acentos en todas las bases de datos, como hace MariaDB. Con SQLite, que sí los distingue, da igualmente por ocupado un nombre que solo cambia en eso (`Paper` cuando existe `paper`) y cambiar solo mayúsculas o acentos no renombra la plantilla.
+- Una plantilla guardada con `PUT` puede ocupar como mucho 2 MB, como un archivo subido; si es más grande, se rechaza con `413`.
 
 ## Problemas conocidos y soluciones
 

@@ -187,6 +187,9 @@ The panel needs outbound HTTPS to the index (or to the Git hosts). See [Configur
 - The credentials of a private repository can only be given when adding it through the API; to change them, remove the repository and add it again.
 - There is no button to add or remove Git repositories in the web; it is done through the API. While `templates.url` is set, added repositories are not shown at all.
 - With a `templates.url` index, changes published to the index take up to 5 minutes to show (the in-memory cache is lost when the panel restarts).
+- The editor reads the template the way the browser does, so it rewrites numbers the browser can't hold as written: an integer above 2^53 (9007199254740992) loses its last digits and a number written as `1.0` is saved as `1`. Write long IDs (a Steam64 or Discord ID) as strings: `"76561198000000000"`.
+- The editor compares template names ignoring case and accents in every database, as MariaDB does. On SQLite, which does tell them apart, the editor still treats a name that differs only in that way as taken (`Paper` when `paper` exists), and changing only case or accents doesn't rename the template.
+- A template saved with `PUT` can be at most 2 MB, like an uploaded file; a larger one is refused with `413`.
 
 ## Troubleshooting
 

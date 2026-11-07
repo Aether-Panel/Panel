@@ -4194,7 +4194,8 @@
           "notObject": "Un paso tiene que ser un objeto entre llaves; el paso se queda con la última versión válida.",
           "unknownHint": "El panel no tiene formulario para «{{type}}»: puede ser de una versión más nueva o un error al escribirlo. Edítalo aquí o cambia su type.",
           "invalidHint": "Este paso no es un objeto, así que no se puede ejecutar. Escríbelo como {\"type\": …}.",
-          "invalidState": "El JSON del paso no es válido."
+          "invalidState": "El JSON del paso no es válido.",
+          "unapplied": "El JSON de este paso no es válido y no se ha aplicado: corrígelo para poder guardar."
         },
         "palette": {
           "title": "Añadir paso",
@@ -4240,7 +4241,8 @@
       "jsonBlock": {
         "invalidState": "El JSON no es válido.",
         "syntax": "El JSON no es válido ({{detail}}). Se mantiene el último que sí lo era.",
-        "notObject": "Tiene que ser un objeto: { … }. Se mantiene el último válido."
+        "notObject": "Tiene que ser un objeto: { … }. Se mantiene el último válido.",
+        "unapplied": "Este JSON no es válido y no se ha aplicado: corrígelo o vacíalo para poder guardar."
       },
       "run": {
         "optional": "(opcional)",
@@ -5232,7 +5234,8 @@
     "ErrPluginsNotMinecraft": "Los plugins y mods solo existen en servidores de Minecraft: Java Edition.",
     "ErrNodeJoinCode": "Ese código de unión no existe, ya se usó o caducó: genera otro en el panel.",
     "ErrNodeJoinLocal": "El nodo del propio panel se instala con el panel: no se despliega en otra máquina.",
-    "ErrNodeJoinURL": "Primero pon la URL principal del panel en Configuración → General (por ejemplo https://panel.tudominio.com): el nodo nuevo llega al panel por ella."
+    "ErrNodeJoinURL": "Primero pon la URL principal del panel en Configuración → General (por ejemplo https://panel.tudominio.com): el nodo nuevo llega al panel por ella.",
+    "ErrTemplateTooLarge": "La plantilla ocupa más de 2 MB, lo máximo que guarda el panel."
   },
   "apiErrorValues": {
     "ErrDiscordTestFailed": {

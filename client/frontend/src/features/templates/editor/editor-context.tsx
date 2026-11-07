@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as Document from './document';
 import { localTemplateNames } from './load';
+import { createHeldIssues } from './held-issues';
 import { createPendingCommits } from './pending-commits';
 import { getIn, pathKey, type JsonObject, type Path } from './paths';
 import { scrollBehavior } from './scroll';
@@ -33,7 +34,10 @@ export interface TemplateEditorValue {
   template: JsonObject;
   jsonText: string;
   jsonProblem: Document.JsonProblem | null;
-  /** Unsaved changes, counting edits a field holds back until it is left (see registerPendingCommit). */
+  /**
+   * Unsaved changes, counting edits a field holds back until it is left (see registerPendingCommit)
+   * and text a field cannot apply (see registerHeldIssue).
+   */
   dirty: boolean;
   /** The name the template was opened or last saved under; undefined until a new one is saved. */
   originalName: string | undefined;
@@ -55,7 +59,7 @@ export interface TemplateEditorValue {
   issues: readonly EditorIssue[];
   /** The issues about exactly `path`, for the field that edits it. */
   issuesAt: (path: Path) => readonly EditorIssue[];
-  /** Whether anything blocks saving: a broken JSON text or a blocking issue. */
+  /** Whether anything blocks saving: a broken JSON text or a blocking issue (a held one included). */
   blocked: boolean;
 
   view: EditorView;
@@ -80,6 +84,12 @@ export interface TemplateEditorValue {
   registerPendingCommit: (commit: () => void) => () => void;
   /** Writes every held-back edit now. Wrap it in flushSync to read the result right after. */
   flushPendingCommits: () => void;
+  /**
+   * For a field holding text it cannot apply (a JSON block that does not parse): while it does, it
+   * registers a blocking issue at its path, and unregisters with the function returned. Saving
+   * then waits, instead of storing the last valid value and dropping what was typed.
+   */
+  registerHeldIssue: (issue: EditorIssue) => () => void;
 }
 
 const TemplateEditorContext = createContext<TemplateEditorValue | null>(null);
@@ -93,7 +103,7 @@ export function useTemplateEditor(): TemplateEditorValue {
 /** The editor's functions that never change, apart from the state they act on. */
 export type TemplateEditorActions = Pick<
   TemplateEditorValue,
-  'update' | 'remove' | 'change' | 'setView' | 'goTo' | 'setInsertTarget' | 'releaseInsertTarget' | 'insertIntoField' | 'registerPendingCommit' | 'flushPendingCommits'
+    'update' | 'remove' | 'change' | 'setView' | 'goTo' | 'setInsertTarget' | 'releaseInsertTarget' | 'insertIntoField' | 'registerPendingCommit' | 'flushPendingCommits' | 'registerHeldIssue'
 >;
 
 const TemplateEditorActionsContext = createContext<TemplateEditorActions | null>(null);
@@ -146,6 +156,8 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
   // how many fields hold an edit back, so `dirty` follows them
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingCommits] = useState(() => createPendingCommits(setPendingCount));
+  const [heldIssues, setHeldIssues] = useState<readonly EditorIssue[]>(NO_ISSUES);
+  const [held] = useState(() => createHeldIssues(setHeldIssues));
 
   const update = useCallback((path: Path, value: unknown) => setDoc((d) => Document.updateAt(d, path, value)), []);
   const remove = useCallback((path: Path) => setDoc((d) => Document.removeAt(d, path)), []);
@@ -163,10 +175,10 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
     return names !== null;
   }, []);
 
-  const issues = useMemo(
-    () => validateTemplate(doc.template, { takenNames, originalName }),
-    [doc.template, takenNames, originalName],
-  );
+  const issues = useMemo(() => {
+    const found = validateTemplate(doc.template, { takenNames, originalName });
+    return heldIssues.length > 0 ? [...found, ...heldIssues] : found;
+  }, [doc.template, takenNames, originalName, heldIssues]);
   const byPath = useMemo(() => issuesByPath(issues), [issues]);
   const issuesAt = useCallback((path: Path) => byPath.get(pathKey(path)) ?? NO_ISSUES, [byPath]);
 
@@ -210,6 +222,7 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
   }, []);
   const registerPendingCommit = pendingCommits.register;
   const flushPendingCommits = pendingCommits.flush;
+  const registerHeldIssue = held.register;
 
   const insertIntoField = useCallback((text: string) => {
     if (!insertTarget.current) return false;
@@ -222,7 +235,7 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
       template: doc.template,
       jsonText: doc.jsonText,
       jsonProblem: doc.jsonProblem,
-      dirty: Document.isDirty(doc) || pendingCount > 0,
+      dirty: Document.isDirty(doc) || pendingCount > 0 || heldIssues.length > 0,
       originalName,
       namesUnchecked: takenNames === null,
       recheckNames,
@@ -244,13 +257,14 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
       insertIntoField,
       registerPendingCommit,
       flushPendingCommits,
+      registerHeldIssue,
     }),
-    [doc, originalName, takenNames, recheckNames, update, remove, change, setJsonText, markSaved, issues, issuesAt, view, section, goTo, focusRequest, setInsertTarget, releaseInsertTarget, insertIntoField, pendingCount, registerPendingCommit, flushPendingCommits],
+    [doc, originalName, takenNames, recheckNames, update, remove, change, setJsonText, markSaved, issues, issuesAt, view, section, goTo, focusRequest, setInsertTarget, releaseInsertTarget, insertIntoField, pendingCount, heldIssues, registerPendingCommit, flushPendingCommits, registerHeldIssue],
   );
 
   const actions = useMemo<TemplateEditorActions>(
-    () => ({ update, remove, change, setView, goTo, setInsertTarget, releaseInsertTarget, insertIntoField, registerPendingCommit, flushPendingCommits }),
-    [update, remove, change, setView, goTo, setInsertTarget, releaseInsertTarget, insertIntoField, registerPendingCommit, flushPendingCommits],
+    () => ({ update, remove, change, setView, goTo, setInsertTarget, releaseInsertTarget, insertIntoField, registerPendingCommit, flushPendingCommits, registerHeldIssue }),
+    [update, remove, change, setView, goTo, setInsertTarget, releaseInsertTarget, insertIntoField, registerPendingCommit, flushPendingCommits, registerHeldIssue],
   );
 
   return (

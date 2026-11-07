@@ -1,24 +1,30 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertCircle } from '@/components/icons';
 import { useTranslations } from '@/contexts/translations-context';
 import { cn } from '@/lib/utils';
+import { useTemplateEditorActions } from './editor-context';
 import { FieldIssues, INVALID_CONTROL, issuesId } from './field';
-import { isPlainObject } from './paths';
+import { unappliedJsonIssue } from './held-issues';
+import { isPlainObject, pathKey, type Path } from './paths';
 import type { EditorIssue } from './validation';
 
 // One object of the template written as JSON, where a form would only copy Docker's own API
 // (hostConfig, config). Every edit that parses to an object is applied at once; while the text
-// does not parse, the template keeps the last valid object and the text says why. Emptying the
-// text removes the key.
+// does not parse, the template keeps the last valid object and the text says why, and saving is
+// blocked so what was typed is not dropped without a word. Emptying the text removes the key.
 
 const stringify = (value: unknown) => (value === undefined ? '' : (JSON.stringify(value, null, 2) ?? ''));
 
 type Problem = { code: 'syntax'; detail: string } | { code: 'notObject' };
 
-export function JsonBlock({ id, label, hint, value, issues, onApply }: Readonly<{
+const UNAPPLIED = 'templates.editor.jsonBlock.unapplied';
+
+export function JsonBlock({ id, path, label, hint, value, issues, onApply }: Readonly<{
   id: string;
+  /** Where the object is in the template; a text that does not parse blocks saving there. */
+  path: Path;
   label: string;
   hint?: string;
   value: unknown;
@@ -40,6 +46,14 @@ export function JsonBlock({ id, label, hint, value, issues, onApply }: Readonly<
       setProblem(null);
     }
   }
+
+  // registered while the text is broken, not on every keystroke that changes the detail
+  const { registerHeldIssue } = useTemplateEditorActions();
+  const broken = problem !== null;
+  const at = pathKey(path);
+  const pathRef = useRef(path);
+  pathRef.current = path;
+  useEffect(() => (broken ? registerHeldIssue(unappliedJsonIssue(pathRef.current, UNAPPLIED)) : undefined), [broken, at, registerHeldIssue]);
 
   const onText = (next: string) => {
     setText(next);
@@ -100,7 +114,8 @@ export function JsonBlock({ id, label, hint, value, issues, onApply }: Readonly<
           </span>
         )}
       </p>
-      <FieldIssues id={issuesId(id)} issues={issues} />
+      {/* the held issue is for the summary and the section counts; the line above says it here */}
+      <FieldIssues id={issuesId(id)} issues={issues.filter((i) => i.messageKey !== UNAPPLIED)} />
     </div>
   );
 }

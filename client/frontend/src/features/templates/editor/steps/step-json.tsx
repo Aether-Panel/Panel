@@ -1,20 +1,25 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertCircle, AlertTriangle } from '@/components/icons';
 import { useTranslations } from '@/contexts/translations-context';
 import { cn } from '@/lib/utils';
+import { useTemplateEditorActions } from '../editor-context';
 import { INVALID_CONTROL } from '../field';
+import { unappliedJsonIssue } from '../held-issues';
 import { isPlainObject, pathKey, type Path } from '../paths';
 import type { EditorIssue } from '../validation';
 
 // One step as JSON: for a type the panel has no form for (a newer node's operation, a typo), a
 // step that is not even an object, or whoever prefers to write it. Every edit that parses to an
 // object is applied at once, as in the template's JSON view; while the text does not parse the
-// step keeps its last valid version and the text says why it is not applied.
+// step keeps its last valid version, the text says why it is not applied, and saving is blocked
+// so what was typed is not dropped without a word.
 
 const stringify = (value: unknown) => JSON.stringify(value, null, 2) ?? '';
 
 type Problem = { code: 'syntax'; detail: string } | { code: 'notObject' };
+
+const UNAPPLIED = 'templates.editor.steps.json.unapplied';
 
 export function StepJsonEditor({ id, step, stepPath, issues, onApply }: Readonly<{
   id: string;
@@ -39,6 +44,14 @@ export function StepJsonEditor({ id, step, stepPath, issues, onApply }: Readonly
     }
   }
 
+  // registered while the text is broken, not on every keystroke that changes the detail
+  const { registerHeldIssue } = useTemplateEditorActions();
+  const broken = problem !== null;
+  const prefix = pathKey(stepPath);
+  const stepPathRef = useRef(stepPath);
+  stepPathRef.current = stepPath;
+  useEffect(() => (broken ? registerHeldIssue(unappliedJsonIssue(stepPathRef.current, UNAPPLIED)) : undefined), [broken, prefix, registerHeldIssue]);
+
   const onText = (next: string) => {
     setText(next);
     let parsed: unknown;
@@ -57,7 +70,6 @@ export function StepJsonEditor({ id, step, stepPath, issues, onApply }: Readonly
     onApply(parsed);
   };
 
-  const prefix = pathKey(stepPath);
   const problemId = `${id}-problem`;
   const issuesListId = `${id}-issues`;
   const lines = text.split('\n').length;
@@ -93,7 +105,8 @@ export function StepJsonEditor({ id, step, stepPath, issues, onApply }: Readonly
         )}
       </p>
       <ul id={issuesListId} className="space-y-1 empty:hidden">
-        {issues.map((issue, index) => {
+        {/* the held issue is for the summary and the step's counts; the line above says it here */}
+        {issues.filter((i) => i.messageKey !== UNAPPLIED).map((issue, index) => {
           const isError = issue.severity === 'error';
           const Icon = isError ? AlertCircle : AlertTriangle;
           // where in the step: "files.0", or nothing for the step itself

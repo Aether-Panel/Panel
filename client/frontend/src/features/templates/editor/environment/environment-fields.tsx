@@ -162,6 +162,7 @@ export function EnvironmentFields({ path, value, required = false, prune = false
                 <div key={key} className="min-w-0 sm:col-span-2">
                   <JsonBlock
                     id={fieldId(at(key))}
+                    path={at(key)}
                     label={t(`templates.editor.environment.${key}.label`)}
                     hint={t(`templates.editor.environment.${key}.hint`)}
                     value={environment[key]}
