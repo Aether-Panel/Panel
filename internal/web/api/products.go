@@ -166,7 +166,7 @@ func lookupProductTemplate(ts *services.Template, name string) error {
 			// the panel's own database
 			return err
 		default:
-			logging.Error.Printf("Could not look for template %s in repo %s: %s", name, repo.Name, err)
+			logging.Error.Printf("Could not look for template %s in repo %s: %s", logLine(name), logLine(repo.Name), logLine(err.Error()))
 			if unreadable == nil {
 				unreadable = repo
 			}
@@ -176,4 +176,10 @@ func lookupProductTemplate(ts *services.Template, name string) error {
 		return skypanel.ErrProductTemplateUnreadable(name, unreadable.Name)
 	}
 	return skypanel.ErrProductTemplateNotFound(name)
+}
+
+// logLine keeps a value that came with the request on one log line, so it cannot forge entries
+func logLine(value string) string {
+	value = strings.ReplaceAll(value, "\n", "")
+	return strings.ReplaceAll(value, "\r", "")
 }

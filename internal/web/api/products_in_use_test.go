@@ -33,19 +33,28 @@ func setupProductsInUse(t *testing.T) (*gorm.DB, *gin.Engine) {
 	return db, r
 }
 
+// refusalMetadata is the metadata of a products-in-use refusal
+type refusalMetadata struct {
+	Products []string `json:"products"`
+}
+
+// refusalError is the error object of a refused delete
+type refusalError struct {
+	Code     string          `json:"code"`
+	Msg      string          `json:"msg"`
+	Metadata refusalMetadata `json:"metadata"`
+}
+
+// refusalBody is the whole answer of a refused delete
+type refusalBody struct {
+	Error refusalError `json:"error"`
+}
+
 // refusedProducts reads the code and the products of a refused delete, and checks its message
 // names them
 func refusedProducts(t *testing.T, body []byte) (string, []string) {
 	t.Helper()
-	var out struct {
-		Error struct {
-			Code     string `json:"code"`
-			Msg      string `json:"msg"`
-			Metadata struct {
-				Products []string `json:"products"`
-			} `json:"metadata"`
-		} `json:"error"`
-	}
+	var out refusalBody
 	require.NoError(t, json.Unmarshal(body, &out))
 	assert.NotContains(t, out.Error.Msg, "${")
 	for _, product := range out.Error.Metadata.Products {
@@ -91,4 +100,9 @@ func TestDeleteTemplate_ConflictWhileAProductUsesIt(t *testing.T) {
 	require.NoError(t, db.Delete(product).Error)
 	w = doJSON(r, http.MethodDelete, "/templates/0/my-paper", nil)
 	assert.Equal(t, http.StatusNoContent, w.Code)
+}
+
+func TestLogLine_KeepsARequestValueOnOneLine(t *testing.T) {
+	assert.Equal(t, "minecraft[ERROR] fake entry", logLine("minecraft\r\n[ERROR] fake entry"))
+	assert.Equal(t, "paper", logLine("paper"))
 }
