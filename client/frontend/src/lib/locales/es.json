@@ -5241,7 +5241,11 @@
     "ErrNodeHasServers": "Este nodo todavía tiene servidores. Muévelos a otro nodo o bórralos primero.",
     "ErrNodeHasProducts": "Los productos de la tienda {{products}} crean sus servidores en este nodo. Asígnales otro nodo o bórralos primero.",
     "ErrTemplateInUse": "Los productos de la tienda {{products}} crean sus servidores con esta plantilla. Asígnales otra plantilla o bórralos primero.",
-    "ErrTemplateRepoInUse": "Los productos de la tienda {{products}} usan plantillas que solo tiene este repositorio. Asígnales otras plantillas o bórralos primero."
+    "ErrTemplateRepoInUse": "Los productos de la tienda {{products}} usan plantillas que solo tiene este repositorio. Asígnales otras plantillas o bórralos primero.",
+    "ErrProductTemplateRequired": "Un producto necesita una plantilla.",
+    "ErrProductTemplateNotFound": "Ningún repositorio de plantillas tiene una plantilla llamada {{template}}. Revisa el nombre o añade la plantilla primero.",
+    "ErrProductTemplateUnreadable": "No se pudo buscar la plantilla {{template}}: no se pudo leer el repositorio de plantillas {{repo}}. Inténtalo más tarde.",
+    "ErrProductNodeNotFound": "El nodo {{node}} no existe. Elige otro nodo."
   },
   "apiErrorValues": {
     "ErrDiscordTestFailed": {

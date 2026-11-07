@@ -33,18 +33,24 @@ func setupProductsInUse(t *testing.T) (*gorm.DB, *gin.Engine) {
 	return db, r
 }
 
-// refusedProducts reads the code and the products of a refused delete
+// refusedProducts reads the code and the products of a refused delete, and checks its message
+// names them
 func refusedProducts(t *testing.T, body []byte) (string, []string) {
 	t.Helper()
 	var out struct {
 		Error struct {
 			Code     string `json:"code"`
+			Msg      string `json:"msg"`
 			Metadata struct {
 				Products []string `json:"products"`
 			} `json:"metadata"`
 		} `json:"error"`
 	}
 	require.NoError(t, json.Unmarshal(body, &out))
+	assert.NotContains(t, out.Error.Msg, "${")
+	for _, product := range out.Error.Metadata.Products {
+		assert.Contains(t, out.Error.Msg, product)
+	}
 	return out.Error.Code, out.Error.Metadata.Products
 }
 

@@ -5241,7 +5241,11 @@
     "ErrNodeHasServers": "This node still has servers. Move them to another node or delete them first.",
     "ErrNodeHasProducts": "The store products {{products}} create their servers on this node. Point them at another node or delete them first.",
     "ErrTemplateInUse": "The store products {{products}} create their servers with this template. Point them at another template or delete them first.",
-    "ErrTemplateRepoInUse": "The store products {{products}} use templates only this repository has. Point them at other templates or delete them first."
+    "ErrTemplateRepoInUse": "The store products {{products}} use templates only this repository has. Point them at other templates or delete them first.",
+    "ErrProductTemplateRequired": "A product needs a template.",
+    "ErrProductTemplateNotFound": "No template repository has a template named {{template}}. Check the name or add the template first.",
+    "ErrProductTemplateUnreadable": "The template {{template}} could not be looked up: the template repository {{repo}} could not be read. Try again later.",
+    "ErrProductNodeNotFound": "Node {{node}} does not exist. Pick another node."
   },
   "apiErrorValues": {
     "ErrDiscordTestFailed": {
