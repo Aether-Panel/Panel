@@ -183,3 +183,35 @@ func TestSummarizeTemplate_KeepsTheIcon(t *testing.T) {
 	assert.Equal(t, "my-survival", summary["name"])
 	assert.Nil(t, summary["data"], "the summary still leaves the variables out")
 }
+
+func TestDeleteRepo_RemovesTheCheckoutAndItsCacheEntry(t *testing.T) {
+	cache := t.TempDir()
+	require.NoError(t, config.CacheFolder.Set(cache, false))
+	t.Cleanup(func() { _ = config.CacheFolder.Set("cache", false) })
+	db := setupDeleteCleanupDB(t, &models.TemplateRepo{})
+	repo := &models.TemplateRepo{Name: "community", URL: "https://example.com/templates.git", Branch: "main"}
+	require.NoError(t, db.Create(repo).Error)
+
+	checkout := repoCheckoutPath(repo.ID)
+	require.NoError(t, os.MkdirAll(filepath.Join(checkout, "minecraft"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(checkout, "minecraft", "paper.json"), []byte(authoredTemplate), 0o600))
+	other := filepath.Join(cache, "template-repos", "999")
+	require.NoError(t, os.MkdirAll(other, 0o755))
+	pathLock.Lock()
+	existingPaths[repo.ID] = repoCache{LastRefreshed: time.Now(), Path: checkout}
+	pathLock.Unlock()
+	t.Cleanup(func() {
+		pathLock.Lock()
+		delete(existingPaths, repo.ID)
+		pathLock.Unlock()
+	})
+
+	require.NoError(t, (&Template{DB: db}).DeleteRepo(repo.ID))
+
+	assert.NoDirExists(t, checkout)
+	assert.DirExists(t, other, "another repo's checkout stays")
+	pathLock.Lock()
+	_, cached := existingPaths[repo.ID]
+	pathLock.Unlock()
+	assert.False(t, cached, "a repo made later with this id must not reuse the old checkout")
+}
