@@ -58,8 +58,8 @@ class ErrorBoundary extends React.Component<
 type Step = 1 | 2 | 3;
 
 /** Template variables that fill the resource inputs, with the value used when the template leaves them empty. */
-const RESOURCE_DEFAULTS: Record<string, number> = { cpu: 100, memory: 1024, disk: 10240, io: 500 };
-const isResourceKey = (key: string) => Object.hasOwn(RESOURCE_DEFAULTS, key);
+export const RESOURCE_DEFAULTS: Record<string, number> = { cpu: 100, memory: 1024, disk: 10240, io: 500 };
+export const isResourceKey = (key: string) => Object.hasOwn(RESOURCE_DEFAULTS, key);
 
 /**
  * The server id the API accepts (letters, digits, '-' and '_', up to 20, not starting with
@@ -280,11 +280,66 @@ function useGameVersions(platform: string | undefined): string[] {
 }
 
 /** The id of a variable's field, so an error can move the focus to it. */
-const variableFieldId = (key: string) => `tpl-var-${key.replace(/[^\w-]/g, '_')}`;
+export const variableFieldId = (key: string) => `tpl-var-${key.replace(/[^\w-]/g, '_')}`;
 
 /** What the config form holds for a variable: objects as JSON, anything else as is. */
 const toConfigValue = (rawValue: any) =>
     (typeof rawValue === 'object' && rawValue !== null) ? JSON.stringify(rawValue) : (rawValue ?? "");
+
+/**
+ * What the form starts with for a template: each variable's value (its value, else its default),
+ * the resource limits the template sets (cpu, memory, disk, io) and its own memory, below which
+ * the form warns.
+ */
+export function initialTemplateValues(details: any): { values: Record<string, any>; limits: Record<string, number>; recommendedMemory: number | null } {
+    const values: Record<string, any> = {};
+    const limits: Record<string, number> = {};
+    const rawVars = details.data || details.variables || details.Variables || {};
+    const variables = (typeof rawVars === 'object' && rawVars !== null) ? rawVars : {};
+    const recommendedMemory = Number(templateVariableValue(variables.memory ?? {})) || null;
+
+    Object.entries(variables).forEach(([key, val]: [string, any]) => {
+        if (val && typeof val === 'object') {
+            const rawValue = templateVariableValue(val);
+            if (isResourceKey(key)) {
+                limits[key] = rawValue ? Number(rawValue) : RESOURCE_DEFAULTS[key];
+            } else {
+                values[key] = toConfigValue(rawValue);
+            }
+        } else if (val !== undefined && val !== null) {
+            if (isResourceKey(key)) limits[key] = Number(val);
+            else values[key] = String(val);
+        }
+    });
+    return { values, limits, recommendedMemory };
+}
+
+/**
+ * The variable errors the form shows: none until check() marks every invalid field, then each
+ * one goes away as soon as it is fixed.
+ */
+export function useTemplateFieldErrors(templateDetails: any, configData: Record<string, any>) {
+    const [fieldErrors, setFieldErrors] = useState<Record<string, FieldError>>({});
+
+    useEffect(() => {
+        setFieldErrors((prev) => {
+            if (Object.keys(prev).length === 0 || !templateDetails) return prev;
+            const now = validateTemplateValues(templateDetails.data || {}, configData);
+            const still: Record<string, FieldError> = {};
+            for (const key of Object.keys(prev)) if (now[key]) still[key] = now[key];
+            return still;
+        });
+    }, [configData, templateDetails]);
+
+    /** Marks every invalid field; returns their keys in form order, none when all are fine. */
+    const check = (): string[] => {
+        const errors = validateTemplateValues(templateDetails?.data || {}, configData);
+        setFieldErrors(errors);
+        return Object.keys(errors);
+    };
+
+    return { fieldErrors, check };
+}
 
 const SafeValue = ({ v, fallback = "" }: { v: any, fallback?: string }) => {
     if (v === null || v === undefined) return fallback;
@@ -777,7 +832,11 @@ function ResourceNotice({ tone, children }: Readonly<{ tone: 'error' | 'warning'
     );
 }
 
-function Step3Configuration({
+/**
+ * The wizard's last step: resources, the template's variables and ports. Exported for the
+ * template editor's preview, which shows it as it is here.
+ */
+export function Step3Configuration({
     templateDetails, templateError, configData, setConfigData, fieldErrors,
     cpuLimit, setCpuLimit, memoryLimit, setMemoryLimit, diskLimit, setDiskLimit, ioLimit, setIoLimit,
     extraPorts, setExtraPorts, nodeId, nodeInfo, recommendedMemory,
@@ -1035,19 +1094,8 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId, 
     const [templateDetails, setTemplateDetails] = useState<any>(null);
     const [templateError, setTemplateError] = useState<string | null>(null);
     const [configData, setConfigData] = useState<Record<string, any>>({});
-    const [fieldErrors, setFieldErrors] = useState<Record<string, FieldError>>({});
+    const { fieldErrors, check: checkFieldErrors } = useTemplateFieldErrors(templateDetails, configData);
 
-    // once a field was marked, its error goes away as soon as it is fixed
-    useEffect(() => {
-        setFieldErrors((prev) => {
-            if (Object.keys(prev).length === 0 || !templateDetails) return prev;
-            const now = validateTemplateValues(templateDetails.data || {}, configData);
-            const still: Record<string, FieldError> = {};
-            for (const key of Object.keys(prev)) if (now[key]) still[key] = now[key];
-            return still;
-        });
-    }, [configData, templateDetails]);
-    
     const [cpuLimit, setCpuLimit] = useState<number | ''>(100);
     const [memoryLimit, setMemoryLimit] = useState<number | ''>(1024);
     const [diskLimit, setDiskLimit] = useState<number | ''>(10240);
@@ -1095,26 +1143,11 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId, 
     };
 
     const parseTemplateVariables = (details: any) => {
-        const initial: Record<string, any> = {};
-        const rawVars = details.data || details.variables || details.Variables || {};
-        const variables = (typeof rawVars === 'object' && rawVars !== null) ? rawVars : {};
+        const { values, limits, recommendedMemory } = initialTemplateValues(details);
         // the template's own memory: lowering it below that gets a warning
-        setRecommendedMemory(Number(templateVariableValue(variables.memory ?? {})) || null);
-
-        Object.entries(variables).forEach(([key, val]: [string, any]) => {
-            if (val && typeof val === 'object') {
-                const rawValue = templateVariableValue(val);
-                if (isResourceKey(key)) {
-                    setResourceLimit(key, rawValue ? Number(rawValue) : RESOURCE_DEFAULTS[key]);
-                } else {
-                    initial[key] = toConfigValue(rawValue);
-                }
-            } else if (val !== undefined && val !== null) {
-                if (isResourceKey(key)) setResourceLimit(key, Number(val));
-                else initial[key] = String(val);
-            }
-        });
-        setConfigData(initial);
+        setRecommendedMemory(recommendedMemory);
+        for (const [key, value] of Object.entries(limits)) setResourceLimit(key, value);
+        setConfigData(values);
     };
 
     useEffect(() => {
@@ -1167,9 +1200,7 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId, 
 
     const handleCreate = async () => {
         if (!templateDetails) return;
-        const errors = validateTemplateValues(templateDetails.data || {}, configData);
-        setFieldErrors(errors);
-        const firstInvalid = Object.keys(errors)[0];
+        const [firstInvalid] = checkFieldErrors();
         if (firstInvalid) {
             sileo.error({ title: t('servers.create.fixFieldsTitle'), description: t('servers.create.fixFieldsDescription') });
             document.getElementById(variableFieldId(firstInvalid))?.focus();

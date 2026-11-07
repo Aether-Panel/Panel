@@ -12,8 +12,8 @@ import { loadEditorStart, type EditorStart } from './load';
 import { EditorWorkspace } from './workspace';
 
 // /templates/editor/: a new local template, or ?name= to edit one, ?from=<repo>:<name> to copy
-// one, ?import to open the file the list page read. Saving needs templates.local.edit, so the
-// page does too.
+// one, ?preset=<id> to start from a base template, ?import to open the file the list page read.
+// Saving needs templates.local.edit, so the page does too.
 
 function EditorSkeleton() {
   return (
@@ -78,7 +78,7 @@ export default function TemplateEditorPage() {
   useEffect(() => {
     if (!allowed) return;
     let cancelled = false;
-    void loadEditorStart(editorSource(window.location.search), t('templates.editor.copySuffix')).then((result) => {
+    void loadEditorStart(editorSource(window.location.search), t).then((result) => {
       if (!cancelled) setStart(result);
     });
     return () => {

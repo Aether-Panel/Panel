@@ -3281,14 +3281,25 @@
         "description": "Elige de qué plantilla partir. La copia se abre en el editor como plantilla local.",
         "searchLabel": "Buscar la plantilla que duplicar",
         "emptyTitle": "Ninguna plantilla coincide",
-        "emptyDescription": "Prueba con otro nombre, un lenguaje o un juego."
+        "emptyDescription": "Prueba con otro nombre, un lenguaje o un juego.",
+        "noneTitle": "Todavía no hay plantillas",
+        "noneDescription": "Las plantillas locales y las de la comunidad aparecerán aquí.",
+        "resultsOne": "1 plantilla",
+        "resultsMany": "{{count}} plantillas"
       },
       "import": {
         "title": "Importar un .json",
         "description": "Abre un archivo de plantilla en el editor para revisarlo antes de guardarlo.",
         "failed": "No se pudo abrir el archivo en el editor."
       },
-      "back": "Volver"
+      "back": "Volver",
+      "preset": {
+        "option": "Plantilla base",
+        "optionDescription": "Parte de una plantilla lista para un caso habitual: Minecraft, Steam, Node.js, Python o Docker.",
+        "title": "Elegir una plantilla base",
+        "description": "Se abre en el editor sin nombre: dale uno y ajústala antes de guardarla.",
+        "listLabel": "Plantillas base"
+      }
     },
     "editor": {
       "breadcrumb": "Editor",
@@ -3415,6 +3426,10 @@
         "loadFailed": {
           "title": "No se pudo abrir la plantilla",
           "description": "El panel no respondió como se esperaba. Vuelve a intentarlo en un momento."
+        },
+        "presetMissing": {
+          "title": "Esa plantilla base no existe",
+          "description": "No hay ninguna plantilla base «{{name}}». Vuelve a la lista y elige otra."
         }
       },
       "operationCategories": {
@@ -4507,6 +4522,139 @@
           },
           "command": {
             "label": "Comando"
+          }
+        }
+      },
+      "preview": {
+        "button": "Vista previa",
+        "title": "Vista previa",
+        "description": "Así lo verá quien cree un servidor con esta plantilla.",
+        "note": "Es el mismo formulario del asistente «Crear servidor», con los valores de la plantilla. Puedes probarlo: aquí no se crea nada.",
+        "noVariables": "Esta plantilla no pide ninguna variable: quien cree el servidor solo elige los recursos y los puertos.",
+        "check": "Comprobar",
+        "reset": "Restablecer",
+        "checkOk": "Todo correcto: con estos valores se podría crear el servidor.",
+        "checkErrorsOne": "Hay 1 campo por corregir.",
+        "checkErrorsMany": "Hay {{count}} campos por corregir.",
+        "failedTitle": "La vista previa no puede mostrar esta plantilla",
+        "failedDescription": "Alguna variable tiene un valor que el formulario no sabe mostrar. Revísala en el JSON."
+      },
+      "summary": {
+        "title": "Errores y avisos",
+        "open": "Ver la lista",
+        "hint": "Elige uno para ir a su campo.",
+        "blocking": "Impide guardar",
+        "jsonOnly": "Solo en el JSON",
+        "staleJson": "El JSON tiene cambios no válidos: la lista es de la última versión válida.",
+        "error": "Error",
+        "warning": "Aviso"
+      }
+    },
+    "presets": {
+      "minecraft-paper": {
+        "title": "Minecraft: Java (Paper)",
+        "description": "Un servidor Paper: lo descarga, instala Java y pide aceptar el EULA.",
+        "display": "Minecraft: Java Edition (Paper)",
+        "vars": {
+          "eula": {
+            "display": "Acepto el EULA de Minecraft",
+            "desc": "El servidor no arranca hasta que se acepta el EULA de Minecraft: https://aka.ms/MinecraftEULA"
+          },
+          "version": {
+            "display": "Versión de Minecraft",
+            "desc": "Una versión como 1.21.4, o latest para la más reciente que admita Paper."
+          },
+          "paperbuild": {
+            "display": "Build de Paper",
+            "desc": "Un número de build de Paper, o latest para la más reciente."
+          },
+          "javaversion": {
+            "display": "Versión de Java",
+            "desc": "Minecraft 26.1 y posteriores necesitan Java 25; de 1.20.5 a 1.21, Java 21; de 1.17 a 1.20.4, Java 17; las anteriores, Java 8."
+          },
+          "motd": {
+            "display": "Mensaje del servidor (MOTD)",
+            "desc": "El texto que se ve bajo el nombre del servidor en la lista de servidores."
+          },
+          "memory": {
+            "display": "Memoria (MB)",
+            "desc": "La memoria máxima de Java (-Xmx), en MB."
+          },
+          "port": {
+            "display": "Puerto",
+            "desc": "El puerto TCP al que se conectan los jugadores."
+          }
+        }
+      },
+      "steam": {
+        "title": "Juego de Steam",
+        "description": "Un servidor dedicado que se descarga de Steam por su ID de app.",
+        "display": "Servidor dedicado de Steam",
+        "vars": {
+          "appid": {
+            "display": "ID de la app de Steam",
+            "desc": "El número del servidor dedicado en Steam (búscalo en SteamDB). Por ejemplo, 896660 es Valheim."
+          },
+          "executable": {
+            "display": "Archivo de arranque",
+            "desc": "El programa que arranca el servidor, dentro de su carpeta. Por ejemplo, valheim_server.x86_64."
+          },
+          "args": {
+            "display": "Argumentos de arranque",
+            "desc": "Lo que se añade al arrancar el servidor; cada juego tiene los suyos."
+          },
+          "port": {
+            "display": "Puerto",
+            "desc": "El puerto UDP al que se conectan los jugadores."
+          }
+        }
+      },
+      "nodejs": {
+        "title": "App Node.js",
+        "description": "Ejecuta un archivo con Node.js e instala las dependencias de package.json.",
+        "display": "App Node.js",
+        "vars": {
+          "nodeversion": {
+            "display": "Versión de Node.js",
+            "desc": "La versión principal de Node.js con la que se ejecuta la app."
+          },
+          "startfile": {
+            "display": "Archivo de inicio",
+            "desc": "El archivo que se ejecuta con node, dentro de la carpeta del servidor."
+          },
+          "port": {
+            "display": "Puerto",
+            "desc": "El puerto TCP de la app. También le llega en la variable de entorno PORT."
+          }
+        }
+      },
+      "python": {
+        "title": "App Python",
+        "description": "Ejecuta un archivo con Python, en un entorno virtual con su requirements.txt.",
+        "display": "App Python",
+        "vars": {
+          "pyversion": {
+            "display": "Versión de Python",
+            "desc": "La versión de Python en Docker. En el host se usa esa versión si está instalada y, si no, python3."
+          },
+          "startfile": {
+            "display": "Archivo de inicio",
+            "desc": "El archivo de Python que se ejecuta, dentro de la carpeta del servidor."
+          },
+          "port": {
+            "display": "Puerto",
+            "desc": "El puerto TCP de la app. También le llega en la variable de entorno PORT."
+          }
+        }
+      },
+      "docker": {
+        "title": "Docker genérico",
+        "description": "Lo mínimo para un servidor en Docker: la imagen, un puerto y un start.sh.",
+        "display": "Aplicación en Docker",
+        "vars": {
+          "port": {
+            "display": "Puerto",
+            "desc": "El puerto TCP del servidor. También le llega en la variable de entorno PORT."
           }
         }
       }

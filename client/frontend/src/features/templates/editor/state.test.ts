@@ -347,6 +347,8 @@ describe('editor address', () => {
     ['?from=x:minecraft', { kind: 'blank' }],
     ['?from=3:', { kind: 'blank' }],
     ['?import', { kind: 'import' }],
+    ['?preset=nodejs', { kind: 'preset', id: 'nodejs' }],
+    ['?preset=', { kind: 'blank' }],
   ])('%s opens %j', (search, source) => {
     expect(editorSource(search)).toEqual(source);
   });

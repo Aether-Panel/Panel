@@ -3281,14 +3281,25 @@
         "description": "Pick the template to start from. The copy opens in the editor as a local template.",
         "searchLabel": "Search for the template to duplicate",
         "emptyTitle": "No template matches",
-        "emptyDescription": "Try another name, a language or a game."
+        "emptyDescription": "Try another name, a language or a game.",
+        "noneTitle": "No templates yet",
+        "noneDescription": "Local and community templates will show up here.",
+        "resultsOne": "1 template",
+        "resultsMany": "{{count}} templates"
       },
       "import": {
         "title": "Import a .json",
         "description": "Open a template file in the editor to review it before saving.",
         "failed": "Couldn't open the file in the editor."
       },
-      "back": "Back"
+      "back": "Back",
+      "preset": {
+        "option": "Base template",
+        "optionDescription": "Start from a ready template for a common case: Minecraft, Steam, Node.js, Python or Docker.",
+        "title": "Choose a base template",
+        "description": "It opens in the editor without a name: give it one and adjust it before saving.",
+        "listLabel": "Base templates"
+      }
     },
     "editor": {
       "breadcrumb": "Editor",
@@ -3415,6 +3426,10 @@
         "loadFailed": {
           "title": "Couldn't open the template",
           "description": "The panel didn't answer as expected. Try again in a moment."
+        },
+        "presetMissing": {
+          "title": "That base template doesn't exist",
+          "description": "There is no base template \"{{name}}\". Go back to the list and pick another."
         }
       },
       "operationCategories": {
@@ -4507,6 +4522,139 @@
           },
           "command": {
             "label": "Command"
+          }
+        }
+      },
+      "preview": {
+        "button": "Preview",
+        "title": "Preview",
+        "description": "This is what someone creating a server from this template will see.",
+        "note": "It is the same form as the \"Create server\" wizard, with the template's values. Try it: nothing is created here.",
+        "noVariables": "This template asks for no variables: whoever creates the server only picks the resources and ports.",
+        "check": "Check",
+        "reset": "Reset",
+        "checkOk": "All good: the server could be created with these values.",
+        "checkErrorsOne": "1 field needs fixing.",
+        "checkErrorsMany": "{{count}} fields need fixing.",
+        "failedTitle": "The preview can't show this template",
+        "failedDescription": "A variable has a value the form can't show. Check it in the JSON."
+      },
+      "summary": {
+        "title": "Errors and warnings",
+        "open": "Show the list",
+        "hint": "Pick one to go to its field.",
+        "blocking": "Blocks saving",
+        "jsonOnly": "JSON only",
+        "staleJson": "The JSON has invalid changes: this list is from the last valid version.",
+        "error": "Error",
+        "warning": "Warning"
+      }
+    },
+    "presets": {
+      "minecraft-paper": {
+        "title": "Minecraft: Java (Paper)",
+        "description": "A Paper server: downloads Paper, installs Java and asks to accept the EULA.",
+        "display": "Minecraft: Java Edition (Paper)",
+        "vars": {
+          "eula": {
+            "display": "I accept the Minecraft EULA",
+            "desc": "The server doesn't start until the Minecraft EULA is accepted: https://aka.ms/MinecraftEULA"
+          },
+          "version": {
+            "display": "Minecraft version",
+            "desc": "A version such as 1.21.4, or latest for the newest one Paper supports."
+          },
+          "paperbuild": {
+            "display": "Paper build",
+            "desc": "A Paper build number, or latest for the newest."
+          },
+          "javaversion": {
+            "display": "Java version",
+            "desc": "Minecraft 26.1 and newer need Java 25; 1.20.5 to 1.21, Java 21; 1.17 to 1.20.4, Java 17; older ones, Java 8."
+          },
+          "motd": {
+            "display": "Server message (MOTD)",
+            "desc": "The text shown under the server's name in the server list."
+          },
+          "memory": {
+            "display": "Memory (MB)",
+            "desc": "Java's maximum memory (-Xmx), in MB."
+          },
+          "port": {
+            "display": "Port",
+            "desc": "The TCP port players connect to."
+          }
+        }
+      },
+      "steam": {
+        "title": "Steam game",
+        "description": "A dedicated server downloaded from Steam by its app ID.",
+        "display": "Steam dedicated server",
+        "vars": {
+          "appid": {
+            "display": "Steam app ID",
+            "desc": "The dedicated server's number on Steam (look it up on SteamDB). For example, 896660 is Valheim."
+          },
+          "executable": {
+            "display": "Start file",
+            "desc": "The program that starts the server, inside its folder. For example, valheim_server.x86_64."
+          },
+          "args": {
+            "display": "Start arguments",
+            "desc": "What is added when the server starts; each game has its own."
+          },
+          "port": {
+            "display": "Port",
+            "desc": "The UDP port players connect to."
+          }
+        }
+      },
+      "nodejs": {
+        "title": "Node.js app",
+        "description": "Runs a file with Node.js and installs the dependencies in package.json.",
+        "display": "Node.js app",
+        "vars": {
+          "nodeversion": {
+            "display": "Node.js version",
+            "desc": "The major Node.js version the app runs on."
+          },
+          "startfile": {
+            "display": "Start file",
+            "desc": "The file run with node, inside the server's folder."
+          },
+          "port": {
+            "display": "Port",
+            "desc": "The app's TCP port. It also gets it in the PORT environment variable."
+          }
+        }
+      },
+      "python": {
+        "title": "Python app",
+        "description": "Runs a file with Python, in a virtual environment with its requirements.txt.",
+        "display": "Python app",
+        "vars": {
+          "pyversion": {
+            "display": "Python version",
+            "desc": "The Python version in Docker. On the host that version is used when installed, otherwise python3."
+          },
+          "startfile": {
+            "display": "Start file",
+            "desc": "The Python file that runs, inside the server's folder."
+          },
+          "port": {
+            "display": "Port",
+            "desc": "The app's TCP port. It also gets it in the PORT environment variable."
+          }
+        }
+      },
+      "docker": {
+        "title": "Generic Docker",
+        "description": "The least a Docker server needs: the image, a port and a start.sh.",
+        "display": "Docker app",
+        "vars": {
+          "port": {
+            "display": "Port",
+            "desc": "The server's TCP port. It also gets it in the PORT environment variable."
           }
         }
       }

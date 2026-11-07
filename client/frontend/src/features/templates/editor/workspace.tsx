@@ -25,6 +25,8 @@ import type { JsonProblem } from './document';
 
 // Monaco is large: its chunk loads the first time the JSON view opens, not with the page.
 const TemplateJsonView = lazy(() => import('./json-view'));
+// the preview brings the create-server wizard along: it loads the first time it is opened
+const TemplatePreviewSheet = lazy(() => import('./preview/preview-sheet'));
 
 function jsonProblemText(t: (key: string) => string, problem: JsonProblem): string {
   return problem.code === 'notObject' ? t('templates.editor.json.notObject') : t('templates.editor.json.invalid');
@@ -135,6 +137,9 @@ export function EditorWorkspace() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  // mounted from the first opening on, so closing it can animate
+  const [previewLoaded, setPreviewLoaded] = useState(false);
 
   // split needs two columns (1280px and up); on a narrower screen it shows as the form
   const wide = useMediaQuery('(min-width: 1280px)');
@@ -206,6 +211,13 @@ export function EditorWorkspace() {
     setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
+  const openPreview = () => {
+    // the preview reads the template as it is, edits a field still holds back included
+    flushSync(() => flushPendingCommits());
+    setPreviewLoaded(true);
+    setPreviewOpen(true);
+  };
+
   const title = textValue(template.display) || name || t('templates.editor.newTitle');
 
   return (
@@ -233,7 +245,7 @@ export function EditorWorkspace() {
         />
       </div>
 
-      <EditorToolbar view={view} splitAvailable={wide} saving={saving} canSave={canSave} onSave={requestSave} onDownload={download} />
+      <EditorToolbar view={view} splitAvailable={wide} saving={saving} canSave={canSave} onSave={requestSave} onDownload={download} onPreview={openPreview} />
 
       {saveError && (
         <p role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive-bright">
@@ -249,6 +261,12 @@ export function EditorWorkspace() {
           <FormPanel compact showJsonNotice={false} />
           <JsonPanel split />
         </div>
+      )}
+
+      {previewLoaded && (
+        <Suspense fallback={null}>
+          <TemplatePreviewSheet open={previewOpen} onOpenChange={setPreviewOpen} template={template} />
+        </Suspense>
       )}
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>

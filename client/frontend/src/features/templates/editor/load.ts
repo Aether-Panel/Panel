@@ -1,6 +1,7 @@
 import { api, ApiError } from '@/lib/api-client';
 import { blankTemplate, duplicateTemplate, prepareLoadedTemplate, readImportedTemplate, type EditorSource } from './initial';
 import { isPlainObject, type JsonObject } from './paths';
+import { getPreset, type PresetText } from './presets';
 
 // The editor's calls to the templates API.
 
@@ -15,7 +16,7 @@ export type EditorStart =
       /** The local templates' names; null when they could not be read (see localTemplateNames). */
       takenNames: string[] | null;
     }
-  | { ok: false; problem: 'notFound' | 'importMissing' | 'loadFailed'; detail?: string };
+  | { ok: false; problem: 'notFound' | 'importMissing' | 'presetMissing' | 'loadFailed'; detail?: string };
 
 const templateUrl = (repoId: number, name: string) => `/api/templates/${repoId}/${encodeURIComponent(name)}`;
 
@@ -44,13 +45,18 @@ async function fetchTemplate(repoId: number, name: string): Promise<JsonObject |
   }
 }
 
-/** Everything the editor needs to open `source`. `copyLabel` marks a renamed copy's display name. */
-export async function loadEditorStart(source: EditorSource, copyLabel: string): Promise<EditorStart> {
+/** Everything the editor needs to open `source`. `t` writes a base template's texts and marks a renamed copy's display name. */
+export async function loadEditorStart(source: EditorSource, t: PresetText): Promise<EditorStart> {
   try {
     const takenNames = await localTemplateNames();
     switch (source.kind) {
       case 'blank':
         return { ok: true, template: blankTemplate(), saved: true, takenNames };
+      case 'preset': {
+        const preset = getPreset(source.id);
+        // unsaved from the start, like a copy: leaving asks first
+        return preset ? { ok: true, template: preset.build(t), saved: false, takenNames } : { ok: false, problem: 'presetMissing', detail: source.id };
+      }
       case 'import': {
         const template = readImportedTemplate();
         return template ? { ok: true, template, saved: false, takenNames } : { ok: false, problem: 'importMissing' };
@@ -64,7 +70,7 @@ export async function loadEditorStart(source: EditorSource, copyLabel: string): 
         const raw = await fetchTemplate(source.repoId, source.name);
         if (raw === 'notFound') return { ok: false, problem: 'notFound', detail: source.name };
         // unknown names: the copy keeps its source's name, and saving waits for a successful check
-        return { ok: true, template: duplicateTemplate(raw, source.name, takenNames ?? [], copyLabel), saved: false, takenNames };
+        return { ok: true, template: duplicateTemplate(raw, source.name, takenNames ?? [], t('templates.editor.copySuffix')), saved: false, takenNames };
       }
     }
   } catch (e) {

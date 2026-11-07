@@ -96,11 +96,12 @@ export function readImportedTemplate(): JsonObject | null {
   }
 }
 
-/** What the editor opens, from its address: /templates/editor/?name=…, ?from=<repo>:<name>, ?import. */
+/** What the editor opens, from its address: /templates/editor/?name=…, ?from=<repo>:<name>, ?preset=<id>, ?import. */
 export type EditorSource =
   | { kind: 'blank' }
   | { kind: 'local'; name: string }
   | { kind: 'copy'; repoId: number; name: string }
+  | { kind: 'preset'; id: string }
   | { kind: 'import' };
 
 export function editorSource(search: string): EditorSource {
@@ -115,6 +116,8 @@ export function editorSource(search: string): EditorSource {
     const sourceName = from.slice(split + 1);
     if (split > 0 && Number.isInteger(repoId) && repoId >= 0 && sourceName) return { kind: 'copy', repoId, name: sourceName };
   }
+  const preset = params.get('preset');
+  if (preset) return { kind: 'preset', id: preset };
   if (params.has('import')) return { kind: 'import' };
   return { kind: 'blank' };
 }
