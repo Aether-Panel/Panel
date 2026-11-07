@@ -1232,7 +1232,9 @@
         "description": "This action is permanent. All server files and data will be erased.",
         "button": "Delete",
         "success": "Server has been deleted.",
-        "error": "Could not delete the server."
+        "error": "Could not delete the server.",
+        "leftoversTitle": "Databases left on their host",
+        "leftovers": "The server was deleted, but these MySQL databases and their users could not be removed from their host and are still there: {{databases}}. An administrator has to remove them by hand."
       },
       "deleteDialog": {
         "title": "Are you absolutely sure?",

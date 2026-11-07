@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -86,7 +87,7 @@ func (env *deleteTestEnv) count(t *testing.T, model interface{}, query string, a
 }
 
 // useDatabaseDrop replaces the drop of the server's MySQL databases for this test
-func useDatabaseDrop(t *testing.T, drop func(db *gorm.DB, serverID string) error) {
+func useDatabaseDrop(t *testing.T, drop func(db *gorm.DB, serverID string) ([]services.LeftoverDatabase, error)) {
 	previous := dropServerDatabases
 	dropServerDatabases = drop
 	t.Cleanup(func() { dropServerDatabases = previous })
@@ -96,11 +97,11 @@ func TestDeleteServer_DropsTheDatabasesWhileTheirRowsExist(t *testing.T) {
 	env := setupServerDeleteTest(t)
 	var seenDatabases, seenServers int64
 	called := false
-	useDatabaseDrop(t, func(_ *gorm.DB, serverID string) error {
+	useDatabaseDrop(t, func(_ *gorm.DB, serverID string) ([]services.LeftoverDatabase, error) {
 		called = true
 		seenDatabases = env.count(t, &models.Database{}, "server_id = ?", serverID)
 		seenServers = env.count(t, &models.Server{}, "identifier = ?", serverID)
-		return nil
+		return nil, nil
 	})
 
 	w := env.deleteWithoutNode(t)
@@ -115,7 +116,9 @@ func TestDeleteServer_DropsTheDatabasesWhileTheirRowsExist(t *testing.T) {
 
 func TestDeleteServer_ADatabaseDropErrorDeletesNothing(t *testing.T) {
 	env := setupServerDeleteTest(t)
-	useDatabaseDrop(t, func(*gorm.DB, string) error { return errors.New("database listing failed") })
+	useDatabaseDrop(t, func(*gorm.DB, string) ([]services.LeftoverDatabase, error) {
+		return nil, errors.New("database listing failed")
+	})
 
 	w := env.deleteWithoutNode(t)
 
@@ -127,7 +130,7 @@ func TestDeleteServer_ADatabaseDropErrorDeletesNothing(t *testing.T) {
 
 func TestDeleteServer_RemovesClientSessionsAndTransfers(t *testing.T) {
 	env := setupServerDeleteTest(t)
-	useDatabaseDrop(t, func(*gorm.DB, string) error { return nil })
+	useDatabaseDrop(t, func(*gorm.DB, string) ([]services.LeftoverDatabase, error) { return nil, nil })
 
 	w := env.deleteWithoutNode(t)
 
@@ -136,4 +139,25 @@ func TestDeleteServer_RemovesClientSessionsAndTransfers(t *testing.T) {
 	assert.Zero(t, env.count(t, &models.Client{}, "id = ?", env.clientID))
 	assert.Zero(t, env.count(t, &models.ExTransferSession{}, "session_uuid = ?", env.transferUUID))
 	assert.Zero(t, env.count(t, &models.ExTransferLog{}, "session_id = ?", env.transferUUID))
+}
+
+// A database host that is down does not stop the delete, but the answer lists what it left
+// behind, for the person deleting the server to remove by hand
+func TestDeleteServer_ReportsTheDatabasesAHostCouldNotDrop(t *testing.T) {
+	env := setupServerDeleteTest(t) // its database host is 127.0.0.1:1, where nothing listens
+
+	w := env.deleteWithoutNode(t)
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	var answer ServerDeleteResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &answer))
+	require.Len(t, answer.LeftoverDatabases, 1)
+	left := answer.LeftoverDatabases[0]
+	assert.Equal(t, "mysql", left.HostName)
+	assert.NotZero(t, left.HostID)
+	assert.Equal(t, "s_del_world", left.Database)
+	assert.Equal(t, "u_world", left.Username)
+	assert.NotContains(t, w.Body.String(), "unused", "never the passwords")
+	assert.Zero(t, env.count(t, &models.Server{}, "identifier = ?", deleteTestServer), "the server is deleted anyway")
+	assert.Zero(t, env.count(t, &models.Database{}, "server_id = ?", deleteTestServer))
 }

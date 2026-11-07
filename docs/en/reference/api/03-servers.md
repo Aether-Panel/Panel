@@ -194,6 +194,12 @@ Errors: `400 ErrNodeInvalid` for an unknown node, `403` for the sub-server rules
 
 Stops the server, deletes it on the node together with the backup archives kept there (copies already uploaded to off-site storage stay there) and removes its permissions, backup records, OAuth2 clients, sessions, uptime history and DNS records. Its MySQL databases and their users are dropped from their hosts. A server with sub-servers answers `400` until they are deleted. `?skipNode` deletes it from the panel only, without contacting the node. Answer: `204`; members are notified by email (template `deletedServer`).
 
+A database host that cannot be reached (or refuses the drop) does not stop the delete. The server is deleted anyway and the answer is `200` with what stayed on the host, to be removed by hand (the web client shows it as a warning):
+
+```json
+{ "leftoverDatabases": [ { "hostId": 2, "hostName": "mariadb-1", "database": "s_a1b2c3d4_world", "username": "u_x7k2" } ] }
+```
+
 ### `POST /api/servers/:serverId/suspend`
 
 Toggles the suspension of the server and its sub-servers. Suspending also stops them. The answer is the server object with the new `suspended` value. A suspended server cannot be started or restarted (`403`) or cloned by a non-administrator.

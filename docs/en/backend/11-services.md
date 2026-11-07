@@ -195,7 +195,7 @@ The clear token is only returned once, at creation. See [Security](./09-security
 | `UsableHosts(serverID)` | Hosts the server may use: tied to its node (or to none) and below `MaxDatabases` |
 | `Create(database)` | Checks the host, builds the name, creates database + user on MySQL, saves the row |
 | `Delete(id)` | Drops the MySQL user and database, then the row |
-| `DropAllForServer(serverID)` | Best effort drop of every database of a server; failures are logged, not returned |
+| `DropAllForServer(serverID)` | Best effort drop of every database of a server; failures are logged and returned as `[]LeftoverDatabase` (host id and name, database, user), and only a failure to list the databases is an error |
 
 Rules:
 - Physical name `s_<serverId>_<name>`, only `[a-zA-Z0-9_-]`, at most 64 characters (`ErrInvalidDatabaseName`); unique per host (`ErrDatabaseNameTaken`).

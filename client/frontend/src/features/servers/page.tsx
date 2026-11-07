@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useTranslations } from '@/contexts/translations-context';
 import { useServers } from '@/hooks/use-servers';
 import { CreateServerStepper } from './create-server-stepper';
+import { describeLeftovers, takeLeftovers } from './delete-leftovers';
+import { sileo } from '@/lib/toast';
 
 import { ServerCard } from '@/components/server-card';
 import { cn } from '@/lib/utils';
@@ -32,6 +34,15 @@ export default function ServersPage() {
 
   useEffect(() => {
     setIsMounted(true);
+
+    // a server deleted just before: what its database host could not drop
+    const leftovers = takeLeftovers();
+    if (leftovers.length > 0) {
+      sileo.warning({
+        title: t('servers.admin.delete.leftoversTitle'),
+        description: t('servers.admin.delete.leftovers', { databases: describeLeftovers(leftovers) }),
+      });
+    }
 
     // Check if we should automatically open the create dialog
     const searchParams = new URLSearchParams(window.location.search);

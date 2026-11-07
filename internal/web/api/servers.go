@@ -623,15 +623,22 @@ func editServer(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// dropServerDatabases drops the server's MySQL databases and users from their hosts. A
-// variable so tests can see when it runs.
-var dropServerDatabases = func(db *gorm.DB, serverID string) error {
+// dropServerDatabases drops the server's MySQL databases and users from their hosts and
+// returns the ones a host could not drop. A variable so tests can see when it runs.
+var dropServerDatabases = func(db *gorm.DB, serverID string) ([]services.LeftoverDatabase, error) {
 	return (&services.Database{DB: db}).DropAllForServer(serverID)
 }
 
+// ServerDeleteResponse is the answer to a delete that went through but left MySQL databases
+// on a host that could not be reached
+type ServerDeleteResponse struct {
+	LeftoverDatabases []services.LeftoverDatabase `json:"leftoverDatabases"`
+} // @name ServerDeleteResponse
+
 // @Summary Deletes a server
-// @Description Deletes a server from the panel
+// @Description Deletes a server from the panel. 204 when everything was removed; 200 with the MySQL databases a host could not drop, which stay there to be removed by hand.
 // @Success 204 {object} nil
+// @Success 200 {object} ServerDeleteResponse
 // @Param id path string true "Server ID"
 // @Tags Daemon Servers
 // @Router /api/servers/{id} [delete]
@@ -670,7 +677,8 @@ func deleteServer(c *gin.Context) {
 
 	// before the rows go: on MySQL/Postgres deleting the server cascades its database rows,
 	// and without them nothing knows which schemas and users to drop from the hosts
-	if err := dropServerDatabases(db, server.Identifier); response.HandleError(c, err, http.StatusInternalServerError) {
+	leftovers, err := dropServerDatabases(db, server.Identifier)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
@@ -711,6 +719,11 @@ func deleteServer(c *gin.Context) {
 
 	sendServerDeletionEmails(users, server)
 	extensions.Publish(extensions.EventServerDeleted, extensions.ServerData(server.Identifier, server.Name, server.Type, server.Icon))
+	if len(leftovers) > 0 {
+		// the server is gone either way; whoever deleted it must know what is left on a host
+		c.JSON(http.StatusOK, &ServerDeleteResponse{LeftoverDatabases: leftovers})
+		return
+	}
 	c.Status(http.StatusNoContent)
 }
 

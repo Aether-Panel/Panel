@@ -39,7 +39,7 @@ El prefijo separa a los clientes en un host compartido: un servidor nunca puede 
 
 Al borrar una base de datos se ejecutan en el host `DROP USER IF EXISTS`, `DROP DATABASE IF EXISTS` y `FLUSH PRIVILEGES`, y después se elimina el registro. La API comprueba que la base de datos pertenece al servidor de la URL.
 
-Cuando se borra un **servidor**, el panel elimina antes todas sus bases de datos y usuarios. Se hace en la medida de lo posible: si el host no responde, el servidor se borra igualmente y el panel registra `server <id>: database <name> and its user could not be dropped from host <id>, remove them by hand`.
+Cuando se borra un **servidor**, el panel elimina antes todas sus bases de datos y usuarios. Se hace en la medida de lo posible: si el host no responde, el servidor se borra igualmente, el panel registra `server <id>: database <name> and its user <user> could not be dropped from host <id> (<name>), remove them by hand: <motivo>` (el motivo dice si falló la conexión, el borrado del usuario o el de la base de datos, y solo menciona un privilegio que falta cuando MySQL lo denegó), y quien borró el servidor ve un aviso con las bases de datos que quedaron en el host.
 
 Un **host de base de datos** solo se puede borrar cuando ya no tiene bases de datos: mientras le quede alguna, el borrado se rechaza con HTTP 409 `ErrDatabaseHostInUse`. Así no quedan bases de datos ni usuarios en el servidor MySQL sin nada en el panel que permita borrarlos. Primero se borran las bases de datos desde sus servidores y después el host.
 

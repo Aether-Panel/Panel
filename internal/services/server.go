@@ -108,8 +108,9 @@ func (ss *Server) Delete(id string) error {
 	// drop the MySQL databases first, while their rows still say where they are: their rows
 	// going away left the schemas and users (with working passwords) on the host, and a new
 	// server with this id failing to create them. An error here deletes nothing. Outside the
-	// transaction: it talks to the hosts, which can take seconds each.
-	if err := (&Database{DB: ss.DB}).DropAllForServer(id); err != nil {
+	// transaction: it talks to the hosts, which can take seconds each. What a host could not
+	// drop is logged there; callers without a person to tell (provisioning) leave it at that.
+	if _, err := (&Database{DB: ss.DB}).DropAllForServer(id); err != nil {
 		return err
 	}
 

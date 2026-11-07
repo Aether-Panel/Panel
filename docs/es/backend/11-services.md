@@ -195,7 +195,7 @@ El token en claro solo se devuelve una vez, al crearlo. Véase [Seguridad](./09-
 | `UsableHosts(serverID)` | Hosts que el servidor puede usar: ligados a su nodo (o a ninguno) y por debajo de `MaxDatabases` |
 | `Create(database)` | Comprueba el host, construye el nombre, crea base de datos y usuario en MySQL y guarda la fila |
 | `Delete(id)` | Elimina el usuario y la base de datos de MySQL y después la fila |
-| `DropAllForServer(serverID)` | Elimina, en la medida de lo posible, todas las bases de datos de un servidor; los fallos se registran en el log, no se devuelven |
+| `DropAllForServer(serverID)` | Elimina, en la medida de lo posible, todas las bases de datos de un servidor; los fallos se registran en el log y se devuelven como `[]LeftoverDatabase` (id y nombre del host, base de datos, usuario); solo es error no poder listar las bases de datos |
 
 Reglas:
 - Nombre físico `s_<serverId>_<nombre>`, solo `[a-zA-Z0-9_-]`, como máximo 64 caracteres (`ErrInvalidDatabaseName`); único por host (`ErrDatabaseNameTaken`).

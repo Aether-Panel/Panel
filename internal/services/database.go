@@ -132,20 +132,62 @@ func (ds *Database) checkHostAccepts(host *models.DatabaseHost, serverID string)
 	return nil
 }
 
+// LeftoverDatabase is a MySQL database, with its user, that a server delete could not drop
+// from its host: the server is deleted anyway, and these stay on the host until someone
+// removes them by hand
+type LeftoverDatabase struct {
+	HostID   uint   `json:"hostId"`
+	HostName string `json:"hostName"`
+	Database string `json:"database"`
+	Username string `json:"username"`
+} // @name LeftoverDatabase
+
 // DropAllForServer drops every database and user of a server from its MySQL host, before
 // the server's rows go. It is best effort: a host that cannot be reached must not stop the
-// server from being deleted, so that failure is logged for the administrator to clean up.
-func (ds *Database) DropAllForServer(serverID string) error {
+// server from being deleted, so what could not be dropped is logged and returned, for the
+// person deleting the server to be told. err is only for the databases that could not be listed.
+func (ds *Database) DropAllForServer(serverID string) ([]LeftoverDatabase, error) {
 	databases, err := ds.GetAllForServer(serverID)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	var leftovers []LeftoverDatabase
 	for _, d := range databases {
 		if err := ds.deleteFromMySQL(d); err != nil {
-			logging.Error.Printf("server %s: database %s and its user could not be dropped from host %d, remove them by hand: %s", serverID, d.DatabaseName, d.DatabaseHostID, err)
+			left := LeftoverDatabase{HostID: d.DatabaseHostID, Database: d.DatabaseName, Username: d.Username}
+			if d.DatabaseHost != nil {
+				left.HostName = d.DatabaseHost.Name
+			}
+			logging.Error.Printf("server %s: database %s and its user %s could not be dropped from host %d (%s), remove them by hand: %s", serverID, d.DatabaseName, d.Username, d.DatabaseHostID, left.HostName, err)
+			leftovers = append(leftovers, left)
 		}
 	}
-	return nil
+	return leftovers, nil
+}
+
+// mysqlAccessDenied are the MySQL error numbers that mean the host refused the panel's
+// account or one of its privileges
+var mysqlAccessDenied = map[uint16]bool{
+	1044: true, // ER_DBACCESS_DENIED_ERROR
+	1045: true, // ER_ACCESS_DENIED_ERROR
+	1142: true, // ER_TABLEACCESS_DENIED_ERROR
+	1227: true, // ER_SPECIFIC_ACCESS_DENIED_ERROR
+	1370: true, // ER_PROCACCESS_DENIED_ERROR
+}
+
+func isMySQLAccessDenied(err error) bool {
+	var me *mysql.MySQLError
+	return errors.As(err, &me) && mysqlAccessDenied[me.Number]
+}
+
+// mysqlStepError says which step on a MySQL host failed, with the driver's error. Only an
+// access-denied answer from MySQL mentions the privilege the host account needs: a host that
+// is down or unreachable must not read as a permissions problem.
+func mysqlStepError(step, privilege string, err error) error {
+	if isMySQLAccessDenied(err) {
+		return fmt.Errorf("%s: MySQL denied it, the database host's account needs the %s privilege: %w", step, privilege, err)
+	}
+	return fmt.Errorf("%s: %w", step, err)
 }
 
 // ensureDatabaseNameAvailable refuses names already tracked on that host, no matter
@@ -298,26 +340,31 @@ func (ds *Database) deleteFromMySQL(database *models.Database) error {
 
 	db, err := sql.Open("mysql", cfg.FormatDSN())
 	if err != nil {
-		return fmt.Errorf("failed to connect to MySQL: %w", err)
+		return fmt.Errorf("invalid MySQL host settings: %w", err)
 	}
 	defer db.Close()
 
-	// Eliminar el usuario
+	// connect first, so a host that is down says so instead of failing the first DROP
+	if err = db.Ping(); err != nil {
+		if isMySQLAccessDenied(err) {
+			return fmt.Errorf("could not connect to the MySQL host: it refused the database host's username or password: %w", err)
+		}
+		return fmt.Errorf("could not connect to the MySQL host: %w", err)
+	}
+
 	_, err = db.Exec(fmt.Sprintf("DROP USER IF EXISTS '%s'@'%%'", database.Username)) /* #nosec G201 */ // NOSONAR
 	if err != nil {
-		return fmt.Errorf("failed to drop user (ensure user has DROP USER permissions): %w", err)
+		return mysqlStepError("failed to drop user "+database.Username, "CREATE USER", err)
 	}
 
-	// Eliminar la base de datos
 	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS `%s`", databaseName)) /* #nosec G201 */ // NOSONAR
 	if err != nil {
-		return fmt.Errorf("failed to drop database: %w", err)
+		return mysqlStepError("failed to drop database "+databaseName, "DROP", err)
 	}
 
-	// Aplicar cambios
 	_, err = db.Exec("FLUSH PRIVILEGES")
 	if err != nil {
-		return fmt.Errorf("failed to flush privileges: %w", err)
+		return mysqlStepError("failed to flush privileges", "RELOAD", err)
 	}
 
 	return nil

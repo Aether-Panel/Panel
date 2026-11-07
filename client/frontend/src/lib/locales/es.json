@@ -1232,7 +1232,9 @@
         "description": "Esta acción es permanente. Se borrarán todos los archivos y datos del servidor.",
         "button": "Eliminar",
         "success": "El servidor ha sido eliminado correctamente.",
-        "error": "No se pudo eliminar el servidor."
+        "error": "No se pudo eliminar el servidor.",
+        "leftoversTitle": "Bases de datos que quedan en su host",
+        "leftovers": "El servidor se ha eliminado, pero estas bases de datos MySQL y sus usuarios no se pudieron quitar de su host y siguen allí: {{databases}}. Un administrador tiene que eliminarlas a mano."
       },
       "deleteDialog": {
         "title": "¿Estás absolutamente seguro?",
