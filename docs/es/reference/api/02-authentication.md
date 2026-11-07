@@ -213,7 +213,7 @@ curl -X POST https://panel.example.com/oauth2/token \
 { "access_token": "0b7c2f4e-...", "token_type": "Bearer", "expires_in": 3600, "scope": "login server.create" }
 ```
 
-`scope` enumera los scopes de la fila de permisos global del propietario (no incluye los del rol). El propietario necesita `login` en esa fila; si no lo tiene, la respuesta es `403` sin cuerpo.
+`scope` enumera lo que el token puede usar de verdad, los mismos scopes que reciben sus peticiones: los scopes globales del propietario (su fila de permisos y su rol) para un cliente sin servidor; para un cliente limitado a un servidor, los scopes del propietario en ese servidor más `login`; en ambos casos solo los que están dentro de los `scopes` del cliente, si los tiene. Un cliente limitado a `server.view` en un servidor recibe `"scope": "server.view"`. El propietario necesita `login` en su fila de permisos global; si no lo tiene, la respuesta es `403` sin cuerpo.
 
 **`grant_type=password`** (solo nodos)
 

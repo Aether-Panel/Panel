@@ -213,7 +213,7 @@ curl -X POST https://panel.example.com/oauth2/token \
 { "access_token": "0b7c2f4e-...", "token_type": "Bearer", "expires_in": 3600, "scope": "login server.create" }
 ```
 
-`scope` lists the scopes of the owner's panel-wide permission row (role scopes are not listed). The owner needs `login` in that row; otherwise the answer is `403` with no body.
+`scope` lists what the token can really use, the same scopes its requests get: the owner's panel-wide scopes (their permission row and role) for a client without a server; for a client limited to a server, the owner's scopes on that server plus `login`; in both cases only those inside the client's `scopes`, when it has any. A client limited to `server.view` on one server gets `"scope": "server.view"`. The owner needs `login` in their panel-wide permission row; otherwise the answer is `403` with no body.
 
 **`grant_type=password`** (nodes only)
 
