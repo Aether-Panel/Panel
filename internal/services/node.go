@@ -166,8 +166,27 @@ func (ns *Node) Delete(id uint) error {
 		return skypanel.ErrNodeHasServers
 	}
 
+	// a store product left on a deleted node would fail every purchase
+	products, err := productsOnNode(ns.DB, model.ID)
+	if err != nil {
+		return err
+	}
+	if len(products) > 0 {
+		return skypanel.ErrNodeHasProducts(products)
+	}
+
 	res := ns.DB.Delete(model)
 	return res.Error
+}
+
+// productsOnNode lists the ids of the store products that create their servers on the node:
+// pinned to it, or falling back to it when they pin none (see provisionNodeID)
+func productsOnNode(db *gorm.DB, id uint) ([]string, error) {
+	var products []string
+	err := db.Model(&models.ProvisionProduct{}).
+		Where("node_id = ? OR ((node_id IS NULL OR node_id = 0) AND default_node = ?)", id, id).
+		Order("product_id").Pluck("product_id", &products).Error
+	return products, err
 }
 
 func (ns *Node) Create(node *models.Node) error {

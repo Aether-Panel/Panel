@@ -124,10 +124,11 @@ func addRepo(c *gin.Context) {
 }
 
 // @Summary Delete repo
-// @Description Deletes a repo from the service
+// @Description Deletes a repo from the service. Refused while a store product finds its template only in this repo.
 // @Param repo path uint true "Repo Id"
 // @Success 204 {object} nil
 // @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 409 {object} skypanel.ErrorResponse "ErrTemplateRepoInUse: products use templates only this repo has"
 // @Failure 500 {object} skypanel.ErrorResponse
 // @Tags Templates
 // @Router /api/templates/{repo} [delete]
@@ -142,7 +143,10 @@ func deleteRepo(c *gin.Context) {
 	ts := &services.Template{DB: db}
 
 	err = ts.DeleteRepo(repoID)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
+	if errors.Is(err, skypanel.ErrTemplateRepoInUse(nil)) {
+		response.HandleError(c, err, http.StatusConflict)
+		return
+	} else if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -236,9 +240,10 @@ func putTemplate(c *gin.Context) {
 }
 
 // @Summary Deletes template
-// @Description Deletes template
+// @Description Deletes template. Refused while a store product creates its servers with it and no other repo has a template of that name.
 // @Success 204 {object} nil
 // @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 409 {object} skypanel.ErrorResponse "ErrTemplateInUse: products use this template"
 // @Failure 500 {object} skypanel.ErrorResponse
 // @Param name path string true "Template name"
 // @Tags Templates
@@ -249,10 +254,14 @@ func deleteTemplate(c *gin.Context) {
 	ts := &services.Template{DB: db}
 
 	err := ts.Delete(c.Param("name"))
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
 		c.AbortWithStatus(http.StatusNotFound)
 		return
-	} else if response.HandleError(c, err, http.StatusInternalServerError) {
+	case errors.Is(err, skypanel.ErrTemplateInUse(nil)):
+		response.HandleError(c, err, http.StatusConflict)
+		return
+	case response.HandleError(c, err, http.StatusInternalServerError):
 		return
 	}
 

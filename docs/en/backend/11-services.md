@@ -137,7 +137,7 @@ type ServerSearch struct {
 |---|---|
 | `GetAll()` | Nodes from the database plus `models.LocalNode` when `panel.enable` is true |
 | `Get(id)` | The local node for its id, otherwise a database row |
-| `Create`, `Update`, `Delete` | `Update` is a no-op for the local node; `Delete` refuses the local node and nodes that still have servers (`ErrNodeHasServers`) |
+| `Create`, `Update`, `Delete` | `Update` is a no-op for the local node; `Delete` refuses the local node, nodes that still have servers (`ErrNodeHasServers`) and nodes a store product creates its servers on, pinned or as its fallback (`ErrNodeHasProducts`) |
 | `CallNode(node, method, path, body, headers)` / `CallNodeContext(ctx, ...)` | HTTP call to the node's daemon with a fresh JWT bound to that node |
 | `OpenSocket(node, path, w, r)` | Upgrades the browser connection and proxies it to the daemon's WebSocket (`ws`/`wss`) |
 | `SyncNodeToConfig()` | Runs at `init`: local node host/port from `panel.settings.masterUrl`, SFTP port from `daemon.sftp.host` |

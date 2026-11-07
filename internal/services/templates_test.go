@@ -188,7 +188,7 @@ func TestDeleteRepo_RemovesTheCheckoutAndItsCacheEntry(t *testing.T) {
 	cache := t.TempDir()
 	require.NoError(t, config.CacheFolder.Set(cache, false))
 	t.Cleanup(func() { _ = config.CacheFolder.Set("cache", false) })
-	db := setupDeleteCleanupDB(t, &models.TemplateRepo{})
+	db := setupDeleteCleanupDB(t, &models.TemplateRepo{}, &models.ProvisionProduct{})
 	repo := &models.TemplateRepo{Name: "community", URL: "https://example.com/templates.git", Branch: "main"}
 	require.NoError(t, db.Create(repo).Error)
 

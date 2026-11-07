@@ -5237,7 +5237,11 @@
     "ErrNodeJoinCode": "That join code does not exist, was already used or has expired: generate a new one in the panel.",
     "ErrNodeJoinLocal": "The panel's own node is installed with the panel: it is not deployed on another machine.",
     "ErrNodeJoinURL": "First set the panel's base URL in Settings → General (for example https://panel.yourdomain.com): the new node reaches the panel there.",
-    "ErrTemplateTooLarge": "The template is larger than 2 MB, the most the panel stores."
+    "ErrTemplateTooLarge": "The template is larger than 2 MB, the most the panel stores.",
+    "ErrNodeHasServers": "This node still has servers. Move them to another node or delete them first.",
+    "ErrNodeHasProducts": "The store products {{products}} create their servers on this node. Point them at another node or delete them first.",
+    "ErrTemplateInUse": "The store products {{products}} create their servers with this template. Point them at another template or delete them first.",
+    "ErrTemplateRepoInUse": "The store products {{products}} use templates only this repository has. Point them at other templates or delete them first."
   },
   "apiErrorValues": {
     "ErrDiscordTestFailed": {

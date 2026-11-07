@@ -50,7 +50,7 @@ Un producto es un plan: qué plantilla, en qué nodo, con qué límites y qué p
 | `cpu`, `memory`, `disk` | Límites: % de un núcleo (100 = un núcleo), MB, MB. `0` conserva el valor de la plantilla |
 | `port_range_min`, `port_range_max` | Rango del que se elige el puerto del servidor; `0` en cualquiera de los dos equivale a 1024–65535 |
 
-`GET` los lista; `POST` recibe el objeto sin `id` y lo devuelve con su `id`; `PUT /:id` cambia los campos enviados y devuelve el producto (`404` si no existe); `DELETE /:id` responde `204`. El panel no valida los valores: una plantilla o un nodo incorrectos solo se detectan al aprovisionar.
+`GET` los lista; `POST` recibe el objeto sin `id` y lo devuelve con su `id`; `PUT /:id` cambia los campos enviados y devuelve el producto (`404` si no existe); `DELETE /:id` responde `204`. El panel no valida los valores: una plantilla o un nodo incorrectos solo se detectan al aprovisionar. Mientras un producto los use, su nodo y su plantilla no se pueden borrar: borrar el nodo responde `409` `ErrNodeHasProducts`, la plantilla local `409` `ErrTemplateInUse` (salvo que otro repositorio tenga una plantilla con ese nombre) y un repositorio Git que es el único con la plantilla de un producto `409` `ErrTemplateRepoInUse`; cada uno lista los `product_id` de los productos en `metadata.products`.
 
 ## Autenticación
 

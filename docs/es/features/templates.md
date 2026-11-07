@@ -154,10 +154,10 @@ Sin credenciales no se envía ninguna autenticación, lo que sirve para reposito
 | `GET /api/templates/:repo` | `login` | Listar las plantillas de un repositorio (resúmenes) |
 | `GET /api/templates/:repo/:name` | `login` | Leer una plantilla completa |
 | `PUT /api/templates/0/:name` | `templates.local.edit` | Crear o sustituir una plantilla local (cuerpo: el JSON de la plantilla) |
-| `DELETE /api/templates/0/:name` | `templates.local.edit` | Eliminar una plantilla local |
+| `DELETE /api/templates/0/:name` | `templates.local.edit` | Eliminar una plantilla local; se rechaza (`409` `ErrTemplateInUse`) mientras un producto de la tienda cree sus servidores con ella y ningún otro repositorio tenga una plantilla con ese nombre |
 | `POST /api/templates/upload` | `templates.local.edit` | Subir plantillas locales (`multipart/form-data`, campo `files`, repetible) |
 | `POST /api/templates` | `templates.repo.create` | Añadir un repositorio Git: `{"name": "...", "url": "https://...", "branch": "main"}`, más `pat`, `username`, `password` o `sshKey` opcionales para un repositorio privado |
-| `DELETE /api/templates/:repo` | `templates.repo.delete` | Quitar un repositorio Git |
+| `DELETE /api/templates/:repo` | `templates.repo.delete` | Quitar un repositorio Git; se rechaza (`409` `ErrTemplateRepoInUse`) mientras sea el único con la plantilla de un producto de la tienda |
 
 Ejemplo de subida:
 

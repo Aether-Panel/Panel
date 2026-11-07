@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
@@ -194,11 +195,12 @@ func updateNode(c *gin.Context) {
 }
 
 // @Summary Deletes a node
-// @Description Deletes the node
+// @Description Deletes the node. Refused while servers are on it or store products create their servers on it.
 // @Success 204 {object} nil
 // @Failure 400 {object} skypanel.ErrorResponse
 // @Failure 403 {object} skypanel.ErrorResponse
 // @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 409 {object} skypanel.ErrorResponse "ErrNodeHasServers or ErrNodeHasProducts: the node is in use"
 // @Failure 500 {object} skypanel.ErrorResponse
 // @Param id path string true "Node Id"
 // @Tags Nodes
@@ -220,7 +222,11 @@ func deleteNode(c *gin.Context) {
 	}
 
 	err = ns.Delete(node.ID)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
+	if errors.Is(err, skypanel.ErrNodeHasServers) || errors.Is(err, skypanel.ErrNodeHasProducts(nil)) {
+		// still in use: the request conflicts with what is on the node, nothing failed
+		response.HandleError(c, err, http.StatusConflict)
+		return
+	} else if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 

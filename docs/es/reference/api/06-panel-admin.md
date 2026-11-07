@@ -11,7 +11,7 @@ Nodos, configuración del panel, claves de API, plantillas, versiones de juego, 
 | GET | `/api/nodes/network-history` | `nodes.view` | Tráfico de todos los nodos sumado |
 | GET | `/api/nodes/:id` | `nodes.view` | Un nodo |
 | PUT | `/api/nodes/:id` | `nodes.edit` | Actualiza un nodo |
-| DELETE | `/api/nodes/:id` | `nodes.delete` | Borra un nodo sin servidores |
+| DELETE | `/api/nodes/:id` | `nodes.delete` | Borra un nodo que no usa ningún servidor ni producto de la tienda |
 | GET | `/api/nodes/:id/features` | `nodes.view` | Sistema operativo, arquitectura, entornos, Docker |
 | GET | `/api/nodes/:id/system` | `nodes.view` | CPU, memoria, discos, contadores de red |
 | POST | `/api/nodes/:id/ports/check` | `server.create` | Qué puertos están ocupados, con alternativas libres |
@@ -39,10 +39,10 @@ Nodos, configuración del panel, claves de API, plantillas, versiones de juego, 
 | POST | `/api/templates` | `templates.repo.create` | Añade un repositorio |
 | POST | `/api/templates/upload` | `templates.local.edit` | Sube plantillas locales (archivos `.json`) |
 | GET | `/api/templates/:repo` | `login` | Plantillas de un repositorio |
-| DELETE | `/api/templates/:repo` | `templates.repo.delete` | Quita un repositorio |
+| DELETE | `/api/templates/:repo` | `templates.repo.delete` | Quita un repositorio (`409` `ErrTemplateRepoInUse` mientras sea el único con la plantilla de un producto de la tienda) |
 | GET | `/api/templates/:repo/:name` | `login` | Una plantilla |
 | PUT | `/api/templates/0/:name` | `templates.local.edit` | Crea o sustituye una plantilla local |
-| DELETE | `/api/templates/0/:name` | `templates.local.edit` | Borra una plantilla local |
+| DELETE | `/api/templates/0/:name` | `templates.local.edit` | Borra una plantilla local (`409` `ErrTemplateInUse` mientras la necesite un producto de la tienda) |
 | GET | `/api/game-versions/:platform` | `login` | Versiones estables de una plataforma de Minecraft |
 | GET | `/api/databasehosts` | `admin` | Lista los hosts MySQL |
 | POST | `/api/databasehosts` | `admin` | Añade un host |
@@ -82,7 +82,7 @@ El mismo cuerpo; los campos vacíos y los puertos a `0` conservan su valor. Resp
 
 ### `DELETE /api/nodes/:id`
 
-Responde `204`. Un nodo que todavía tiene servidores responde `500` con el código `ErrNodeHasServers`; el nodo propio del panel no se puede borrar (`500`).
+Responde `204`. Un nodo que todavía tiene servidores responde `409` con el código `ErrNodeHasServers`, y uno en el que un producto de la tienda crea sus servidores responde `409` con el código `ErrNodeHasProducts` y los `product_id` de los productos en `metadata.products` (véase [Aprovisionamiento](07-provisioning.md#productos)); el nodo propio del panel no se puede borrar (`500`).
 
 ### `GET /api/nodes/:id/deployment`
 

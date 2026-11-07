@@ -56,6 +56,20 @@ var ErrNotBearerToken = CreateError("access token must be a Bearer token", "ErrN
 var ErrKeyNotECDSA = CreateError("key is not ECDSA key", "ErrKeyNotECDSA")
 var ErrMissingScope = CreateError("missing scope", "ErrMissingScope")
 var ErrNodeHasServers = CreateError("node has servers associated", "ErrNodeHasServers")
+
+// ErrNodeHasProducts, ErrTemplateInUse and ErrTemplateRepoInUse refuse a delete that would leave
+// store products unable to create their servers; they name the products by their id
+var ErrNodeHasProducts = func(products []string) *Error {
+	return CreateError("the products ${products} create their servers on this node: point them at another node or delete them first", "ErrNodeHasProducts").Metadata(map[string]interface{}{"products": products})
+}
+
+var ErrTemplateInUse = func(products []string) *Error {
+	return CreateError("the products ${products} create their servers with this template: point them at another template or delete them first", "ErrTemplateInUse").Metadata(map[string]interface{}{"products": products})
+}
+
+var ErrTemplateRepoInUse = func(products []string) *Error {
+	return CreateError("the products ${products} create their servers with templates only this repo has: point them at other templates or delete them first", "ErrTemplateRepoInUse").Metadata(map[string]interface{}{"products": products})
+}
 var ErrInvalidSession = CreateError("invalid session", "ErrInvalidSession")
 var ErrSessionExpired = CreateError("session expired", "ErrSessionExpired")
 var ErrTaskNotFound = CreateError("task not found", "ErrTaskNotFound")
