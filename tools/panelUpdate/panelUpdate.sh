@@ -181,4 +181,11 @@ docker builder prune -f --max-used-space 3GB >/dev/null 2>&1 \
     || docker builder prune -f --keep-storage 3GB >/dev/null 2>&1 \
     || echo "[AVISO] No se pudo liberar la caché de compilación (docker builder prune)."
 
+# La imagen anterior del panel se queda sin etiqueta tras cada compilación (unos 400 MB cada
+# vez), igual que la versión vieja de una imagen de servidor cuando se baja una nueva. Solo se
+# borran las que no tienen etiqueta y ningún contenedor usa: el panel ya corre con la nueva.
+echo "[INFO] Borrando imágenes antiguas sin uso..."
+docker image prune -f >/dev/null 2>&1 \
+    || echo "[AVISO] No se pudieron borrar las imágenes antiguas (docker image prune)."
+
 echo "[✓] $PROJECT_NAME actualizado correctamente."
