@@ -1,6 +1,8 @@
 package api
 
 import (
+	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -52,44 +54,63 @@ func SweepExpiredExTransfers() {
 	}
 }
 
-// sweepExpiredExTransfers marks the sessions that expired before now unfinished as FAILED and
-// removes the archive of those that had started sending it. It answers how many it ended.
+// The log rows the sweep writes: EXPIRE for a session that expired with its archive made, which
+// is to be removed until an ARCHIVE_REMOVED row says it was; EXPIRE_UNUSED for a token that
+// expired before anything was archived.
+const (
+	exTransferLogExpired        = "EXPIRE"
+	exTransferLogExpiredUnused  = "EXPIRE_UNUSED"
+	exTransferLogArchiveRemoved = "ARCHIVE_REMOVED"
+)
+
+// sweepExpiredExTransfers marks the sessions that expired before now unfinished as FAILED, then
+// removes the archive of every session it expired with one, retrying those a node did not
+// confirm on an earlier run. It answers how many sessions it ended; a session it could not end
+// is reported in the error and does not stop the rest.
 func sweepExpiredExTransfers(db *gorm.DB, now time.Time) (int, error) {
+	var errs []error
 	var sessions []models.ExTransferSession
 	if err := db.Where("status IN ? AND expires_at < ?", unfinishedExTransferStatuses, now).Order("id").Find(&sessions).Error; err != nil {
-		return 0, err
+		errs = append(errs, err)
 	}
 
 	ended := 0
-	withArchive := make(map[string]bool)
 	for i := range sessions {
 		session := &sessions[i]
 		ok, err := expireExTransferSession(db, session, now)
 		if err != nil {
-			return ended, err
+			errs = append(errs, fmt.Errorf("session %s: %w", session.SessionUUID, err))
+			continue
 		}
 		if !ok {
 			continue
 		}
 		ended++
-		// only a consumed session had the archive made; an unused token left nothing behind
-		if session.Status != models.StatusMigrating && session.Status != models.StatusConsumed {
-			continue
+		if hadOriginArchive(session.Status) {
+			stopOriginDownloads(session.SessionUUID)
+			reportExTransfer(db, session.ServerID, services.NotificationText("extransfer.status.failedOrigin"), services.NotificationText("extransfer.expired"), true)
 		}
-		stopOriginDownloads(session.SessionUUID)
-		reportExTransfer(db, session.ServerID, services.NotificationText("extransfer.status.failedOrigin"), services.NotificationText("extransfer.expired"), true)
-		withArchive[session.ServerID] = true
 	}
 
-	for serverID := range withArchive {
-		removeExpiredOriginArchive(db, serverID, now)
+	if err := removeExpiredOriginArchives(db, now); err != nil {
+		errs = append(errs, err)
 	}
-	return ended, nil
+	return ended, errors.Join(errs...)
+}
+
+// hadOriginArchive is whether a session in this state had the archive made: only a consumed
+// one, an unused token left nothing behind
+func hadOriginArchive(status models.TransferStatus) bool {
+	return status == models.StatusMigrating || status == models.StatusConsumed
 }
 
 // expireExTransferSession marks the session FAILED unless a heartbeat, confirm or cancel changed
 // it since it was read; false when one did.
 func expireExTransferSession(db *gorm.DB, session *models.ExTransferSession, now time.Time) (bool, error) {
+	action := exTransferLogExpiredUnused
+	if hadOriginArchive(session.Status) {
+		action = exTransferLogExpired
+	}
 	expired := false
 	err := db.Transaction(func(tx *gorm.DB) error {
 		res := tx.Model(&models.ExTransferSession{}).
@@ -99,31 +120,61 @@ func expireExTransferSession(db *gorm.DB, session *models.ExTransferSession, now
 			return res.Error
 		}
 		expired = true
-		return logExTransfer(tx, session.SessionUUID, "EXPIRE", "", "The destination stopped answering and the session expired", true)
+		return logExTransfer(tx, session.SessionUUID, action, "", "The destination stopped answering and the session expired", true)
 	})
 	return expired && err == nil, err
 }
 
-// removeExpiredOriginArchive removes the archive an expired session left, unless the server is
-// in another transfer that uses the same file: a newer session sending it, or a pull into it
-// running on this panel.
-func removeExpiredOriginArchive(db *gorm.DB, serverID string, now time.Time) {
+// removeExpiredOriginArchives removes the archive of every session the sweep expired with one
+// and no ARCHIVE_REMOVED row yet, once per server, and records each removal the node confirmed
+func removeExpiredOriginArchives(db *gorm.DB, now time.Time) error {
+	var pending []models.ExTransferSession
+	err := db.Select("session_uuid", "server_id").
+		Where("session_uuid IN (?)", db.Model(&models.ExTransferLog{}).Select("session_id").Where("action = ?", exTransferLogExpired)).
+		Where("session_uuid NOT IN (?)", db.Model(&models.ExTransferLog{}).Select("session_id").Where("action = ?", exTransferLogArchiveRemoved)).
+		Order("id").Find(&pending).Error
+	if err != nil {
+		return err
+	}
+
+	byServer := make(map[string][]string)
+	for _, session := range pending {
+		byServer[session.ServerID] = append(byServer[session.ServerID], session.SessionUUID)
+	}
+	var errs []error
+	for serverID, sessionIDs := range byServer {
+		if !removeExpiredOriginArchive(db, serverID, now) {
+			continue
+		}
+		for _, id := range sessionIDs {
+			if err := logExTransfer(db, id, exTransferLogArchiveRemoved, "", "The archive the expired session left was removed", false); err != nil {
+				errs = append(errs, fmt.Errorf("session %s: %w", id, err))
+			}
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// removeExpiredOriginArchive removes the archive expired sessions left and reports whether the
+// node confirmed it is gone. It leaves it, for a later run, while the server is in another
+// transfer that uses the same file: a newer session sending it, or a pull into it running on
+// this panel.
+func removeExpiredOriginArchive(db *gorm.DB, serverID string, now time.Time) bool {
 	unlock := lockOriginArchive(serverID)
 	defer unlock()
 
 	if isPullRunning(serverID) {
-		return
+		return false
 	}
 	var live int64
 	if err := db.Model(&models.ExTransferSession{}).
 		Where("server_id = ? AND status = ? AND expires_at >= ?", serverID, models.StatusMigrating, now).
 		Count(&live).Error; err != nil {
 		logging.Error.Printf("Could not check the transfers of %s before removing its archive: %s", serverID, err)
-		return
+		return false
 	}
 	if live > 0 {
-		// that session's own end removes the archive
-		return
+		return false
 	}
-	removeOriginArchive(db, serverID)
+	return removeOriginArchive(db, serverID)
 }

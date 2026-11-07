@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -23,10 +24,11 @@ func recordArchiveRemovals(t *testing.T) func() []string {
 	var mu sync.Mutex
 	var removed []string
 	previous := removeOriginArchive
-	removeOriginArchive = func(_ *gorm.DB, serverID string) {
+	removeOriginArchive = func(_ *gorm.DB, serverID string) bool {
 		mu.Lock()
 		removed = append(removed, serverID)
 		mu.Unlock()
+		return true
 	}
 	t.Cleanup(func() { removeOriginArchive = previous })
 	return func() []string {
@@ -53,6 +55,7 @@ func TestSweepExpiredExTransfers_EndsTheExpiredSessionAndRemovesItsArchive(t *te
 	assert.Equal(t, models.StatusFailed, reloadExSession(t, db, stuck).Status)
 	assert.EqualValues(t, 1, countExLogs(t, db, stuck.SessionUUID, "EXPIRE"))
 	assert.Equal(t, []string{exTestServer}, removed())
+	assert.EqualValues(t, 1, countExLogs(t, db, stuck.SessionUUID, "ARCHIVE_REMOVED"))
 
 	// a second sweep finds nothing left to end
 	ended, err = sweepExpiredExTransfers(db, time.Now())
@@ -99,7 +102,12 @@ func TestSweepExpiredExTransfers_AnUnusedTokenLeftNoArchive(t *testing.T) {
 	assert.Equal(t, 2, ended)
 	assert.Equal(t, models.StatusFailed, reloadExSession(t, db, created).Status)
 	assert.Equal(t, models.StatusFailed, reloadExSession(t, db, validated).Status)
+	assert.EqualValues(t, 1, countExLogs(t, db, created.SessionUUID, "EXPIRE_UNUSED"))
 	assert.Empty(t, removed())
+
+	_, err = sweepExpiredExTransfers(db, time.Now())
+	require.NoError(t, err)
+	assert.Empty(t, removed(), "nothing is waiting to be removed")
 }
 
 // The archive has the same name for every transfer of the server: while another one is
@@ -160,45 +168,84 @@ func TestExpireExTransferSession_AHeartbeatInBetweenKeepsItAlive(t *testing.T) {
 	assert.Equal(t, models.StatusMigrating, reloadExSession(t, db, session).Status)
 }
 
-// fakeArchiveNode is a node holding the given files of srv01, answering deletes like the daemon:
-// 204 when the file was there, 404 when not
-func fakeArchiveNode(t *testing.T, files map[string]bool) (*models.Node, func() map[string]bool) {
+// archiveNode is a fake node holding files of srv01 that answers deletes like the daemon: 204
+// when the file was there, 404 when not. Setting status makes it answer that instead, and
+// hang makes it never answer.
+type archiveNode struct {
+	mu      sync.Mutex
+	files   map[string]bool
+	status  int
+	hang    bool
+	deletes int
+}
+
+func (n *archiveNode) serve(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	name, ok := strings.CutPrefix(r.URL.Path, "/daemon/server/"+exTestServer+"/file/")
+	if r.Method != http.MethodDelete || !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	n.mu.Lock()
+	n.deletes++
+	hang, status := n.hang, n.status
+	n.mu.Unlock()
+	if hang {
+		<-r.Context().Done()
+		return
+	}
+	if status != 0 {
+		w.WriteHeader(status)
+		return
+	}
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if !n.files[name] {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	delete(n.files, name)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (n *archiveNode) set(status int, hang bool) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.status, n.hang = status, hang
+}
+
+func (n *archiveNode) state() (left map[string]bool, deletes int) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	left = make(map[string]bool, len(n.files))
+	for k, v := range n.files {
+		left[k] = v
+	}
+	return left, n.deletes
+}
+
+// setupArchiveNode stores srv01 on a fake node holding the files, with the real removal in place
+func setupArchiveNode(t *testing.T, files map[string]bool) (*gorm.DB, *archiveNode) {
 	t.Helper()
-	var mu sync.Mutex
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		name, ok := strings.CutPrefix(r.URL.Path, "/daemon/server/"+exTestServer+"/file/")
-		if r.Method != http.MethodDelete || !ok {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		mu.Lock()
-		defer mu.Unlock()
-		if !files[name] {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		delete(files, name)
-		w.WriteHeader(http.StatusNoContent)
-	}))
+	// setupExTransferTest swaps the removal out; these tests need the real one
+	realRemoval := removeOriginArchive
+	db := setupExTransferTest(t)
+	removeOriginArchive = realRemoval
+
+	fake := &archiveNode{files: files}
+	srv := httptest.NewServer(http.HandlerFunc(fake.serve))
 	t.Cleanup(srv.Close)
 	u, err := url.Parse(srv.URL)
 	require.NoError(t, err)
 	port, err := strconv.Atoi(u.Port())
 	require.NoError(t, err)
 	node := &models.Node{Name: "remote", PublicHost: "127.0.0.1", PrivateHost: "127.0.0.1", PublicPort: uint16(port), PrivatePort: uint16(port), SFTPPort: 5658, Secret: "node-secret-0123456789"}
-	return node, func() map[string]bool {
-		mu.Lock()
-		defer mu.Unlock()
-		left := make(map[string]bool, len(files))
-		for k, v := range files {
-			left[k] = v
-		}
-		return left
-	}
+	require.NoError(t, db.Create(node).Error)
+	require.NoError(t, db.Omit(clause.Associations).Create(&models.Server{Identifier: exTestServer, Name: exTestServer, Type: "generic", NodeID: node.ID}).Error)
+	return db, fake
 }
 
 // The real removal against a node: the archive goes, the other files stay, and a server
@@ -214,13 +261,7 @@ func TestSweepExpiredExTransfers_RemovesTheArchiveOnTheNode(t *testing.T) {
 		{"without an archive", map[string]bool{}, map[string]bool{}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			// setupExTransferTest swaps the removal out; this test needs the real one
-			realRemoval := removeOriginArchive
-			db := setupExTransferTest(t)
-			removeOriginArchive = realRemoval
-			node, left := fakeArchiveNode(t, tc.files)
-			require.NoError(t, db.Create(node).Error)
-			require.NoError(t, db.Omit(clause.Associations).Create(&models.Server{Identifier: exTestServer, Name: exTestServer, Type: "generic", NodeID: node.ID}).Error)
+			db, node := setupArchiveNode(t, tc.files)
 			pub, _ := newExTestKey(t)
 			stuck := newExTestSession(t, db, models.StatusMigrating, pub, expiredAgo(time.Minute))
 
@@ -228,7 +269,85 @@ func TestSweepExpiredExTransfers_RemovesTheArchiveOnTheNode(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, models.StatusFailed, reloadExSession(t, db, stuck).Status)
-			assert.Equal(t, tc.left, left())
+			left, _ := node.state()
+			assert.Equal(t, tc.left, left)
+			assert.EqualValues(t, 1, countExLogs(t, db, stuck.SessionUUID, "ARCHIVE_REMOVED"))
 		})
 	}
+}
+
+// A node that answers an error (it just rebooted, or refuses the panel) keeps the archive:
+// every run tries again until the node confirms it is gone, and then stops.
+func TestSweepExpiredExTransfers_RetriesAFailedRemoval(t *testing.T) {
+	db, node := setupArchiveNode(t, map[string]bool{originArchive: true})
+	pub, _ := newExTestKey(t)
+	stuck := newExTestSession(t, db, models.StatusMigrating, pub, expiredAgo(time.Minute))
+
+	for _, status := range []int{http.StatusInternalServerError, http.StatusUnauthorized} {
+		node.set(status, false)
+		_, err := sweepExpiredExTransfers(db, time.Now())
+		require.NoError(t, err)
+		left, _ := node.state()
+		assert.True(t, left[originArchive], "the node answered %d", status)
+		assert.EqualValues(t, 0, countExLogs(t, db, stuck.SessionUUID, "ARCHIVE_REMOVED"))
+	}
+	assert.Equal(t, models.StatusFailed, reloadExSession(t, db, stuck).Status)
+	assert.EqualValues(t, 1, countExLogs(t, db, stuck.SessionUUID, "EXPIRE"), "the session is expired once")
+
+	node.set(0, false)
+	_, err := sweepExpiredExTransfers(db, time.Now())
+	require.NoError(t, err)
+	left, deletes := node.state()
+	assert.Empty(t, left)
+	assert.EqualValues(t, 1, countExLogs(t, db, stuck.SessionUUID, "ARCHIVE_REMOVED"))
+
+	_, err = sweepExpiredExTransfers(db, time.Now())
+	require.NoError(t, err)
+	_, after := node.state()
+	assert.Equal(t, deletes, after, "a removed archive is not asked for again")
+}
+
+// A node that never answers must not hold up the sweep, nor the server's archive lock.
+func TestSweepExpiredExTransfers_AHangingNodeTimesOut(t *testing.T) {
+	db, node := setupArchiveNode(t, map[string]bool{originArchive: true})
+	node.set(0, true)
+	previous := originArchiveRemoveTimeout
+	originArchiveRemoveTimeout = 200 * time.Millisecond
+	t.Cleanup(func() { originArchiveRemoveTimeout = previous })
+	pub, _ := newExTestKey(t)
+	stuck := newExTestSession(t, db, models.StatusMigrating, pub, expiredAgo(time.Minute))
+
+	start := time.Now()
+	_, err := sweepExpiredExTransfers(db, time.Now())
+
+	require.NoError(t, err)
+	assert.Less(t, time.Since(start), 10*time.Second)
+	assert.EqualValues(t, 0, countExLogs(t, db, stuck.SessionUUID, "ARCHIVE_REMOVED"), "tried again next run")
+	unlock := lockOriginArchive(exTestServer)
+	unlock()
+}
+
+// A session that cannot be ended is reported, and the others still are, archives included.
+func TestSweepExpiredExTransfers_OneFailingSessionDoesNotStopTheOthers(t *testing.T) {
+	db := setupExTransferTest(t)
+	removed := recordArchiveRemovals(t)
+	pub, _ := newExTestKey(t)
+	broken := newExTestSession(t, db, models.StatusMigrating, pub, expiredAgo(time.Minute))
+	stuck := newExTestSession(t, db, models.StatusMigrating, pub, func(s *models.ExTransferSession) {
+		s.ServerID = "srv03"
+		s.ExpiresAt = time.Now().Add(-time.Minute)
+	})
+	require.NoError(t, db.Callback().Create().Before("gorm:create").Register("test:fail_one_log", func(tx *gorm.DB) {
+		if row, ok := tx.Statement.Dest.(*models.ExTransferLog); ok && row.SessionID == broken.SessionUUID {
+			_ = tx.AddError(errors.New("disk full"))
+		}
+	}))
+
+	ended, err := sweepExpiredExTransfers(db, time.Now())
+
+	require.ErrorContains(t, err, broken.SessionUUID)
+	assert.Equal(t, 1, ended)
+	assert.Equal(t, models.StatusMigrating, reloadExSession(t, db, broken).Status, "rolled back, ended next run")
+	assert.Equal(t, models.StatusFailed, reloadExSession(t, db, stuck).Status)
+	assert.Equal(t, []string{"srv03"}, removed())
 }

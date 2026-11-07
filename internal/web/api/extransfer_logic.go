@@ -499,22 +499,48 @@ func reportExTransfer(db *gorm.DB, serverID, status, details string, isError boo
 	go sendWebhookReport(name, status, details, isError)
 }
 
+// originArchiveRemoveTimeout bounds each call that removes an archive: a node that hangs must
+// not hold up the expiry sweep, nor the server's archive lock it holds meanwhile
+var originArchiveRemoveTimeout = 30 * time.Second
+
 // removeOriginArchive deletes the archive a finished or cancelled session left in the server's
-// files, finished or still being written. It is a variable so tests can keep away from the node.
-var removeOriginArchive = func(db *gorm.DB, serverID string) {
+// files, finished or still being written. It reports whether the node confirmed both names are
+// gone (deleted, or not there); a node that cannot be reached or answers an error keeps them,
+// and the expiry sweep tries again. It is a variable so tests can keep away from the node.
+var removeOriginArchive = func(db *gorm.DB, serverID string) bool {
 	var server models.Server
-	if err := db.Preload("Node").Where(serverIdentifierQuery, serverID).First(&server).Error; err != nil {
-		return
+	err := db.Preload("Node").Where(serverIdentifierQuery, serverID).First(&server).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// the server went, and its files with it
+		return true
+	}
+	if err != nil {
+		logging.Error.Printf("Could not look up %s to remove its transfer archive: %v", serverID, err)
+		return false
 	}
 	ns := &services.Node{DB: db}
 	for _, name := range []string{originArchive, originArchivePartial} {
-		res, err := ns.CallNode(&server.Node, "DELETE", originArchivePath(server.Identifier, name), nil, nil)
-		if err != nil {
-			logging.Error.Printf("Could not remove the transfer archive of %s: %v", serverID, err)
-			return
+		if !removeOriginArchiveFile(ns, &server, name) {
+			return false
 		}
-		utils.CloseResponse(res)
 	}
+	return true
+}
+
+func removeOriginArchiveFile(ns *services.Node, server *models.Server, name string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), originArchiveRemoveTimeout)
+	defer cancel()
+	res, err := ns.CallNodeContext(ctx, &server.Node, http.MethodDelete, originArchivePath(server.Identifier, name), nil, nil)
+	if err != nil {
+		logging.Error.Printf("Could not remove the transfer archive of %s: %v", server.Identifier, err)
+		return false
+	}
+	defer utils.CloseResponse(res)
+	if res.StatusCode == http.StatusNotFound || (res.StatusCode >= 200 && res.StatusCode < 300) {
+		return true
+	}
+	logging.Error.Printf("Could not remove the transfer archive of %s: the node answered %d", server.Identifier, res.StatusCode)
+	return false
 }
 
 // The archive a federated transfer sends from this panel is written under a hidden partial name
