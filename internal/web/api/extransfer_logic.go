@@ -536,10 +536,30 @@ func removeOriginArchiveFile(ns *services.Node, server *models.Server, name stri
 		return false
 	}
 	defer utils.CloseResponse(res)
-	if res.StatusCode == http.StatusNotFound || (res.StatusCode >= 200 && res.StatusCode < 300) {
+	if res.StatusCode >= 200 && res.StatusCode < 300 {
 		return true
 	}
+	if res.StatusCode == http.StatusNotFound {
+		return serverLoadedOnNode(ctx, ns, server)
+	}
 	logging.Error.Printf("Could not remove the transfer archive of %s: the node answered %d", server.Identifier, res.StatusCode)
+	return false
+}
+
+// serverLoadedOnNode tells the daemon's two bare 404s on a file delete apart: the file is not
+// there (the archive is gone), or the node has not loaded the server (nothing was looked at).
+// Its status route answers 404 only in the second case, and works on every daemon version.
+func serverLoadedOnNode(ctx context.Context, ns *services.Node, server *models.Server) bool {
+	res, err := ns.CallNodeContext(ctx, &server.Node, http.MethodGet, daemonServerPrefix+server.Identifier+"/status", nil, nil)
+	if err != nil {
+		logging.Error.Printf("Could not check that the node has %s loaded: %v", server.Identifier, err)
+		return false
+	}
+	defer utils.CloseResponse(res)
+	if res.StatusCode >= 200 && res.StatusCode < 300 {
+		return true
+	}
+	logging.Error.Printf("Could not remove the transfer archive of %s: the node does not have the server loaded (status %d)", server.Identifier, res.StatusCode)
 	return false
 }
 
@@ -740,7 +760,7 @@ func confirmExTransfer(c *gin.Context) {
 
 	if completed {
 		reportExTransfer(db, serverID, services.NotificationText("extransfer.status.completedOrigin"), services.NotificationText("extransfer.destinationConfirmed"), false)
-		go removeOriginArchive(db, serverID)
+		go sessionArchiveRemoval(db, serverID, req.SessionID)()
 	}
 	c.JSON(http.StatusOK, gin.H{"status": models.StatusCompleted})
 }
@@ -803,7 +823,7 @@ func cancelExTransfer(c *gin.Context) {
 			details += " " + services.NotificationText("extransfer.reason", req.Reason)
 		}
 		reportExTransfer(db, serverID, services.NotificationText("extransfer.status.cancelledDestination"), details, true)
-		go removeOriginArchive(db, serverID)
+		go sessionArchiveRemoval(db, serverID, sessionID)()
 	}
 	c.JSON(http.StatusOK, gin.H{"status": models.StatusCancelled})
 }
@@ -916,7 +936,7 @@ func StartDataPlaneMigration(session models.ExTransferSession, db *gorm.DB) {
 	// cancelled while the archive was being made: nobody will download it
 	var current models.ExTransferSession
 	if err := db.Select("status").Where("id = ?", session.ID).First(&current).Error; err == nil && current.Status != models.StatusMigrating {
-		removeOriginArchive(db, server.Identifier)
+		sessionArchiveRemoval(db, server.Identifier, session.SessionUUID)()
 		return
 	}
 
@@ -1610,7 +1630,7 @@ func cancelExTransferByUser(c *gin.Context) {
 			stopOriginDownloads(id)
 		}
 		go sendWebhookReport(server.Name, services.NotificationText("extransfer.status.cancelledOrigin"), services.NotificationText("extransfer.ownerCancelledOrigin"), true)
-		go removeOriginArchive(db, server.Identifier)
+		go sessionArchiveRemoval(db, server.Identifier, cancelledSessions...)()
 	}
 
 	c.JSON(http.StatusOK, gin.H{"cancelled_pull": pullCancelled, "cancelled_sessions": len(cancelledSessions)})

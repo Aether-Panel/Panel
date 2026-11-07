@@ -54,14 +54,33 @@ func SweepExpiredExTransfers() {
 	}
 }
 
-// The log rows the sweep writes: EXPIRE for a session that expired with its archive made, which
-// is to be removed until an ARCHIVE_REMOVED row says it was; EXPIRE_UNUSED for a token that
-// expired before anything was archived.
+// The log rows that track an archive: EXPIRE for a session that expired with its archive made,
+// ARCHIVE_PENDING for a confirmed or cancelled one whose archive the node did not confirm
+// removed; the sweep removes both until an ARCHIVE_REMOVED row says it is gone. EXPIRE_UNUSED
+// is a token that expired before anything was archived.
 const (
 	exTransferLogExpired        = "EXPIRE"
 	exTransferLogExpiredUnused  = "EXPIRE_UNUSED"
+	exTransferLogArchivePending = "ARCHIVE_PENDING"
 	exTransferLogArchiveRemoved = "ARCHIVE_REMOVED"
 )
+
+// sessionArchiveRemoval removes, when called, the archive the sessions (confirmed or cancelled)
+// left and, when the node does not confirm it is gone, records them so the sweep tries again.
+// The removal it uses is read now, so callers can run it in a goroutine of its own.
+func sessionArchiveRemoval(db *gorm.DB, serverID string, sessionIDs ...string) func() {
+	remove := removeOriginArchive
+	return func() {
+		if remove(db, serverID) {
+			return
+		}
+		for _, id := range sessionIDs {
+			if err := logExTransfer(db, id, exTransferLogArchivePending, "", "The node did not confirm the archive was removed: the sweep tries again", true); err != nil {
+				logging.Error.Printf("Could not record that the archive of session %s is still to be removed: %s", id, err)
+			}
+		}
+	}
+}
 
 // sweepExpiredExTransfers marks the sessions that expired before now unfinished as FAILED, then
 // removes the archive of every session it expired with one, retrying those a node did not
@@ -125,12 +144,13 @@ func expireExTransferSession(db *gorm.DB, session *models.ExTransferSession, now
 	return expired && err == nil, err
 }
 
-// removeExpiredOriginArchives removes the archive of every session the sweep expired with one
-// and no ARCHIVE_REMOVED row yet, once per server, and records each removal the node confirmed
+// removeExpiredOriginArchives removes the archive of every session with an EXPIRE or
+// ARCHIVE_PENDING row and no ARCHIVE_REMOVED row yet, once per server, and records each removal
+// the node confirmed
 func removeExpiredOriginArchives(db *gorm.DB, now time.Time) error {
 	var pending []models.ExTransferSession
 	err := db.Select("session_uuid", "server_id").
-		Where("session_uuid IN (?)", db.Model(&models.ExTransferLog{}).Select("session_id").Where("action = ?", exTransferLogExpired)).
+		Where("session_uuid IN (?)", db.Model(&models.ExTransferLog{}).Select("session_id").Where("action IN ?", []string{exTransferLogExpired, exTransferLogArchivePending})).
 		Where("session_uuid NOT IN (?)", db.Model(&models.ExTransferLog{}).Select("session_id").Where("action = ?", exTransferLogArchiveRemoved)).
 		Order("id").Find(&pending).Error
 	if err != nil {
@@ -147,7 +167,7 @@ func removeExpiredOriginArchives(db *gorm.DB, now time.Time) error {
 			continue
 		}
 		for _, id := range sessionIDs {
-			if err := logExTransfer(db, id, exTransferLogArchiveRemoved, "", "The archive the expired session left was removed", false); err != nil {
+			if err := logExTransfer(db, id, exTransferLogArchiveRemoved, "", "The archive the session left was removed", false); err != nil {
 				errs = append(errs, fmt.Errorf("session %s: %w", id, err))
 			}
 		}
