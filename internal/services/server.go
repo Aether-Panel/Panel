@@ -109,12 +109,19 @@ func (ss *Server) Delete(id string) error {
 		Identifier: id,
 	}
 
+	// drop the MySQL databases first, while their rows still say where they are: their rows
+	// going away left the schemas and users (with working passwords) on the host, and a new
+	// server with this id failing to create them. An error here deletes nothing.
+	if err := (&Database{DB: ss.DB}).DropAllForServer(id); err != nil {
+		return err
+	}
+
 	err := ss.DB.Delete(models.Permissions{}, "server_identifier = ?", id).Error
 	if err != nil {
 		return err
 	}
 
-	err = ss.DB.Delete(models.Client{}, serverIDQuery, id).Error
+	err = DeleteServerClients(ss.DB, id)
 	if err != nil {
 		return err
 	}
@@ -124,11 +131,6 @@ func (ss *Server) Delete(id string) error {
 		return err
 	}
 
-	// drop the MySQL databases too: their rows going away left the schemas and users (with
-	// working passwords) on the host, and a new server with this id failing to create them
-	if err = (&Database{DB: ss.DB}).DropAllForServer(id); err != nil {
-		return err
-	}
 	err = ss.DB.Delete(models.Database{}, serverIDQuery, id).Error
 	if err != nil {
 		return err
@@ -147,12 +149,43 @@ func (ss *Server) Delete(id string) error {
 		return err
 	}
 
+	err = DeleteServerTransfers(ss.DB, id)
+	if err != nil {
+		return err
+	}
+
 	err = ss.DB.Delete(model).Error
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// DeleteServerClients removes the server's OAuth clients and the sessions made for them.
+// Sessions go first: CreateForClient gives them no server_identifier, so nothing else
+// finds them, and where foreign keys are on they would block the clients' delete.
+func DeleteServerClients(db *gorm.DB, serverID string) error {
+	clientIDs := db.Model(&models.Client{}).Select("id").Where(serverIDQuery, serverID)
+	if err := db.Where("client_id IN (?)", clientIDs).Delete(&models.Session{}).Error; err != nil {
+		return err
+	}
+	return db.Delete(models.Client{}, serverIDQuery, serverID).Error
+}
+
+// DeleteServerTransfers removes the server's federated transfer sessions and their logs
+func DeleteServerTransfers(db *gorm.DB, serverID string) error {
+	return deleteTransfers(db, serverIDQuery, serverID)
+}
+
+// deleteTransfers removes the federated transfer sessions matching query and their logs.
+// Logs go first: they point at the session, and SQLite runs without the cascade.
+func deleteTransfers(db *gorm.DB, query string, arg interface{}) error {
+	sessions := db.Model(&models.ExTransferSession{}).Select("session_uuid").Where(query, arg)
+	if err := db.Where("session_id IN (?)", sessions).Delete(&models.ExTransferLog{}).Error; err != nil {
+		return err
+	}
+	return db.Where(query, arg).Delete(&models.ExTransferSession{}).Error
 }
 
 func (ss *Server) Create(model *models.Server) error {

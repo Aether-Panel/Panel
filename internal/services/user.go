@@ -186,10 +186,15 @@ func (us *User) Update(model *models.User) error {
 // the database refuse the delete, and the caller must not report success then.
 func (us *User) Delete(model *models.User) (err error) {
 	return us.DB.Transaction(func(tx *gorm.DB) error {
+		// the federated transfers the user started, with their logs
+		if err := deleteTransfers(tx, userIDQuery, model.ID); err != nil {
+			return err
+		}
 		for _, owned := range []interface{}{
 			models.Permissions{},
-			models.Client{},
+			// sessions before clients: a client's sessions point at it
 			models.Session{},
+			models.Client{},
 			models.RecoveryCode{},
 			models.PasswordReset{},
 			models.SSHKey{},
