@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslations } from '@/contexts/translations-context';
+import { sileo } from '@/lib/toast';
 import { CONDITION_SAFE_VARIABLE_KEY } from '../../schema/common';
 import { VARIABLE_TYPES } from '../../schema/template';
 import { fieldId } from '../editor-context';
@@ -74,6 +75,29 @@ export function KeyField({ variableKey, uses, conditionUses, issues, actions }: 
   commitRef.current = commit;
   const pending = changed && problem === null;
   useEffect(() => (pending ? registerPendingCommit(() => commitRef.current()) : undefined), [pending, registerPendingCommit]);
+
+  // An invalid key is never written. When the field goes away with one in it (the card folds, the
+  // view changes) it is dropped, and a toast says so rather than losing it silently.
+  const invalidDraft = useRef<{ draft: string; key: string; problem: string } | null>(null);
+  invalidDraft.current = changed && problem ? { draft, key: variableKey, problem } : null;
+  const tRef = useRef(t);
+  tRef.current = t;
+  useEffect(
+    () => () => {
+      const lost = invalidDraft.current;
+      if (!lost) return;
+      const translate = tRef.current;
+      sileo.warning({
+        title: translate('templates.editor.variables.key.notAppliedTitle'),
+        description: translate('templates.editor.variables.key.notApplied', {
+          draft: lost.draft,
+          key: lost.key,
+          reason: translate(`templates.editor.variables.key.${lost.problem}`),
+        }),
+      });
+    },
+    [],
+  );
 
   const hints = [t('templates.editor.variables.key.hint')];
   if (uses > 0) hints.push(uses === 1 ? t('templates.editor.variables.key.usedOne') : t('templates.editor.variables.key.usedMany', { count: uses }));

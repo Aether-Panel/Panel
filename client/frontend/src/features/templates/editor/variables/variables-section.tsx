@@ -73,7 +73,7 @@ function focusSoon(elementId: string, select = false) {
 
 export function VariablesSection() {
   const { t } = useTranslations();
-  const { template, update, change, issues, focusRequest, registerPendingCommit } = useTemplateEditor();
+  const { template, update, change, issues, focusRequest, registerPendingCommit, flushPendingCommits } = useTemplateEditor();
   const variables = templateVariables(template);
   const keys = useMemo(() => Object.keys(variables), [variables]);
   const { ids, assign, rename: renameId } = useKeyIds(keys);
@@ -142,12 +142,15 @@ export function VariablesSection() {
 
   const actions = useMemo<VariableActions>(
     () => ({
-      toggle: (id) =>
+      toggle: (id) => {
+        // folding unmounts the card's fields: a key still being typed is written first
+        flushPendingCommits();
         setExpanded((current) => {
           const next = new Set(current);
           if (!next.delete(id)) next.add(id);
           return next;
-        }),
+        });
+      },
       move: (from, to) => {
         const { keys: current } = latest.current;
         const target = Math.max(to, current.filter(isPinnedKey).length);
@@ -180,7 +183,7 @@ export function VariablesSection() {
       isKeyTaken: (key) => Object.hasOwn(latest.current.variables, key),
       registerPendingCommit,
     }),
-    [change, update, renameId, addVariable, deleteNow, registerPendingCommit],
+    [change, update, renameId, addVariable, deleteNow, registerPendingCommit, flushPendingCommits],
   );
 
   const addNew = () => {
@@ -248,7 +251,10 @@ export function VariablesSection() {
               variant="ghost"
               size="sm"
               className="text-muted-foreground"
-              onClick={() => setExpanded(allOpen ? new Set() : new Set(ids))}
+              onClick={() => {
+                flushPendingCommits();
+                setExpanded(allOpen ? new Set() : new Set(ids));
+              }}
             >
               <ChevronsUpDown aria-hidden="true" />
               {t(allOpen ? 'templates.editor.variables.collapseAll' : 'templates.editor.variables.expandAll')}

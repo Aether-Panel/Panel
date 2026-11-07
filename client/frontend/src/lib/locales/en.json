@@ -4012,7 +4012,9 @@
           "renameUsesMany": "Also change its {{count}} uses: {{from}} → {{to}}",
           "pinned": "A key that is only a number always comes first in the list: it cannot be moved.",
           "renameKeepsConditionOne": "The condition that reads it by name is not changed: a condition cannot read a key with a hyphen or a leading digit.",
-          "renameKeepsConditionMany": "The {{count}} conditions that read it by name are not changed: a condition cannot read a key with a hyphen or a leading digit."
+          "renameKeepsConditionMany": "The {{count}} conditions that read it by name are not changed: a condition cannot read a key with a hyphen or a leading digit.",
+          "notAppliedTitle": "Key not changed",
+          "notApplied": "\"{{draft}}\" was not applied: {{reason}} The variable is still called \"{{key}}\"."
         },
         "type": {
           "label": "Type",

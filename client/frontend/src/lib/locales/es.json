@@ -4012,7 +4012,9 @@
           "renameUsesMany": "Cambiar también sus {{count}} usos: {{from}} → {{to}}",
           "pinned": "Una clave que es solo un número va siempre la primera de la lista: no se puede mover.",
           "renameKeepsConditionOne": "La condición que la lee por su nombre no cambia: una condición no puede leer una clave con guion o que empieza por número.",
-          "renameKeepsConditionMany": "Las {{count}} condiciones que la leen por su nombre no cambian: una condición no puede leer una clave con guion o que empieza por número."
+          "renameKeepsConditionMany": "Las {{count}} condiciones que la leen por su nombre no cambian: una condición no puede leer una clave con guion o que empieza por número.",
+          "notAppliedTitle": "Clave sin cambiar",
+          "notApplied": "«{{draft}}» no se aplicó: {{reason}} La variable sigue llamándose «{{key}}»."
         },
         "type": {
           "label": "Tipo",

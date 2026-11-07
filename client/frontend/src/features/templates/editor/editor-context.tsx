@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as Document from './document';
 import { localTemplateNames } from './load';
+import { createPendingCommits } from './pending-commits';
 import { getIn, pathKey, type JsonObject, type Path } from './paths';
 import { issuesByPath, validateTemplate, type EditorIssue } from './validation';
 import type { EditorSectionId } from './sections';
@@ -106,13 +107,13 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
   const [doc, setDoc] = useState(() => Document.createDocument(initialTemplate, saved));
   const [originalName, setOriginalName] = useState(openedAs);
   const [takenNames, setTakenNames] = useState(initialTakenNames);
-  const [view, setView] = useState<EditorView>('form');
+  const [view, setViewState] = useState<EditorView>('form');
   const [section, setSection] = useState<EditorSectionId>('info');
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
   const insertTarget = useRef<InsertTarget | null>(null);
-  const pendingCommits = useRef(new Set<() => void>());
   // how many fields hold an edit back, so `dirty` follows them
   const [pendingCount, setPendingCount] = useState(0);
+  const [pendingCommits] = useState(() => createPendingCommits(setPendingCount));
 
   const update = useCallback((path: Path, value: unknown) => setDoc((d) => Document.updateAt(d, path, value)), []);
   const remove = useCallback((path: Path) => setDoc((d) => Document.removeAt(d, path)), []);
@@ -137,9 +138,20 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
   const byPath = useMemo(() => issuesByPath(issues), [issues]);
   const issuesAt = useCallback((path: Path) => byPath.get(pathKey(path)) ?? NO_ISSUES, [byPath]);
 
+  // leaving a view or a section unmounts its fields, so what they hold back is written first;
+  // the writes are state updates queued before the switch, so the next render has both
+  const setView = useCallback(
+    (next: EditorView) => {
+      pendingCommits.flush();
+      setViewState(next);
+    },
+    [pendingCommits],
+  );
+
   const goTo = useCallback((target: EditorSectionId, path?: Path) => {
+    pendingCommits.flush();
     setSection(target);
-    setView((v) => (v === 'json' ? 'form' : v));
+    setViewState((v) => (v === 'json' ? 'form' : v));
     if (!path) return;
     setFocusRequest((previous) => ({ path, seq: (previous?.seq ?? 0) + 1 }));
     // after the section has rendered (and opened what holds the field, in a layout effect)
@@ -148,7 +160,7 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
       el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       el?.focus({ preventScroll: true });
     });
-  }, []);
+  }, [pendingCommits]);
 
   const setInsertTarget = useCallback((target: InsertTarget) => {
     insertTarget.current = target;
@@ -156,17 +168,8 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
   const releaseInsertTarget = useCallback((target: InsertTarget) => {
     if (insertTarget.current === target) insertTarget.current = null;
   }, []);
-  const registerPendingCommit = useCallback((commit: () => void) => {
-    pendingCommits.current.add(commit);
-    setPendingCount(pendingCommits.current.size);
-    return () => {
-      pendingCommits.current.delete(commit);
-      setPendingCount(pendingCommits.current.size);
-    };
-  }, []);
-  const flushPendingCommits = useCallback(() => {
-    for (const commit of [...pendingCommits.current]) commit();
-  }, []);
+  const registerPendingCommit = pendingCommits.register;
+  const flushPendingCommits = pendingCommits.flush;
 
   const insertIntoField = useCallback((text: string) => {
     if (!insertTarget.current) return false;

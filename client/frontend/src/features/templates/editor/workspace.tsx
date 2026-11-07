@@ -192,8 +192,12 @@ export function EditorWorkspace() {
     requestSaveRef.current();
   });
 
+  // the JSON of this render's template, for a download that writes held-back edits first
+  const jsonTextRef = useRef(jsonText);
+  jsonTextRef.current = jsonText;
   const download = () => {
-    const url = URL.createObjectURL(new Blob([jsonText], { type: 'application/json' }));
+    flushSync(() => flushPendingCommits());
+    const url = URL.createObjectURL(new Blob([jsonTextRef.current], { type: 'application/json' }));
     const link = document.createElement('a');
     link.href = url;
     link.download = `${name || 'template'}.json`;
