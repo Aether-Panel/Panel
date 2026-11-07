@@ -47,7 +47,7 @@ export function imageSource(reference: unknown): ImageSource {
   // a first component with a dot or a port, or localhost, names a registry
   const first = parts[0];
   const hasRegistry = parts.length > 1 && (first.includes('.') || first.includes(':') || first === 'localhost');
-  if (hasRegistry && VENDOR_REGISTRIES.has(first) && parts.length > 1 && parts[parts.length - 1] !== '') return 'official';
+  if (hasRegistry && VENDOR_REGISTRIES.has(first) && parts[parts.length - 1] !== '') return 'official';
   if (hasRegistry && !DOCKER_HUB.has(first)) return 'thirdParty';
   const path = hasRegistry ? parts.slice(1) : parts;
   if (VENDOR_REPOSITORIES.has(path.join('/'))) return 'official';

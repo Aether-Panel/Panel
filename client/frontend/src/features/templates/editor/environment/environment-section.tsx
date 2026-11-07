@@ -149,8 +149,16 @@ function SupportedEnvironments() {
   }
 
   return (
-    // goTo() on the list as a whole (no Docker entry) lands here
-    <div id={fieldId(LIST_PATH)} tabIndex={-1} aria-describedby={issuesId(fieldId(LIST_PATH))} className="space-y-3 rounded-lg outline-none">
+    // goTo() on the list as a whole (no Docker entry) lands here: a named group, so a screen reader
+    // says where the focus went, with a ring a keyboard user can see
+    <div
+      id={fieldId(LIST_PATH)}
+      role="group"
+      tabIndex={-1}
+      aria-label={t('templates.editor.environment.supported.title')}
+      aria-describedby={issuesId(fieldId(LIST_PATH))}
+      className="space-y-3 rounded-lg outline-none ring-offset-4 ring-offset-background focus-visible:ring-2 focus-visible:ring-ring/70"
+    >
       <FieldIssues id={issuesId(fieldId(LIST_PATH))} issues={issuesAt(LIST_PATH)} />
       {list.length === 0 ? (
         <EmptyState
@@ -163,7 +171,7 @@ function SupportedEnvironments() {
       ) : (
         <>
           <SortableList ids={ids.ids} onMove={onMove} itemLabel={itemLabel}>
-            <ol className="space-y-2" aria-label={t('templates.editor.environment.supported.title')}>
+            <ol className="space-y-2">
               {list.map((environment, index) => (
                 <SupportedCard
                   key={ids.ids[index]}

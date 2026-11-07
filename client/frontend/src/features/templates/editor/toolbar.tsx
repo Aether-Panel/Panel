@@ -41,7 +41,7 @@ const ANNOUNCE_DELAY = 1000;
  * With issues it is a button that opens the list of them (IssueSummary). Screen readers hear it
  * from a polite live region once it settles, not on every keystroke that flips a count.
  */
-function StatusLine({ className }: Readonly<{ className?: string }>) {
+function StatusLine({ view, className }: Readonly<{ view: EditorView; className?: string }>) {
   const { t } = useTranslations();
   const { issues, jsonProblem, blocked } = useTemplateEditor();
   const counts = countIssues(issues);
@@ -79,7 +79,7 @@ function StatusLine({ className }: Readonly<{ className?: string }>) {
   return (
     <div className={cn('flex min-w-0 items-center text-sm', tone, className)}>
       {issues.length > 0 ? (
-        <IssueSummary>
+        <IssueSummary view={view}>
           <button
             type="button"
             className="-mx-2 flex min-w-0 max-w-full items-center gap-1 rounded-md px-2 py-1.5 transition-colors duration-150 hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
@@ -119,7 +119,7 @@ export function EditorToolbar({ view, splitAvailable, saving, canSave, onSave, o
     <div className="sticky top-16 z-30 -mx-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/60 bg-background/80 px-4 py-3 backdrop-blur-xl md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
       <ViewSwitcher view={view} splitAvailable={splitAvailable} />
       {/* its own row until lg: next to the sidebar a tablet leaves it too little room inline */}
-      <StatusLine className="order-last w-full lg:order-none lg:w-auto lg:flex-1" />
+      <StatusLine view={view} className="order-last w-full lg:order-none lg:w-auto lg:flex-1" />
       <div className="ml-auto flex shrink-0 items-center gap-2">
         {/* square icon buttons until the row is wide enough for their labels (xl, next to the sidebar) */}
         <Button variant="outline" onClick={onPreview} aria-label={t('templates.editor.preview.button')} title={t('templates.editor.preview.button')} className="w-10 px-0 xl:w-auto xl:px-4">

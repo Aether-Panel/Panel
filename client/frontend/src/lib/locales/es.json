@@ -3285,7 +3285,8 @@
         "noneTitle": "Todavía no hay plantillas",
         "noneDescription": "Las plantillas locales y las de la comunidad aparecerán aquí.",
         "resultsOne": "1 plantilla",
-        "resultsMany": "{{count}} plantillas"
+        "resultsMany": "{{count}} plantillas",
+        "searchHint": "Escribe para filtrar. Intro abre el primer resultado; la flecha abajo pasa a la lista."
       },
       "import": {
         "title": "Importar un .json",
@@ -3955,7 +3956,7 @@
       },
       "warnings": {
         "integerVariableValue": "No es un número entero: el nodo lo cambiará sin avisar (un texto, por ejemplo, pasa a ser 0).",
-        "noDefaultEnvironment": "La plantilla no tiene entorno por defecto: elige host o Docker.",
+        "noDefaultEnvironment": "La plantilla no tiene entorno por defecto. «Crear servidor» no lo usa (crea los servidores en Docker), pero un servidor creado con la plantilla tal cual, por ejemplo desde la API, lo necesita.",
         "nameCaseOnly": "El panel no distingue mayúsculas ni acentos en los nombres: al guardar, la plantilla sigue llamándose «{{name}}».",
         "undefinedVariable": "{{token}} no es ninguna variable de la plantilla: el nodo deja el texto tal cual. Créala en Variables, o ignora el aviso si es una variable del shell.",
         "undefinedConditionVariable": "La condición lee «{{name}}», que no es ninguna variable: el paso fallará al evaluarla.",
@@ -3982,7 +3983,8 @@
         "cancelled": "Movimiento cancelado: «{{item}}» vuelve a la posición {{position}} de {{count}}.",
         "moveUp": "Subir «{{item}}»",
         "moveDown": "Bajar «{{item}}»",
-        "movedTo": "«{{item}}» está ahora en la posición {{position}} de {{count}}."
+        "movedTo": "«{{item}}» está ahora en la posición {{position}} de {{count}}.",
+        "locked": "«{{item}}» no se puede mover"
       },
       "insertVariable": {
         "button": "Insertar variable",
@@ -4018,7 +4020,8 @@
         },
         "badges": {
           "required": "Obligatoria",
-          "internal": "Interna"
+          "internal": "Interna",
+          "pinned": "Siempre la primera"
         },
         "key": {
           "label": "Clave",
@@ -4035,7 +4038,8 @@
           "renameKeepsConditionOne": "La condición que la lee por su nombre no cambia: una condición no puede leer una clave con guion o que empieza por número.",
           "renameKeepsConditionMany": "Las {{count}} condiciones que la leen por su nombre no cambian: una condición no puede leer una clave con guion o que empieza por número.",
           "notAppliedTitle": "Clave sin cambiar",
-          "notApplied": "«{{draft}}» no se aplicó: {{reason}} La variable sigue llamándose «{{key}}»."
+          "notApplied": "«{{draft}}» no se ha aplicado: {{reason}} La variable sigue llamándose «{{key}}».",
+          "notAppliedEmpty": "Una clave no puede quedar vacía, así que no se ha cambiado: la variable sigue llamándose «{{key}}»."
         },
         "type": {
           "label": "Tipo",
@@ -4490,7 +4494,7 @@
           "description": "Datos de uso que el panel muestra, además de CPU y memoria.",
           "type": {
             "label": "Estadísticas adicionales",
-            "hint": "Memoria de Java pide a la máquina virtual de Java su uso de memoria (heap) con jcmd.",
+            "hint": "«Memoria de Java» pide a la máquina virtual de Java su uso de memoria (heap) con jcmd.",
             "jcmd": "Memoria de Java (jcmd)"
           },
           "cmd": {

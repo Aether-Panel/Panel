@@ -82,7 +82,8 @@ function Row({ sortId, entryKey, value, index, count, firstMovable, path, label,
       <div className="flex items-start gap-1">
         <DragHandle
           handleProps={handleProps}
-          label={pinned ? t('templates.editor.steps.keyValue.pinned') : t('templates.editor.sortable.handle', { item: name })}
+          label={pinned ? t('templates.editor.sortable.locked', { item: name }) : t('templates.editor.sortable.handle', { item: name })}
+          title={pinned ? t('templates.editor.steps.keyValue.pinned') : undefined}
           className="mt-0.5"
         />
         <div className="grid min-w-0 flex-1 gap-1.5 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">

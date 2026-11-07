@@ -3,6 +3,8 @@ import { presetHead, presetVariable, runDefaults, type TemplatePreset } from './
 // From the community "minecraft" template, Paper only: Paper's own download (paperdl), Java on
 // the host through javadl, eclipse-temurin in Docker (the Java variable picks its tag, which the
 // create form keeps in step with the Minecraft version).
+// Paper rather than vanilla because it runs plugins and is what most servers use; vanilla, the
+// community template's default (modlauncher empty), is one step away: mojangdl in place of paperdl.
 
 const JAVA_OPTIONS = ['8', '11', '17', '21', '25'].map((v) => ({ value: v, display: `Java ${v}` }));
 
@@ -27,6 +29,8 @@ export const minecraftPaper: TemplatePreset = {
       install: [
         { if: "env == 'host'", type: 'javadl', version: '${javaversion}' },
         { type: 'paperdl', project: 'paper', minecraftVersion: '${version}', build: '${paperbuild}', target: 'server.jar' },
+        // only when missing, as the community template does: after the first install the file is
+        // the owner's (they change it from the panel), so a reinstall must not overwrite it
         { if: "!file_exists('server.properties')", type: 'writefile', target: 'server.properties', text: 'server-port=${port}\nmotd=${motd}\n' },
         { type: 'writefile', target: 'eula.txt', text: 'eula=${eula}\n' },
       ],

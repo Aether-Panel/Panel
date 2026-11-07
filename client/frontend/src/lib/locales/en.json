@@ -3285,7 +3285,8 @@
         "noneTitle": "No templates yet",
         "noneDescription": "Local and community templates will show up here.",
         "resultsOne": "1 template",
-        "resultsMany": "{{count}} templates"
+        "resultsMany": "{{count}} templates",
+        "searchHint": "Type to filter. Enter opens the first result; the down arrow moves into the list."
       },
       "import": {
         "title": "Import a .json",
@@ -3955,7 +3956,7 @@
       },
       "warnings": {
         "integerVariableValue": "Not a whole number: the node will change it without warning (text, for example, becomes 0).",
-        "noDefaultEnvironment": "The template has no default environment: choose host or Docker.",
+        "noDefaultEnvironment": "The template has no default environment. \"Create server\" doesn't use it (it creates servers in Docker), but a server created from the template as it is, from the API for example, needs one.",
         "nameCaseOnly": "The panel does not tell names apart by case or accents: when saved, the template keeps the name \"{{name}}\".",
         "undefinedVariable": "{{token}} is not a variable of the template: the node leaves the text as it is. Create it in Variables, or ignore this if it is a shell variable.",
         "undefinedConditionVariable": "The condition reads \"{{name}}\", which is not a variable: the step will fail when it is evaluated.",
@@ -3968,8 +3969,8 @@
         "thirdPartyImage": "Third-party image. The project only uses its own images (ghcr.io/aether-panel/…) or official ones, from Docker Hub (such as ubuntu or eclipse-temurin) or from the program's vendor (such as mcr.microsoft.com or steamcmd/steamcmd): a third-party image can change or vanish without notice. If a program is missing, it gets added to our images.",
         "keepAliveFrequency": "The node can't read this frequency and won't send the command. Use a duration with a unit, such as 30s, 5m or 1h30m.",
         "keepAliveIncomplete": "The keep-alive needs both the frequency and the command: with only one, nothing is sent.",
-        "groupUnknownVariable": "“{{key}}” isn't a variable of the template: the group can't show it.",
-        "noDockerEnvironment": "No supported environment is Docker. The “Create server” form always creates servers in Docker, so it will use the image {{image}}, which most likely lacks what the template needs. Add a Docker environment with its image."
+        "groupUnknownVariable": "\"{{key}}\" isn't a variable of the template: the group can't show it.",
+        "noDockerEnvironment": "No supported environment is Docker. The \"Create server\" form always creates servers in Docker, so it will use the image {{image}}, which most likely lacks what the template needs. Add a Docker environment with its image."
       },
       "sortable": {
         "handle": "Drag to move \"{{item}}\"",
@@ -3982,7 +3983,8 @@
         "cancelled": "Move cancelled: \"{{item}}\" is back in position {{position}} of {{count}}.",
         "moveUp": "Move \"{{item}}\" up",
         "moveDown": "Move \"{{item}}\" down",
-        "movedTo": "\"{{item}}\" is now in position {{position}} of {{count}}."
+        "movedTo": "\"{{item}}\" is now in position {{position}} of {{count}}.",
+        "locked": "\"{{item}}\" can't be moved"
       },
       "insertVariable": {
         "button": "Insert variable",
@@ -4018,7 +4020,8 @@
         },
         "badges": {
           "required": "Required",
-          "internal": "Internal"
+          "internal": "Internal",
+          "pinned": "Always first"
         },
         "key": {
           "label": "Key",
@@ -4035,7 +4038,8 @@
           "renameKeepsConditionOne": "The condition that reads it by name is not changed: a condition cannot read a key with a hyphen or a leading digit.",
           "renameKeepsConditionMany": "The {{count}} conditions that read it by name are not changed: a condition cannot read a key with a hyphen or a leading digit.",
           "notAppliedTitle": "Key not changed",
-          "notApplied": "\"{{draft}}\" was not applied: {{reason}} The variable is still called \"{{key}}\"."
+          "notApplied": "\"{{draft}}\" was not applied: {{reason}} The variable is still called \"{{key}}\".",
+          "notAppliedEmpty": "A key can't be empty, so it wasn't changed: the variable is still called \"{{key}}\"."
         },
         "type": {
           "label": "Type",
@@ -4117,7 +4121,7 @@
         "collapseAll": "Collapse all",
         "numbered": "Step {{n}}: {{name}}",
         "stepNumber": "Step {{n}}:",
-        "menu": "Actions for “{{step}}”",
+        "menu": "Actions for \"{{step}}\"",
         "editJson": "Edit this step's JSON",
         "useForm": "Back to the form",
         "insertAfter": "Insert step after",
@@ -4135,18 +4139,18 @@
         "unset": "Not set",
         "otherValue": "Other: {{value}}",
         "defaultValue": "Default: {{value}}",
-        "suggestions": "Common values for “{{field}}”",
+        "suggestions": "Common values for \"{{field}}\"",
         "suggestionsShort": "Common values",
         "notEditableHere": "This value isn't in the shape the form expects. It's kept as it is; change it in the step's JSON.",
         "advanced": "Advanced options",
         "list": {
           "item": "{{field}}, line {{n}}",
           "add": "Add line",
-          "remove": "Remove “{{item}}”"
+          "remove": "Remove \"{{item}}\""
         },
         "keyValue": {
           "keyLabel": "Name {{n}}",
-          "valueLabel": "Value of “{{key}}”",
+          "valueLabel": "Value of \"{{key}}\"",
           "add": "Add",
           "none": "None yet.",
           "keyRequired": "Enter a name.",
@@ -4188,7 +4192,7 @@
           "label": "Step JSON",
           "syntax": "The JSON isn't valid ({{detail}}); the step keeps its last valid version.",
           "notObject": "A step must be an object in braces; the step keeps its last valid version.",
-          "unknownHint": "The panel has no form for “{{type}}”: it may come from a newer version or be a typo. Edit it here or change its type.",
+          "unknownHint": "The panel has no form for \"{{type}}\": it may come from a newer version or be a typo. Edit it here or change its type.",
           "invalidHint": "This step isn't an object, so it can't run. Write it as {\"type\": …}.",
           "invalidState": "The step's JSON isn't valid."
         },
@@ -4204,7 +4208,7 @@
           "results": "Results"
         },
         "deleteConfirm": {
-          "title": "Delete “{{step}}”?",
+          "title": "Delete \"{{step}}\"?",
           "description": "Everything it has set up is lost. If it was a mistake, don't save the changes."
         }
       },
@@ -4255,7 +4259,7 @@
           "line": "Command",
           "entry": "Entry {{n}}",
           "defaultTag": "Default",
-          "remove": "Remove “{{item}}”",
+          "remove": "Remove \"{{item}}\"",
           "conditionHelp": "The node uses the first entry whose condition holds.",
           "conditionNone": "Without a condition it is the default command: used when no other condition holds.",
           "conditionalHint": "On start, the node tries the entries in order and uses the first whose condition holds; if none does, it uses the first one without a condition.",
@@ -4349,17 +4353,17 @@
       "environment": {
         "default": {
           "title": "Default environment",
-          "description": "It is kept in the template, but the panel's “Create server” form doesn't use it: it always creates servers in Docker, with the first Docker environment under “Supported environments”."
+          "description": "It is kept in the template, but the panel's \"Create server\" form doesn't use it: it always creates servers in Docker, with the first Docker environment under \"Supported environments\"."
         },
         "supported": {
           "title": "Supported environments",
-          "description": "The “Create server” form creates servers in Docker with the first Docker environment of this list: its image, ports and settings.",
+          "description": "The \"Create server\" form creates servers in Docker with the first Docker environment of this list: its image, ports and settings.",
           "item": "Environment {{n}}: {{type}}",
-          "remove": "Remove “{{item}}”",
+          "remove": "Remove \"{{item}}\"",
           "add": "Add environment",
           "empty": {
             "title": "No supported environments",
-            "description": "Without a Docker environment here, the “Create server” form uses a generic image. Add one with the image the template needs."
+            "description": "Without a Docker environment here, the \"Create server\" form uses a generic image. Add one with the image the template needs."
           }
         },
         "type": {
@@ -4453,13 +4457,13 @@
           "title": "Variable groups",
           "description": "They sort the variables into blocks on the server's settings page. Those in no group are shown apart.",
           "add": "Add group",
-          "remove": "Remove the group “{{group}}”",
+          "remove": "Remove the group \"{{group}}\"",
           "untitled": "Group {{n}}",
           "countOne": "1 variable",
           "countMany": "{{count}} variables",
           "conditionHelp": "It is kept in the template, but the panel doesn't apply it yet: the group is always shown.",
           "conditionNone": "No condition.",
-          "orderHint": "The settings page shows the groups in the order of this list; “Order” is kept for templates that use it.",
+          "orderHint": "The settings page shows the groups in the order of this list; \"Order\" is kept for templates that use it.",
           "displayField": {
             "label": "Name",
             "placeholder": "General"
@@ -4474,10 +4478,10 @@
             "label": "Variables",
             "hint": "In the order they're shown inside the group.",
             "add": "Add",
-            "remove": "Remove “{{key}}” from the group",
+            "remove": "Remove \"{{key}}\" from the group",
             "missing": "(doesn't exist)",
             "none": "The template has no variables yet.",
-            "inOther": "already in “{{group}}”"
+            "inOther": "already in \"{{group}}\""
           },
           "empty": {
             "title": "No groups",
@@ -4490,7 +4494,7 @@
           "description": "Usage data the panel shows besides CPU and memory.",
           "type": {
             "label": "Extra stats",
-            "hint": "Java memory asks the Java virtual machine for its memory use (heap) with jcmd.",
+            "hint": "\"Java memory\" asks the Java virtual machine for its memory use (heap) with jcmd.",
             "jcmd": "Java memory (jcmd)"
           },
           "cmd": {

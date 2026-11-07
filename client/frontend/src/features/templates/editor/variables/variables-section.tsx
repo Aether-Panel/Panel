@@ -8,6 +8,7 @@ import { AlertTriangle, ChevronsUpDown, Plus, SlidersHorizontal } from '@/compon
 import { useTranslations } from '@/contexts/translations-context';
 import { fieldId, useTemplateEditor } from '../editor-context';
 import { isPlainObject, moveIn, type JsonObject } from '../paths';
+import { scrollBehavior } from '../scroll';
 import { SortableList } from '../sortable';
 import { isUnderPath, type EditorIssue } from '../validation';
 import { insertVariable, isPinnedKey, newVariable, uniqueVariableKey } from './model';
@@ -66,7 +67,7 @@ function focusSoon(elementId: string, select = false) {
     const el = document.getElementById(elementId);
     if (!el) return;
     el.focus({ preventScroll: true });
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    el.scrollIntoView({ block: 'center', behavior: scrollBehavior() });
     if (select && el instanceof HTMLInputElement) el.select();
   }, 50);
 }

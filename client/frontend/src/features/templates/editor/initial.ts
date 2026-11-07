@@ -1,10 +1,15 @@
 import { parseTemplateJson, type JsonProblem } from './document';
+import { DEFAULT_DOCKER_IMAGE } from './environment/images';
 import { isPlainObject, type JsonObject } from './paths';
 import { nameIsTaken, TEMPLATE_NAME_MAX_LENGTH } from './template-name';
 
 // Where a template in the editor comes from: a blank one, a saved one, a copy or a .json file.
 
-/** What "Nueva plantilla → En blanco" starts from: the keys every template fills in. */
+/**
+ * What "Nueva plantilla → En blanco" starts from: the keys every template fills in, plus one
+ * Docker environment with the project's generic image, since "Crear servidor" always creates
+ * servers in Docker with the first one listed (without it, the form falls back to ubuntu:22.04).
+ */
 export function blankTemplate(): JsonObject {
   return {
     name: '',
@@ -14,6 +19,7 @@ export function blankTemplate(): JsonObject {
     install: [],
     run: { command: '', stop: '' },
     environment: { type: 'host' },
+    supportedEnvironments: [{ type: 'docker', image: DEFAULT_DOCKER_IMAGE }],
   };
 }
 

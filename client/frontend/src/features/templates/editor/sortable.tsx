@@ -154,13 +154,17 @@ export function useSortableItem(id: string, disabled = false) {
 
 type HandleProps = ReturnType<typeof useSortableItem>['handleProps'];
 
-/** The grip an item is dragged by; `label` says what it moves ("Mover «port»"). */
-export function DragHandle({ handleProps, label, className }: Readonly<{ handleProps: HandleProps; label: string; className?: string }>) {
+/**
+ * The grip an item is dragged by; `label` says what it moves ("Mover «port»"). `title` is the
+ * hover text, for a grip that cannot move its item and says why.
+ */
+export function DragHandle({ handleProps, label, title, className }: Readonly<{ handleProps: HandleProps; label: string; title?: string; className?: string }>) {
   return (
     <button
       type="button"
       {...handleProps}
       aria-label={label}
+      title={title}
       className={cn(
         // touch-none: on a phone the finger drags the item instead of scrolling the page
         'grid h-8 w-6 shrink-0 cursor-grab touch-none place-items-center rounded-md text-muted-foreground/70 transition-colors duration-150 hover:bg-accent/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 active:cursor-grabbing aria-disabled:cursor-not-allowed aria-disabled:opacity-35',
@@ -208,9 +212,10 @@ export function MoveButtons({ index, count, label, onMove, min = 0, lockedReason
     'grid h-8 place-items-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-accent/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 aria-disabled:pointer-events-none aria-disabled:opacity-35',
     dense ? 'w-6 sm:w-8' : 'w-8',
   );
-  const described = locked ? { 'aria-describedby': reasonId, title: lockedReason } : {};
+  const described = locked ? { 'aria-describedby': reasonId } : {};
   return (
-    <span className={cn('flex shrink-0 items-center', className)}>
+    // the hover text of a locked pair goes on the wrapper: the buttons ignore the pointer then
+    <span className={cn('flex shrink-0 items-center', className)} title={lockedReason}>
       {locked && (
         <span id={reasonId} className="sr-only">
           {lockedReason}

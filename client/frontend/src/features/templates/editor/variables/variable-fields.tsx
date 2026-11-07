@@ -89,11 +89,15 @@ export function KeyField({ variableKey, uses, conditionUses, issues, actions }: 
       const translate = tRef.current;
       sileo.warning({
         title: translate('templates.editor.variables.key.notAppliedTitle'),
-        description: translate('templates.editor.variables.key.notApplied', {
-          draft: lost.draft,
-          key: lost.key,
-          reason: translate(`templates.editor.variables.key.${lost.problem}`),
-        }),
+        // an emptied key has nothing to quote, and "type a key" reads oddly once the field is gone
+        description:
+          lost.problem === 'keyRequired'
+            ? translate('templates.editor.variables.key.notAppliedEmpty', { key: lost.key })
+            : translate('templates.editor.variables.key.notApplied', {
+                draft: lost.draft,
+                key: lost.key,
+                reason: translate(`templates.editor.variables.key.${lost.problem}`),
+              }),
       });
     },
     [],

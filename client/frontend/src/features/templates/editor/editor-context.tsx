@@ -3,6 +3,7 @@ import * as Document from './document';
 import { localTemplateNames } from './load';
 import { createPendingCommits } from './pending-commits';
 import { getIn, pathKey, type JsonObject, type Path } from './paths';
+import { scrollBehavior } from './scroll';
 import { issuesByPath, validateTemplate, type EditorIssue } from './validation';
 import type { EditorSectionId } from './sections';
 
@@ -194,7 +195,7 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
     if (!focusRequest) return;
     const frame = requestAnimationFrame(() => {
       const el = document.getElementById(fieldId(focusRequest.path));
-      el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el?.scrollIntoView({ block: 'center', behavior: scrollBehavior() });
       el?.focus({ preventScroll: true });
       setFocusRequest((current) => (current === focusRequest ? null : current));
     });

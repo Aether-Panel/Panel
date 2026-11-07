@@ -66,6 +66,7 @@ function OptionRow({ id, option, index, count, path, issues, update, onMove, onR
         <MoveButtons index={index} count={count} label={name} onMove={onMove} className="mt-0.5" />
         <button
           type="button"
+          id={`${fieldId(path)}-remove`}
           onClick={() => onRemove(index)}
           aria-label={t('templates.editor.variables.options.remove', { item: name })}
           className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
@@ -91,6 +92,7 @@ export function OptionList({ path, variable, issues, update }: Readonly<{
   const optionsPath = [...path, 'options'];
   const list = useListIds(options.length);
   const headingId = `${fieldId(optionsPath)}-heading`;
+  const addId = `${fieldId(optionsPath)}-add`;
   const listIssues = issues.filter((i) => i.path === pathKey(optionsPath));
 
   const move = (from: number, to: number) => {
@@ -100,9 +102,23 @@ export function OptionList({ path, variable, issues, update }: Readonly<{
     list.move(from, to);
     update(optionsPath, next);
   };
+  const removeAll = () => {
+    update(optionsPath, undefined);
+    // the list goes away with them: the type is what decides the field now
+    requestAnimationFrame(() => document.getElementById(fieldId([...path, 'type']))?.focus());
+  };
   const remove = (index: number) => {
+    // the last option of a variable that is not an option one: an empty list would still be
+    // written, so the key goes, as with "remove all"
+    if (options.length === 1 && type !== 'option') {
+      removeAll();
+      return;
+    }
     list.remove(index);
     update(optionsPath, options.filter((_, i) => i !== index));
+    // the focus goes to the option that takes its place, else to "add"
+    const next = options.length > 1 ? fieldId([...optionsPath, Math.min(index, options.length - 2)]) + '-remove' : addId;
+    requestAnimationFrame(() => document.getElementById(next)?.focus());
   };
   const add = () => {
     list.insert(options.length);
@@ -136,11 +152,7 @@ export function OptionList({ path, variable, issues, update }: Readonly<{
             variant="outline"
             size="sm"
             className="ml-5 h-8 bg-background/60"
-            onClick={() => {
-              update(optionsPath, undefined);
-              // the list goes away with them: the type is what decides the field now
-              requestAnimationFrame(() => document.getElementById(fieldId([...path, 'type']))?.focus());
-            }}
+            onClick={removeAll}
           >
             <Trash2 aria-hidden="true" />
             {t('templates.editor.variables.options.removeAll')}
@@ -179,7 +191,7 @@ export function OptionList({ path, variable, issues, update }: Readonly<{
           {t('templates.editor.variables.options.none')}
         </p>
       )}
-      <Button type="button" variant="outline" size="sm" onClick={add}>
+      <Button id={addId} type="button" variant="outline" size="sm" onClick={add}>
         <Plus aria-hidden="true" />
         {t('templates.editor.variables.options.add')}
       </Button>

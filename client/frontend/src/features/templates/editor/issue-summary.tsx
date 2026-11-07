@@ -3,8 +3,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { AlertCircle, AlertTriangle, Braces } from '@/components/icons';
 import { useTranslations } from '@/contexts/translations-context';
 import { cn } from '@/lib/utils';
-import { useTemplateEditor } from './editor-context';
+import { useTemplateEditor, type EditorView } from './editor-context';
 import { groupIssues, pathFromKey, type IssueGroup } from './issue-groups';
+import { sectionOfPath } from './section-keys';
 import { IssueCountBadges } from './section-nav';
 import { getSection } from './sections';
 import { countIssues, type EditorIssue } from './validation';
@@ -72,9 +73,10 @@ function GroupHeading({ group, id }: Readonly<{ group: IssueGroup; id: string }>
 
 /**
  * Wraps `children` (the toolbar's status button) so it opens the list. A pick closes the list and
- * goes to the field; the focus then stays there instead of going back to the button.
+ * goes to the field; the focus then stays there instead of going back to the button. `view` is the
+ * view on screen (split shows as the form on a narrow screen).
  */
-export function IssueSummary({ children }: Readonly<{ children: ReactElement }>) {
+export function IssueSummary({ view, children }: Readonly<{ view: EditorView; children: ReactElement }>) {
   const { t } = useTranslations();
   const { issues, template, jsonProblem, goTo, setView } = useTemplateEditor();
   const [open, setOpen] = useState(false);
@@ -84,10 +86,10 @@ export function IssueSummary({ children }: Readonly<{ children: ReactElement }>)
   const pick = (issue: EditorIssue) => {
     picked.current = true;
     setOpen(false);
-    const group = groups.find((g) => g.issues.includes(issue));
-    if (group?.section) goTo(group.section, pathFromKey(template, issue.path));
-    // a key no section edits is only in the JSON
-    else setView('json');
+    const section = sectionOfPath(issue.path);
+    if (section) goTo(section, pathFromKey(template, issue.path));
+    // a key no section edits is only in the JSON, which the split view already shows
+    else if (view !== 'split') setView('json');
   };
 
   return (

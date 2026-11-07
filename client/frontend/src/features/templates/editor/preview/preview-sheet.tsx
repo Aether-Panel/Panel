@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { EmptyState } from '@/components/empty-state';
@@ -6,10 +6,10 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import { AlertCircle, Check, CheckCircle2, Eye, Info, RotateCcw } from '@/components/icons';
 import { useTranslations } from '@/contexts/translations-context';
 import {
-  initialTemplateValues, isResourceKey, RESOURCE_DEFAULTS, Step3Configuration, useTemplateFieldErrors, variableFieldId,
+  initialTemplateValues, RESOURCE_DEFAULTS, shownTemplateVariables, Step3Configuration, useTemplateFieldErrors, variableFieldId,
 } from '@/features/servers/create-server-stepper';
 import { cn } from '@/lib/utils';
-import { isPlainObject, type JsonObject } from '../paths';
+import type { JsonObject } from '../paths';
 
 // "Vista previa": the "Crear servidor" wizard's configuration step for the template being
 // edited, drawn by the wizard's own component (Step3Configuration) with its own starting values
@@ -18,15 +18,19 @@ import { isPlainObject, type JsonObject } from '../paths';
 
 type Limit = number | '';
 
-/** Whether the create form asks anything about the template: a variable that is not internal nor a resource. */
-function asksForVariables(template: JsonObject): boolean {
-  const variables = isPlainObject(template.data) ? template.data : {};
-  return Object.entries(variables).some(([key, v]) => isPlainObject(v) && !v.internal && !isResourceKey(key));
-}
-
-/** The form with the wizard's state, started from the template as the wizard starts it. */
-function PreviewForm({ template, onReset }: Readonly<{ template: JsonObject; onReset: () => void }>) {
+/**
+ * The form with the wizard's state, started from the template as the wizard starts it.
+ * `focusReset` is set by "Restablecer": that button is replaced along with the whole form, so the
+ * new one takes the focus back instead of leaving it on the page.
+ */
+function PreviewForm({ template, onReset, focusReset }: Readonly<{ template: JsonObject; onReset: () => void; focusReset: RefObject<boolean> }>) {
   const { t } = useTranslations();
+  const resetRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!focusReset.current) return;
+    focusReset.current = false;
+    resetRef.current?.focus();
+  }, [focusReset]);
   const [start] = useState(() => initialTemplateValues(template));
   const limits = { ...RESOURCE_DEFAULTS, ...start.limits };
   const [configData, setConfigData] = useState<Record<string, unknown>>(start.values);
@@ -60,7 +64,7 @@ function PreviewForm({ template, onReset }: Readonly<{ template: JsonObject; onR
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary-bright" aria-hidden="true" />
           <span className="text-pretty">
             {t('templates.editor.preview.note')}
-            {!asksForVariables(template) && <> {t('templates.editor.preview.noVariables')}</>}
+            {shownTemplateVariables(template).length === 0 && <> {t('templates.editor.preview.noVariables')}</>}
           </span>
         </p>
         <ErrorBoundary
@@ -106,7 +110,7 @@ function PreviewForm({ template, onReset }: Readonly<{ template: JsonObject; onR
           <span className="text-pretty">{resultText}</span>
         </p>
         <div className="flex shrink-0 items-center gap-2">
-          <Button variant="ghost" onClick={onReset}>
+          <Button ref={resetRef} variant="ghost" onClick={onReset}>
             <RotateCcw aria-hidden="true" />
             {t('templates.editor.preview.reset')}
           </Button>
@@ -129,6 +133,7 @@ export default function TemplatePreviewSheet({ open, onOpenChange, template }: R
   const { t } = useTranslations();
   // a new key starts the form over from the template's values
   const [resetKey, setResetKey] = useState(0);
+  const focusReset = useRef(false);
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       {/* as wide as the wizard's dialog, so its grid lays out the same; full width on a phone */}
@@ -142,7 +147,15 @@ export default function TemplatePreviewSheet({ open, onOpenChange, template }: R
           </SheetTitle>
           <SheetDescription>{t('templates.editor.preview.description')}</SheetDescription>
         </SheetHeader>
-        <PreviewForm key={resetKey} template={template} onReset={() => setResetKey((k) => k + 1)} />
+        <PreviewForm
+          key={resetKey}
+          template={template}
+          focusReset={focusReset}
+          onReset={() => {
+            focusReset.current = true;
+            setResetKey((k) => k + 1);
+          }}
+        />
       </SheetContent>
     </Sheet>
   );

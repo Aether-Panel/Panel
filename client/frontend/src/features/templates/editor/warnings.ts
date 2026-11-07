@@ -41,7 +41,9 @@ export const integerVariableValue: WarningRule = (template) => {
 
 /**
  * No default environment. The node writes a template saved without one back as { "type": "" },
- * which loads, but a server created from it has nowhere to run until someone picks one.
+ * which loads. The panel's "Crear servidor" form does not read it (it always sends a Docker
+ * environment), but a server created from the template as it is, through the API, is refused
+ * without one (Server.valid).
  */
 export const defaultEnvironment: WarningRule = (template) => {
   const environment = template.environment;

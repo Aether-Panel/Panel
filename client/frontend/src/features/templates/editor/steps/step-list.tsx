@@ -9,6 +9,7 @@ import { useTranslations } from '@/contexts/translations-context';
 import { getOperation, type OperationDefinition } from '../../schema/operations';
 import { fieldId, useTemplateEditor } from '../editor-context';
 import { moveIn, pathKey, type Path } from '../paths';
+import { scrollBehavior } from '../scroll';
 import { SortableList, useListIds } from '../sortable';
 import type { EditorIssue } from '../validation';
 import { copyStep, insertStep, newStep, removeStep, stepHasContent, stepsAt, stepType } from './model';
@@ -27,7 +28,7 @@ function focusSoon(elementId: string) {
     const el = document.getElementById(elementId);
     if (!el) return;
     el.focus({ preventScroll: true });
-    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    el.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
   }, 50);
 }
 

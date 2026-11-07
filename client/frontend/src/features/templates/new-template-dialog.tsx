@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -104,6 +104,7 @@ function DuplicateList({ templates, loading }: Readonly<{ templates: ListedTempl
   const { t } = useTranslations();
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
+  const hintId = useId();
   const listRef = useRef<HTMLUListElement>(null);
   const shown = templates.filter((tpl) => matchesTemplate(tpl, query));
   // how many match, said once the user stops typing
@@ -116,8 +117,9 @@ function DuplicateList({ templates, loading }: Readonly<{ templates: ListedTempl
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       first.focus();
-    } else if (event.key === 'Enter') {
-      // the best match is the first one: Enter opens it, as in the panel's other searches
+    } else if (event.key === 'Enter' && query.trim()) {
+      // the best match is the first one: Enter opens it, as in the panel's other searches. With
+      // nothing typed the first one is just the top of the list, so a stray Enter does nothing.
       event.preventDefault();
       first.click();
     }
@@ -172,9 +174,13 @@ function DuplicateList({ templates, loading }: Readonly<{ templates: ListedTempl
           onKeyDown={onSearchKey}
           placeholder={t('templates.search.placeholder')}
           aria-label={t('templates.chooser.duplicate.searchLabel')}
+          aria-describedby={hintId}
           className="pl-9"
         />
       </div>
+      <p id={hintId} className="sr-only">
+        {t('templates.chooser.duplicate.searchHint')}
+      </p>
       <p className="sr-only" role="status" aria-live="polite">
         {announced}
       </p>

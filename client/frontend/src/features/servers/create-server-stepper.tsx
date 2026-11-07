@@ -279,6 +279,15 @@ function useGameVersions(platform: string | undefined): string[] {
     return versions;
 }
 
+/**
+ * The variables the form asks for, in the template's order: every one except the internal ones
+ * and the resource ones (cpu, memory, disk, io), which fill the resource inputs instead.
+ */
+export function shownTemplateVariables(details: any): [string, any][] {
+    const variables = (details.data || details.variables || details.Variables || {}) as Record<string, any>;
+    return Object.entries(variables).filter(([key, v]) => v && !v.internal && !isResourceKey(key));
+}
+
 /** The id of a variable's field, so an error can move the focus to it. */
 export const variableFieldId = (key: string) => `tpl-var-${key.replace(/[^\w-]/g, '_')}`;
 
@@ -904,8 +913,7 @@ export function Step3Configuration({
         );
     }
 
-    const variables = (templateDetails.data || templateDetails.variables || templateDetails.Variables || {}) as Record<string, any>;
-    const entries = Object.entries(variables).filter(([key, v]) => v && !v.internal && !isResourceKey(key));
+    const entries = shownTemplateVariables(templateDetails);
 
     return (
         <div className="grid w-full gap-6">

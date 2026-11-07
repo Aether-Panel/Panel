@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createDocument, isDirty, markSaved, removeAt, setJsonText, updateAt } from './document';
-import { copyName, duplicateTemplate, editorSource, importTemplate, prepareLoadedTemplate } from './initial';
+import { blankTemplate, copyName, duplicateTemplate, editorSource, importTemplate, prepareLoadedTemplate } from './initial';
 import { deleteIn, getIn, moveIn, renameKeyIn, setIn, type JsonObject } from './paths';
 import { sameTemplateName, storedTemplateName, templateNameProblem } from './template-name';
 import { countIssues, isUnderPath, validateTemplate, type EditorIssue } from './validation';
@@ -309,6 +309,15 @@ describe('warnings', () => {
 });
 
 describe('starting points', () => {
+  it('starts a blank template that only lacks what the author has to write', () => {
+    // the name, the start command and how to stop it; nothing about where it runs
+    expect(describeIssues(validateTemplate(blankTemplate(), { takenNames: [] }))).toEqual([
+      'name: templates.editor.validation.nameRequired [error, blocking]',
+      'run.stop: templates.editor.warnings.noStopMethod [warning]',
+    ]);
+    expect(blankTemplate()).not.toBe(blankTemplate());
+  });
+
   it('puts the name first and drops the README of a loaded template', () => {
     const loaded = prepareLoadedTemplate({ type: 'game', display: 'Paper', readme: '# Paper', name: 'paper' }, 'paper');
     expect(Object.keys(loaded)).toEqual(['name', 'type', 'display']);

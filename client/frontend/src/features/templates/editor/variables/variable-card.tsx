@@ -65,6 +65,8 @@ function VariableCardView({ id, variableKey, variable: raw, index, count, firstM
     isKnownType(type) ? t(`templates.editor.variables.type.${type}`) : type,
     variable.required === true ? t('templates.editor.variables.badges.required') : '',
     variable.internal === true ? t('templates.editor.variables.badges.internal') : '',
+    // why its arrows are off, for whoever sees the card folded
+    pinned ? t('templates.editor.variables.badges.pinned') : '',
   ].filter(Boolean);
   const bodyId = `variable-${id}-body`;
   const fieldProps = { path, variable, issues, update: actions.update };
@@ -85,7 +87,8 @@ function VariableCardView({ id, variableKey, variable: raw, index, count, firstM
       <div className="flex items-center gap-1 py-1.5 pl-1.5 pr-1 sm:gap-1.5 sm:pl-2">
         <DragHandle
           handleProps={handleProps}
-          label={pinned ? t('templates.editor.variables.key.pinned') : t('templates.editor.sortable.handle', { item: variableKey })}
+          label={pinned ? t('templates.editor.sortable.locked', { item: variableKey }) : t('templates.editor.sortable.handle', { item: variableKey })}
+          title={pinned ? t('templates.editor.variables.key.pinned') : undefined}
         />
         <button
           type="button"
