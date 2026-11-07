@@ -117,6 +117,7 @@ var notificationTexts = map[string]map[string]string{ // #nosec G101 -- message 
 		"extransfer.ownerCancelledOrigin":        "El propietario canceló la transferencia desde el panel de origen.",
 		"extransfer.ownerCancelledDestination":   "El propietario canceló la transferencia desde el panel de destino.",
 		"extransfer.archiveFailed":               "Fallo al comprimir los archivos en el servidor de origen.",
+		"extransfer.expired":                     "El panel de destino dejó de responder y la transferencia caducó sin terminar.",
 
 		// the destination's import steps and failures (the page translates them itself; these
 		// are the report's details and the English fallback of the status API)
@@ -237,6 +238,7 @@ var notificationTexts = map[string]map[string]string{ // #nosec G101 -- message 
 		"extransfer.ownerCancelledOrigin":        "The owner cancelled the transfer from the origin panel.",
 		"extransfer.ownerCancelledDestination":   "The owner cancelled the transfer from the destination panel.",
 		"extransfer.archiveFailed":               "The files could not be compressed on the origin server.",
+		"extransfer.expired":                     "The destination panel stopped answering and the transfer expired before it finished.",
 
 		"extransfer.STEP_STARTING":            "Starting...",
 		"extransfer.STEP_VALIDATING":          "Checking the connection with the origin panel...",

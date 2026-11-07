@@ -100,6 +100,8 @@ func internalRun() (terminate chan bool, success bool) {
 	// place first, the panel's own node answers through them
 	if config.PanelEnabled.Value() {
 		go api.RecoverNodeTransfers()
+		// federated transfers that expired unfinished leave a full copy of the server behind
+		go api.SweepExpiredExTransfers()
 	}
 
 	l, err := net.Listen("tcp", config.WebHost.Value())

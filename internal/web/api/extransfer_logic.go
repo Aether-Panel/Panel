@@ -875,7 +875,11 @@ func StartDataPlaneMigration(session models.ExTransferSession, db *gorm.DB) {
 		return ns.CallNode(&server.Node, method, path, body, headers)
 	}
 
-	if err := buildOriginArchive(callNode, server.Identifier); err != nil {
+	// a sweep removing an expired session's archive of this server finishes first, or waits
+	unlock := lockOriginArchive(server.Identifier)
+	err := buildOriginArchive(callNode, server.Identifier)
+	unlock()
+	if err != nil {
 		logging.Error.Printf("Failed to archive server %s: %v", server.Identifier, err)
 		// a session cancelled meanwhile stays cancelled
 		db.Model(&models.ExTransferSession{}).Where("id = ? AND status = ?", session.ID, models.StatusMigrating).Update("status", models.StatusFailed)
