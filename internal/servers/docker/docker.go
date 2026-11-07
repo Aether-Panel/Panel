@@ -277,9 +277,10 @@ func (d *Docker) ReattachImpl(environment *skypanel.Environment, steps skypanel.
 	return nil
 }
 
-// removeContainer force-removes the server's container after a start that failed half way
+// removeContainer force-removes the server's container after a start that failed half way,
+// with its anonymous volumes: nothing else would ever remove them
 func removeContainer(dockerClient *client.Client, environment *skypanel.Environment) {
-	_, err := dockerClient.ContainerRemove(context.Background(), environment.ServerID, client.ContainerRemoveOptions{Force: true})
+	_, err := dockerClient.ContainerRemove(context.Background(), environment.ServerID, client.ContainerRemoveOptions{Force: true, RemoveVolumes: true})
 	if err != nil {
 		environment.Log(logging.Error, "Could not remove the container of a failed start: %s", err)
 	}
