@@ -67,7 +67,7 @@ Exceptions to that shape:
 
 ### Internal errors
 
-An unexpected failure (database, file system, network) answers its status (usually `500`) with code `ErrInternal` and the message "internal error, the details are in the panel log". The real reason is only written to the panel log. Errors the panel raises on purpose keep their code even with a `5xx` status (for example `ErrDatabaseNotAvailable`, `ErrNodeHasServers`).
+An unexpected failure (database, file system, network) answers its status (usually `500`) with code `ErrInternal` and the message "internal error, the details are in the panel log". The real reason is only written to the panel log. Errors the panel raises on purpose keep their code even with a `5xx` status (for example `ErrDatabaseNotAvailable`).
 
 For that reason, routes whose failure the administrator must read (email, Discord, Cloudflare and S3 tests, modpack sources, subdomain changes, the server assistant) answer `422` instead of `502`, so the text reaches the browser.
 
@@ -108,7 +108,8 @@ A node only checks the panel's token; the panel has already checked the user's p
 | `ErrInvalidSession`, `ErrSessionExpired` | The 2FA step has no pending sign-in, or it is older than 5 minutes |
 | `ErrNoPermission` | The action is not allowed for this account |
 | `ErrUserNotFound`, `ErrServerNotFound` | Unknown user or server |
-| `ErrNodeInvalid`, `ErrNodeHasServers` | Unknown node; a node with servers cannot be deleted |
+| `ErrNodeInvalid`, `ErrNodeHasServers`, `ErrNodeHasProducts` | Unknown node; a node with servers, or that a store product creates its servers on, cannot be deleted (`409`) |
+| `ErrTemplateInUse`, `ErrTemplateRepoInUse` | A template, or the only repository with it, that a store product creates its servers with cannot be deleted (`409`) |
 | `ErrNodeAuthFailed` | The node refused the panel's token (`502`, see [Node authentication failures](#node-authentication-failures)) |
 | `ErrServerOwner` | The owner of a server cannot be limited or removed |
 | `ErrInviteSignupsClosed` | Inviting an unknown email while sign-ups are closed |

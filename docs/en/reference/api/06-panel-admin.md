@@ -11,7 +11,7 @@ Nodes, panel settings, API keys, templates, game versions, database hosts, exten
 | GET | `/api/nodes/network-history` | `nodes.view` | Traffic of all nodes added up |
 | GET | `/api/nodes/:id` | `nodes.view` | One node |
 | PUT | `/api/nodes/:id` | `nodes.edit` | Updates a node |
-| DELETE | `/api/nodes/:id` | `nodes.delete` | Deletes a node without servers |
+| DELETE | `/api/nodes/:id` | `nodes.delete` | Deletes a node no server or store product uses |
 | GET | `/api/nodes/:id/features` | `nodes.view` | OS, architecture, environments, Docker |
 | GET | `/api/nodes/:id/system` | `nodes.view` | CPU, memory, disks, network counters |
 | POST | `/api/nodes/:id/ports/check` | `server.create` | Which ports are taken, with free alternatives |
@@ -39,10 +39,10 @@ Nodes, panel settings, API keys, templates, game versions, database hosts, exten
 | POST | `/api/templates` | `templates.repo.create` | Adds a repository |
 | POST | `/api/templates/upload` | `templates.local.edit` | Uploads local templates (`.json` files) |
 | GET | `/api/templates/:repo` | `login` | Templates of a repository |
-| DELETE | `/api/templates/:repo` | `templates.repo.delete` | Removes a repository |
+| DELETE | `/api/templates/:repo` | `templates.repo.delete` | Removes a repository (`409` `ErrTemplateRepoInUse` while it is the only one with a store product's template) |
 | GET | `/api/templates/:repo/:name` | `login` | One template |
 | PUT | `/api/templates/0/:name` | `templates.local.edit` | Creates or replaces a local template |
-| DELETE | `/api/templates/0/:name` | `templates.local.edit` | Deletes a local template |
+| DELETE | `/api/templates/0/:name` | `templates.local.edit` | Deletes a local template (`409` `ErrTemplateInUse` while a store product needs it) |
 | GET | `/api/game-versions/:platform` | `login` | Stable releases of a Minecraft platform |
 | GET | `/api/databasehosts` | `admin` | Lists MySQL hosts |
 | POST | `/api/databasehosts` | `admin` | Adds a host |
@@ -82,7 +82,7 @@ Same body; empty fields and `0` ports keep their value. `204`.
 
 ### `DELETE /api/nodes/:id`
 
-`204`. A node that still has servers answers `500` with code `ErrNodeHasServers`; the panel's own node cannot be deleted (`500`).
+`204`. A node that still has servers answers `409` with code `ErrNodeHasServers`, and one a store product creates its servers on answers `409` with code `ErrNodeHasProducts` and the products' `product_id` in `metadata.products` (see [Provisioning](07-provisioning.md#products)); the panel's own node cannot be deleted (`500`).
 
 ### `GET /api/nodes/:id/deployment`
 

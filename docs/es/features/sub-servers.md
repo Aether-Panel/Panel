@@ -55,7 +55,7 @@ Si el servidor ya es un subservidor, la pestaña solo indica: *Este servidor ya 
 |--------|------|---------|-----------|
 | PUT | `/api/servers/:serverId` | `server.create` (sin `admin`: ser propietario del padre) | Crea un servidor; con `parent_server_id` es un subservidor. |
 | PUT | `/api/servers/:serverId/data` | `server.data.edit.admin` | Cambia los límites; se comprueban frente al padre o a los subservidores. |
-| DELETE | `/api/servers/:serverId` | `server.delete` | Borra; se rechaza si el padre todavía tiene subservidores. |
+| DELETE | `/api/servers/:serverId` | `server.delete` | Borra; se rechaza si el padre todavía tiene subservidores. `204`, o `200 {"leftoverDatabases": [...]}` cuando un host de bases de datos no pudo borrar alguna de sus bases de datos MySQL (véase la [referencia de la API](../reference/api/03-servers.md#delete-apiserversserverid)). |
 | GET | `/api/servers` | sesión (lista los servidores visibles para el usuario) | Lista servidores; cada elemento incluye `parent_server_id` cuando es un subservidor. |
 
 Cuerpo mínimo de un subservidor (el resto es la definición de la plantilla, como en cualquier servidor):

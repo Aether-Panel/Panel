@@ -3,6 +3,7 @@ package skypanel
 import (
 	"errors"
 	"runtime/debug"
+	"strconv"
 	"strings"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
@@ -56,6 +57,44 @@ var ErrNotBearerToken = CreateError("access token must be a Bearer token", "ErrN
 var ErrKeyNotECDSA = CreateError("key is not ECDSA key", "ErrKeyNotECDSA")
 var ErrMissingScope = CreateError("missing scope", "ErrMissingScope")
 var ErrNodeHasServers = CreateError("node has servers associated", "ErrNodeHasServers")
+
+// ErrNodeHasProducts, ErrTemplateInUse and ErrTemplateRepoInUse refuse a delete that would leave
+// store products unable to create their servers. The message names the products by their id,
+// filled in here (the error response sends it as written); the metadata lists them too, for
+// the panel's own translation.
+var ErrNodeHasProducts = func(products []string) *Error {
+	return productsInUse("the products "+strings.Join(products, ", ")+" create their servers on this node: point them at another node or delete them first", "ErrNodeHasProducts", products)
+}
+
+var ErrTemplateInUse = func(products []string) *Error {
+	return productsInUse("the products "+strings.Join(products, ", ")+" create their servers with this template: point them at another template or delete them first", "ErrTemplateInUse", products)
+}
+
+var ErrTemplateRepoInUse = func(products []string) *Error {
+	return productsInUse("the products "+strings.Join(products, ", ")+" create their servers with templates only this repo has: point them at other templates or delete them first", "ErrTemplateRepoInUse", products)
+}
+
+func productsInUse(message, code string, products []string) *Error {
+	return CreateError(message, code).Metadata(map[string]interface{}{"products": products})
+}
+
+// ErrProductTemplateRequired, ErrProductTemplateNotFound, ErrProductTemplateUnreadable and
+// ErrProductNodeNotFound refuse a store product provisioning could not use; their messages are
+// filled in for the same reason
+var ErrProductTemplateRequired = CreateError("a product needs a template", "ErrProductTemplateRequired")
+
+var ErrProductTemplateNotFound = func(template string) *Error {
+	return CreateError("no template repository has a template named "+template+": check the name or add the template first", "ErrProductTemplateNotFound").Metadata(map[string]interface{}{"template": template})
+}
+
+var ErrProductTemplateUnreadable = func(template, repo string) *Error {
+	return CreateError("the template "+template+" could not be looked up: the template repository "+repo+" could not be read, try again later", "ErrProductTemplateUnreadable").Metadata(map[string]interface{}{"template": template, "repo": repo})
+}
+
+var ErrProductNodeNotFound = func(node uint) *Error {
+	return CreateError("node "+strconv.FormatUint(uint64(node), 10)+" does not exist: pick another node", "ErrProductNodeNotFound").Metadata(map[string]interface{}{"node": node})
+}
+
 var ErrInvalidSession = CreateError("invalid session", "ErrInvalidSession")
 var ErrSessionExpired = CreateError("session expired", "ErrSessionExpired")
 var ErrTaskNotFound = CreateError("task not found", "ErrTaskNotFound")

@@ -55,7 +55,7 @@ If the server is itself a sub-server, the tab only says: *This server is already
 |--------|------|-------|---------|
 | PUT | `/api/servers/:serverId` | `server.create` (non-admins: owner of the parent) | Creates a server; with `parent_server_id` it is a sub-server. |
 | PUT | `/api/servers/:serverId/data` | `server.data.edit.admin` | Changes limits; checked against the parent or the sub-servers. |
-| DELETE | `/api/servers/:serverId` | `server.delete` | Deletes; refused for a parent that still has sub-servers. |
+| DELETE | `/api/servers/:serverId` | `server.delete` | Deletes; refused for a parent that still has sub-servers. `204`, or `200 {"leftoverDatabases": [...]}` when a database host could not drop some of its MySQL databases (see the [API reference](../reference/api/03-servers.md#delete-apiserversserverid)). |
 | GET | `/api/servers` | session (lists the servers the user can see) | Lists servers; each item carries `parent_server_id` when it is a sub-server. |
 
 Minimal body for a sub-server (the rest is the template definition, as for any server):

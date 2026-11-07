@@ -130,7 +130,7 @@ Otras situaciones que cierran sesiones:
 | Se restablece la contraseña con el enlace del correo | Todas |
 | Se borra un cliente OAuth2 | Todas las de ese cliente |
 
-Quitar `login` también cierra el SFTP: el panel lo comprueba en cada conexión, con contraseña o con clave SSH, además de `server.sftp`.
+Quitar `login` también cierra el SFTP: el panel lo comprueba en cada conexión, con contraseña o con clave SSH, además de `server.sftp`. Las conexiones ya abiertas se vuelven a comprobar cada 30 segundos, así que borrar el usuario o quitarle `login`, `server.sftp` o el acceso al servidor (o quitar la clave SSH con la que entró una conexión) las cierra en ese tiempo; si no se puede llegar a la base de datos del panel (o, en un nodo remoto, al panel), las conexiones abiertas siguen hasta que responda.
 
 ### Claves SSH para SFTP
 
@@ -153,7 +153,7 @@ El panel muestra la huella SHA256 de cada clave, la misma que imprime `ssh-keyge
 sftp -P 5657 -i ~/.ssh/id_ed25519 -o User='ana@example.com#1a2b3c4d' panel.example.com
 ```
 
-El usuario necesita igualmente `server.sftp` en ese servidor (o ser su propietario). Borrar una clave impide las conexiones nuevas con ella; borrar el usuario borra sus claves.
+El usuario necesita igualmente `server.sftp` en ese servidor (o ser su propietario). Borrar una clave impide las conexiones nuevas con ella y, en 30 segundos, cierra las que abrió; borrar el usuario borra sus claves.
 
 Las claves funcionan en todos los nodos:
 

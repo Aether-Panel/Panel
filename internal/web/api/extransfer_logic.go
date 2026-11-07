@@ -499,22 +499,68 @@ func reportExTransfer(db *gorm.DB, serverID, status, details string, isError boo
 	go sendWebhookReport(name, status, details, isError)
 }
 
+// originArchiveRemoveTimeout bounds each call that removes an archive: a node that hangs must
+// not hold up the expiry sweep, nor the server's archive lock it holds meanwhile
+var originArchiveRemoveTimeout = 30 * time.Second
+
 // removeOriginArchive deletes the archive a finished or cancelled session left in the server's
-// files, finished or still being written. It is a variable so tests can keep away from the node.
-var removeOriginArchive = func(db *gorm.DB, serverID string) {
+// files, finished or still being written. It reports whether the node confirmed both names are
+// gone (deleted, or not there); a node that cannot be reached or answers an error keeps them,
+// and the expiry sweep tries again. It is a variable so tests can keep away from the node.
+var removeOriginArchive = func(db *gorm.DB, serverID string) bool {
 	var server models.Server
-	if err := db.Preload("Node").Where(serverIdentifierQuery, serverID).First(&server).Error; err != nil {
-		return
+	err := db.Preload("Node").Where(serverIdentifierQuery, serverID).First(&server).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// the server went, and its files with it
+		return true
+	}
+	if err != nil {
+		logging.Error.Printf("Could not look up %s to remove its transfer archive: %v", serverID, err)
+		return false
 	}
 	ns := &services.Node{DB: db}
 	for _, name := range []string{originArchive, originArchivePartial} {
-		res, err := ns.CallNode(&server.Node, "DELETE", originArchivePath(server.Identifier, name), nil, nil)
-		if err != nil {
-			logging.Error.Printf("Could not remove the transfer archive of %s: %v", serverID, err)
-			return
+		if !removeOriginArchiveFile(ns, &server, name) {
+			return false
 		}
-		utils.CloseResponse(res)
 	}
+	return true
+}
+
+func removeOriginArchiveFile(ns *services.Node, server *models.Server, name string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), originArchiveRemoveTimeout)
+	defer cancel()
+	res, err := ns.CallNodeContext(ctx, &server.Node, http.MethodDelete, originArchivePath(server.Identifier, name), nil, nil)
+	if err != nil {
+		logging.Error.Printf("Could not remove the transfer archive of %s: %v", server.Identifier, err)
+		return false
+	}
+	defer utils.CloseResponse(res)
+	if res.StatusCode >= 200 && res.StatusCode < 300 {
+		return true
+	}
+	if res.StatusCode == http.StatusNotFound {
+		return serverLoadedOnNode(ctx, ns, server)
+	}
+	logging.Error.Printf("Could not remove the transfer archive of %s: the node answered %d", server.Identifier, res.StatusCode)
+	return false
+}
+
+// serverLoadedOnNode tells the daemon's two bare 404s on a file delete apart: the file is not
+// there (the archive is gone), or the node has not loaded the server (nothing was looked at).
+// Its status route answers 404 only in the second case, and works on every daemon version.
+func serverLoadedOnNode(ctx context.Context, ns *services.Node, server *models.Server) bool {
+	res, err := ns.CallNodeContext(ctx, &server.Node, http.MethodGet, daemonServerPrefix+server.Identifier+"/status", nil, nil)
+	if err != nil {
+		logging.Error.Printf("Could not check that the node has %s loaded: %v", server.Identifier, err)
+		return false
+	}
+	defer utils.CloseResponse(res)
+	if res.StatusCode >= 200 && res.StatusCode < 300 {
+		return true
+	}
+	logging.Error.Printf("Could not remove the transfer archive of %s: the node does not have the server loaded (status %d)", server.Identifier, res.StatusCode)
+	return false
 }
 
 // The archive a federated transfer sends from this panel is written under a hidden partial name
@@ -714,7 +760,7 @@ func confirmExTransfer(c *gin.Context) {
 
 	if completed {
 		reportExTransfer(db, serverID, services.NotificationText("extransfer.status.completedOrigin"), services.NotificationText("extransfer.destinationConfirmed"), false)
-		go removeOriginArchive(db, serverID)
+		go sessionArchiveRemoval(db, serverID, req.SessionID)()
 	}
 	c.JSON(http.StatusOK, gin.H{"status": models.StatusCompleted})
 }
@@ -777,7 +823,7 @@ func cancelExTransfer(c *gin.Context) {
 			details += " " + services.NotificationText("extransfer.reason", req.Reason)
 		}
 		reportExTransfer(db, serverID, services.NotificationText("extransfer.status.cancelledDestination"), details, true)
-		go removeOriginArchive(db, serverID)
+		go sessionArchiveRemoval(db, serverID, sessionID)()
 	}
 	c.JSON(http.StatusOK, gin.H{"status": models.StatusCancelled})
 }
@@ -875,7 +921,11 @@ func StartDataPlaneMigration(session models.ExTransferSession, db *gorm.DB) {
 		return ns.CallNode(&server.Node, method, path, body, headers)
 	}
 
-	if err := buildOriginArchive(callNode, server.Identifier); err != nil {
+	// a sweep removing an expired session's archive of this server finishes first, or waits
+	unlock := lockOriginArchive(server.Identifier)
+	err := buildOriginArchive(callNode, server.Identifier)
+	unlock()
+	if err != nil {
 		logging.Error.Printf("Failed to archive server %s: %v", server.Identifier, err)
 		// a session cancelled meanwhile stays cancelled
 		db.Model(&models.ExTransferSession{}).Where("id = ? AND status = ?", session.ID, models.StatusMigrating).Update("status", models.StatusFailed)
@@ -886,7 +936,7 @@ func StartDataPlaneMigration(session models.ExTransferSession, db *gorm.DB) {
 	// cancelled while the archive was being made: nobody will download it
 	var current models.ExTransferSession
 	if err := db.Select("status").Where("id = ?", session.ID).First(&current).Error; err == nil && current.Status != models.StatusMigrating {
-		removeOriginArchive(db, server.Identifier)
+		sessionArchiveRemoval(db, server.Identifier, session.SessionUUID)()
 		return
 	}
 
@@ -1580,7 +1630,7 @@ func cancelExTransferByUser(c *gin.Context) {
 			stopOriginDownloads(id)
 		}
 		go sendWebhookReport(server.Name, services.NotificationText("extransfer.status.cancelledOrigin"), services.NotificationText("extransfer.ownerCancelledOrigin"), true)
-		go removeOriginArchive(db, server.Identifier)
+		go sessionArchiveRemoval(db, server.Identifier, cancelledSessions...)()
 	}
 
 	c.JSON(http.StatusOK, gin.H{"cancelled_pull": pullCancelled, "cancelled_sessions": len(cancelledSessions)})

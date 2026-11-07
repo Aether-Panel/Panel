@@ -39,7 +39,7 @@ The prefix keeps tenants apart on a shared host: one server can never create or 
 
 Deleting a database runs `DROP USER IF EXISTS`, `DROP DATABASE IF EXISTS` and `FLUSH PRIVILEGES` on the host, then removes the record. The API checks that the database belongs to the server in the URL.
 
-When a **server** is deleted, the panel drops all its databases and users first. This is best effort: if the host is unreachable the server is deleted anyway and the panel logs `server <id>: database <name> and its user could not be dropped from host <id>, remove them by hand`.
+When a **server** is deleted, the panel drops all its databases and users first. This is best effort: if the host is unreachable the server is deleted anyway, the panel logs `server <id>: database <name> and its user <user> could not be dropped from host <id> (<name>), remove them by hand: <reason>` (the reason says whether connecting, dropping the user or dropping the database failed, and names a missing privilege only when MySQL denied it), and whoever deleted the server sees a warning listing the databases left on the host.
 
 A **database host** can only be deleted once it has no databases left: while it still has any, the deletion is refused with HTTP 409 `ErrDatabaseHostInUse`. This way no databases or users are left on the MySQL server with nothing in the panel to delete them. Delete the databases from their servers first, then the host.
 

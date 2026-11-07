@@ -161,6 +161,12 @@ func boundByClient(c *gin.Context, granted []*scopes.Scope, serverID string) []*
 	if !ok || client == nil {
 		return []*scopes.Scope{}
 	}
+	return ClientScopes(client, granted, serverID)
+}
+
+// ClientScopes keeps, of the scopes granted on serverID, the ones an OAuth2 client may use:
+// what a session minted from it really gets
+func ClientScopes(client *models.Client, granted []*scopes.Scope, serverID string) []*scopes.Scope {
 	bounded := make([]*scopes.Scope, 0, len(granted))
 	for _, s := range granted {
 		if clientAllows(client, s, serverID) {

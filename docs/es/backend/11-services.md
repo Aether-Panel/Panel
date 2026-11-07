@@ -137,7 +137,7 @@ type ServerSearch struct {
 |---|---|
 | `GetAll()` | Nodos de la base de datos más `models.LocalNode` cuando `panel.enable` es true |
 | `Get(id)` | El nodo local para su id; si no, una fila de la base de datos |
-| `Create`, `Update`, `Delete` | `Update` no hace nada con el nodo local; `Delete` rechaza el nodo local y los nodos que aún tienen servidores (`ErrNodeHasServers`) |
+| `Create`, `Update`, `Delete` | `Update` no hace nada con el nodo local; `Delete` rechaza el nodo local, los nodos que aún tienen servidores (`ErrNodeHasServers`) y los nodos en los que un producto de la tienda crea sus servidores, fijado o como respaldo (`ErrNodeHasProducts`) |
 | `CallNode(node, method, path, body, headers)` / `CallNodeContext(ctx, ...)` | Llamada HTTP al daemon del nodo con un JWT nuevo ligado a ese nodo |
 | `OpenSocket(node, path, w, r)` | Actualiza la conexión del navegador y la redirige al WebSocket del daemon (`ws`/`wss`) |
 | `SyncNodeToConfig()` | Se ejecuta en `init`: host/puerto del nodo local desde `panel.settings.masterUrl`, puerto SFTP desde `daemon.sftp.host` |
@@ -195,7 +195,7 @@ El token en claro solo se devuelve una vez, al crearlo. Véase [Seguridad](./09-
 | `UsableHosts(serverID)` | Hosts que el servidor puede usar: ligados a su nodo (o a ninguno) y por debajo de `MaxDatabases` |
 | `Create(database)` | Comprueba el host, construye el nombre, crea base de datos y usuario en MySQL y guarda la fila |
 | `Delete(id)` | Elimina el usuario y la base de datos de MySQL y después la fila |
-| `DropAllForServer(serverID)` | Elimina, en la medida de lo posible, todas las bases de datos de un servidor; los fallos se registran en el log, no se devuelven |
+| `DropAllForServer(serverID)` | Elimina, en la medida de lo posible, todas las bases de datos de un servidor; los fallos se registran en el log y se devuelven como `[]LeftoverDatabase` (id y nombre del host, base de datos, usuario); solo es error no poder listar las bases de datos |
 
 Reglas:
 - Nombre físico `s_<serverId>_<nombre>`, solo `[a-zA-Z0-9_-]`, como máximo 64 caracteres (`ErrInvalidDatabaseName`); único por host (`ErrDatabaseNameTaken`).

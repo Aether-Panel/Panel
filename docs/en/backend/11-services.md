@@ -137,7 +137,7 @@ type ServerSearch struct {
 |---|---|
 | `GetAll()` | Nodes from the database plus `models.LocalNode` when `panel.enable` is true |
 | `Get(id)` | The local node for its id, otherwise a database row |
-| `Create`, `Update`, `Delete` | `Update` is a no-op for the local node; `Delete` refuses the local node and nodes that still have servers (`ErrNodeHasServers`) |
+| `Create`, `Update`, `Delete` | `Update` is a no-op for the local node; `Delete` refuses the local node, nodes that still have servers (`ErrNodeHasServers`) and nodes a store product creates its servers on, pinned or as its fallback (`ErrNodeHasProducts`) |
 | `CallNode(node, method, path, body, headers)` / `CallNodeContext(ctx, ...)` | HTTP call to the node's daemon with a fresh JWT bound to that node |
 | `OpenSocket(node, path, w, r)` | Upgrades the browser connection and proxies it to the daemon's WebSocket (`ws`/`wss`) |
 | `SyncNodeToConfig()` | Runs at `init`: local node host/port from `panel.settings.masterUrl`, SFTP port from `daemon.sftp.host` |
@@ -195,7 +195,7 @@ The clear token is only returned once, at creation. See [Security](./09-security
 | `UsableHosts(serverID)` | Hosts the server may use: tied to its node (or to none) and below `MaxDatabases` |
 | `Create(database)` | Checks the host, builds the name, creates database + user on MySQL, saves the row |
 | `Delete(id)` | Drops the MySQL user and database, then the row |
-| `DropAllForServer(serverID)` | Best effort drop of every database of a server; failures are logged, not returned |
+| `DropAllForServer(serverID)` | Best effort drop of every database of a server; failures are logged and returned as `[]LeftoverDatabase` (host id and name, database, user), and only a failure to list the databases is an error |
 
 Rules:
 - Physical name `s_<serverId>_<name>`, only `[a-zA-Z0-9_-]`, at most 64 characters (`ErrInvalidDatabaseName`); unique per host (`ErrDatabaseNameTaken`).

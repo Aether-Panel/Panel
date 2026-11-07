@@ -265,7 +265,17 @@ func (t *Template) Save(template *models.Template) error {
 	return t.DB.Save(template).Error
 }
 
+// Delete removes a local template, unless a store product creates its servers with it and no
+// other repo has a template of that name (ErrTemplateInUse)
 func (t *Template) Delete(name string) error {
+	products, err := t.productsLeftWithout(localRepo.ID, name)
+	if err != nil {
+		return err
+	}
+	if len(products) > 0 {
+		return skypanel.ErrTemplateInUse(products)
+	}
+
 	model := &models.Template{
 		Name: name,
 	}
@@ -293,8 +303,21 @@ func (t *Template) AddRepo(repo *models.TemplateRepo) error {
 	return t.DB.Save(repo).Error
 }
 
-// DeleteRepo removes the repo and its git checkout, which nothing else would ever reuse or remove
+// DeleteRepo removes the repo and its git checkout, which nothing else would ever reuse or
+// remove, unless a store product finds its template only in this repo (ErrTemplateRepoInUse)
 func (t *Template) DeleteRepo(id uint) error {
+	// with templates.url set the panel reads none of the repos it stores: removing one changes
+	// nothing a product uses
+	if config.TemplatesURL.Value() == "" {
+		products, err := t.productsLeftWithout(id, "")
+		if err != nil {
+			return err
+		}
+		if len(products) > 0 {
+			return skypanel.ErrTemplateRepoInUse(products)
+		}
+	}
+
 	if err := t.DB.Where(&models.TemplateRepo{ID: id}).Delete(&models.TemplateRepo{ID: id}).Error; err != nil {
 		return err
 	}
@@ -303,6 +326,59 @@ func (t *Template) DeleteRepo(id uint) error {
 		logging.Error.Printf("template repo %d: its checkout could not be removed: %s", id, err)
 	}
 	return nil
+}
+
+// productsLeftWithout lists the ids of the store products whose template is in the repo and in
+// no other the panel reads: provisioning looks a product's template up by name in every repo,
+// so only those would fail once it is gone from this one. name limits it to the products of
+// that template; "" takes them all. A repo that cannot be read leaves no product without its
+// template, as provisioning cannot read it either.
+func (t *Template) productsLeftWithout(repoID uint, name string) ([]string, error) {
+	query := t.DB.Model(&models.ProvisionProduct{}).Where("template <> ''")
+	if name != "" {
+		query = query.Where("template = ?", name)
+	}
+	var products []models.ProvisionProduct
+	if err := query.Order("product_id").Find(&products).Error; err != nil {
+		return nil, err
+	}
+	if len(products) == 0 {
+		return nil, nil
+	}
+
+	repos, err := t.GetRepos()
+	if err != nil {
+		return nil, err
+	}
+	onlyHere := make(map[string]bool)
+	var left []string
+	for _, product := range products {
+		only, checked := onlyHere[product.Template]
+		if !checked {
+			only = t.hasTemplate(repoID, product.Template) && !t.anotherRepoHas(repos, repoID, product.Template)
+			onlyHere[product.Template] = only
+		}
+		if only {
+			left = append(left, product.ProductID)
+		}
+	}
+	return left, nil
+}
+
+func (t *Template) hasTemplate(repoID uint, name string) bool {
+	template, err := t.Get(repoID, name)
+	return err == nil && template != nil
+}
+
+// anotherRepoHas is whether a repo other than skip has the template; one that cannot be read
+// counts as not having it, so a delete is refused rather than let through
+func (t *Template) anotherRepoHas(repos []*models.TemplateRepo, skip uint, name string) bool {
+	for _, repo := range repos {
+		if repo.ID != skip && t.hasTemplate(repo.ID, name) {
+			return true
+		}
+	}
+	return false
 }
 
 // repoCheckoutPath is the folder a repo is cloned into

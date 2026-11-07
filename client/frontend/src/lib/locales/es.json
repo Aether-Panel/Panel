@@ -1232,7 +1232,9 @@
         "description": "Esta acción es permanente. Se borrarán todos los archivos y datos del servidor.",
         "button": "Eliminar",
         "success": "El servidor ha sido eliminado correctamente.",
-        "error": "No se pudo eliminar el servidor."
+        "error": "No se pudo eliminar el servidor.",
+        "leftoversTitle": "Bases de datos que quedan en su host",
+        "leftovers": "El servidor se ha eliminado, pero estas bases de datos MySQL y sus usuarios no se pudieron quitar de su host y siguen allí: {{databases}}. Un administrador tiene que eliminarlas a mano."
       },
       "deleteDialog": {
         "title": "¿Estás absolutamente seguro?",
@@ -5235,7 +5237,15 @@
     "ErrNodeJoinCode": "Ese código de unión no existe, ya se usó o caducó: genera otro en el panel.",
     "ErrNodeJoinLocal": "El nodo del propio panel se instala con el panel: no se despliega en otra máquina.",
     "ErrNodeJoinURL": "Primero pon la URL principal del panel en Configuración → General (por ejemplo https://panel.tudominio.com): el nodo nuevo llega al panel por ella.",
-    "ErrTemplateTooLarge": "La plantilla ocupa más de 2 MB, lo máximo que guarda el panel."
+    "ErrTemplateTooLarge": "La plantilla ocupa más de 2 MB, lo máximo que guarda el panel.",
+    "ErrNodeHasServers": "Este nodo todavía tiene servidores. Muévelos a otro nodo o bórralos primero.",
+    "ErrNodeHasProducts": "Los productos de la tienda {{products}} crean sus servidores en este nodo. Asígnales otro nodo o bórralos primero.",
+    "ErrTemplateInUse": "Los productos de la tienda {{products}} crean sus servidores con esta plantilla. Asígnales otra plantilla o bórralos primero.",
+    "ErrTemplateRepoInUse": "Los productos de la tienda {{products}} usan plantillas que solo tiene este repositorio. Asígnales otras plantillas o bórralos primero.",
+    "ErrProductTemplateRequired": "Un producto necesita una plantilla.",
+    "ErrProductTemplateNotFound": "Ningún repositorio de plantillas tiene una plantilla llamada {{template}}. Revisa el nombre o añade la plantilla primero.",
+    "ErrProductTemplateUnreadable": "No se pudo buscar la plantilla {{template}}: no se pudo leer el repositorio de plantillas {{repo}}. Inténtalo más tarde.",
+    "ErrProductNodeNotFound": "El nodo {{node}} no existe. Elige otro nodo."
   },
   "apiErrorValues": {
     "ErrDiscordTestFailed": {

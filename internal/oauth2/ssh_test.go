@@ -76,6 +76,7 @@ func TestValidateKey_AsksThePanel(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "srv1", perms.Extensions["server_id"])
+	assert.Equal(t, ssh.FingerprintSHA256(key), perms.Extensions["key"], "kept for the checks of the open connection")
 	assert.Equal(t, "/auth/sftp-key", gotPath)
 	assert.Equal(t, "Bearer node-secret", gotAuth)
 	assert.Equal(t, "alice@example.com#srv1", gotBody["username"])
@@ -120,10 +121,96 @@ func TestWebSSHAuthorization_ChecksKeys(t *testing.T) {
 }
 
 func TestSFTPPermissionsFromAnswer(t *testing.T) {
-	perms, err := sftpPermissionsFromAnswer(strings.NewReader(`{"token_type":"Bearer","scope":"abc:server.sftp"}`))
+	perms, err := sftpPermissionsFromAnswer(strings.NewReader(`{"token_type":"Bearer","scope":"abc:server.sftp"}`), "alice@example.com#abc")
 	require.NoError(t, err)
 	assert.Equal(t, "abc", perms.Extensions["server_id"])
+	assert.Equal(t, "alice@example.com#abc", perms.Extensions["username"], "kept for the checks of the open connection")
 
-	_, err = sftpPermissionsFromAnswer(strings.NewReader(`{"error":"invalid_request"}`))
+	_, err = sftpPermissionsFromAnswer(strings.NewReader(`{"error":"invalid_request"}`), "alice@example.com#abc")
 	assert.Error(t, err)
+}
+
+// the SFTP server checks open connections again only when its authorization can
+func TestWebSSHAuthorization_RechecksConnections(t *testing.T) {
+	var auth skypanel.SFTPAuthorization = &WebSSHAuthorization{}
+	_, ok := auth.(skypanel.SFTPRecheck)
+	assert.True(t, ok)
+}
+
+// A remote node asks the panel about an open connection with the login it signed in with
+func TestRecheck_AsksThePanel(t *testing.T) {
+	var gotPath, gotAuth string
+	var gotBody map[string]string
+	panel := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath, gotAuth = r.URL.Path, r.Header.Get("Authorization")
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		_, _ = w.Write([]byte(`{"scope":"srv1:server.sftp"}`))
+	}))
+	defer panel.Close()
+	pointDaemonAt(t, panel.URL+"/oauth2/token", "node-secret")
+
+	perms := &ssh.Permissions{Extensions: map[string]string{"server_id": "srv1", "username": "alice@example.com#srv1"}}
+	allowed, err := (&WebSSHAuthorization{}).Recheck(perms)
+
+	require.NoError(t, err)
+	assert.True(t, allowed)
+	assert.Equal(t, "/auth/sftp-check", gotPath)
+	assert.Equal(t, "Bearer node-secret", gotAuth)
+	assert.Equal(t, "alice@example.com#srv1", gotBody["username"])
+	assert.NotContains(t, gotBody, "keyFingerprint", "a password connection sends no key")
+
+	perms.Extensions["key"] = "SHA256:abc"
+	_, err = (&WebSSHAuthorization{}).Recheck(perms)
+	require.NoError(t, err)
+	assert.Equal(t, "SHA256:abc", gotBody["keyFingerprint"], "a key connection asks about its key")
+}
+
+// Only the panel's refusal ends the connection; no answer keeps it
+func TestRecheck_PanelAnswers(t *testing.T) {
+	for _, c := range []struct {
+		status  int
+		body    string
+		allowed bool
+		err     bool
+	}{
+		{http.StatusOK, `{"scope":"srv1:server.sftp"}`, true, false},
+		{http.StatusBadRequest, `{"error":"invalid_request","error_description":"no access"}`, false, false},
+		// a 400 that is not the panel's refusal (a proxy, a WAF, a bad request) says nothing about the user
+		{http.StatusBadRequest, `{"error":"invalid_request","error_description":"bad request"}`, false, true},
+		{http.StatusBadRequest, `<html>400 Bad Request</html>`, false, true},
+		{http.StatusBadRequest, ``, false, true},
+		// a 200 for another server, or without SFTP, is not this connection's access
+		{http.StatusOK, `{"scope":"srv2:server.sftp"}`, false, false},
+		{http.StatusOK, `{"scope":"srv1:server.view"}`, false, false},
+		// no answer about the user: an older panel, an unknown node secret, a panel error, a proxy page
+		{http.StatusNotFound, `not found`, false, true},
+		{http.StatusUnauthorized, `{"error":"invalid_client"}`, false, true},
+		{http.StatusInternalServerError, `{"error":"server_error"}`, false, true},
+		{http.StatusBadGateway, `<html>bad gateway</html>`, false, true},
+		{http.StatusOK, `<html>maintenance</html>`, false, true},
+	} {
+		panel := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(c.status)
+			_, _ = w.Write([]byte(c.body))
+		}))
+		pointDaemonAt(t, panel.URL, "node-secret")
+
+		perms := &ssh.Permissions{Extensions: map[string]string{"server_id": "srv1", "username": "alice@example.com#srv1"}}
+		allowed, err := (&WebSSHAuthorization{}).Recheck(perms)
+
+		assert.Equal(t, c.allowed, allowed, "%d %s", c.status, c.body)
+		assert.Equal(t, c.err, err != nil, "%d %s: %v", c.status, c.body, err)
+		panel.Close()
+	}
+}
+
+func TestRecheck_PanelUnreachable(t *testing.T) {
+	panel := httptest.NewServer(http.NotFoundHandler())
+	panel.Close()
+	pointDaemonAt(t, panel.URL, "node-secret")
+
+	perms := &ssh.Permissions{Extensions: map[string]string{"server_id": "srv1", "username": "alice@example.com#srv1"}}
+	_, err := (&WebSSHAuthorization{}).Recheck(perms)
+
+	assert.Error(t, err, "an unreachable panel says nothing about the user")
 }

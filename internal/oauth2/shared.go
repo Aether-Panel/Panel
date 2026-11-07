@@ -13,6 +13,11 @@ import (
 // It is a URL path, not a credential (gosec G101 matches on names like "token").
 const oauth2EndpointPath = "/oauth2/token" // #nosec G101
 
+// SFTPNoAccess is the error_description of the panel's refusal of an SFTP key or access check.
+// A node takes a 400 as "no" only with it: a 400 from a proxy in between says nothing about
+// the user, and must not close every SFTP connection on the node.
+const SFTPNoAccess = "no access"
+
 func createRequest(data url.Values) (request *http.Request) {
 	authURL := tokenURL(config.AuthURL.Value())
 	request, _ = http.NewRequest("POST", authURL, bytes.NewBufferString(data.Encode()))

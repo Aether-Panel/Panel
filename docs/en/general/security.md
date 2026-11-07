@@ -130,7 +130,7 @@ Other things that end sessions:
 | The password is reset with the email link | All |
 | An OAuth2 client is deleted | All of that client's sessions |
 
-Taking away `login` also closes SFTP: the panel checks it on every connection, by password or SSH key, as well as `server.sftp`.
+Taking away `login` also closes SFTP: the panel checks it on every connection, by password or SSH key, as well as `server.sftp`. Connections already open are checked again every 30 seconds, so deleting the user or taking away `login`, `server.sftp` or their access to the server (or removing the SSH key a connection signed in with) ends them within that time; if the panel's database (or, on a remote node, the panel) cannot be reached, open connections stay until it answers.
 
 ### SSH keys for SFTP
 
@@ -153,7 +153,7 @@ The panel shows each key's SHA256 fingerprint, the same one `ssh-keygen -l` prin
 sftp -P 5657 -i ~/.ssh/id_ed25519 -o User='ana@example.com#1a2b3c4d' panel.example.com
 ```
 
-The user still needs `server.sftp` on that server (or to own it). Deleting a key stops new connections with it; deleting the user deletes their keys.
+The user still needs `server.sftp` on that server (or to own it). Deleting a key stops new connections with it and, within 30 seconds, ends the ones it opened; deleting the user deletes their keys.
 
 Keys work on every node:
 

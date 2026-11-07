@@ -67,7 +67,7 @@ Excepciones a esa forma:
 
 ### Errores internos
 
-Un fallo inesperado (base de datos, sistema de archivos, red) responde con su código de estado (normalmente `500`), el código `ErrInternal` y el mensaje «internal error, the details are in the panel log». El motivo real solo se escribe en el registro del panel. Los errores que el panel provoca a propósito conservan su código aunque el estado sea `5xx` (por ejemplo, `ErrDatabaseNotAvailable` o `ErrNodeHasServers`).
+Un fallo inesperado (base de datos, sistema de archivos, red) responde con su código de estado (normalmente `500`), el código `ErrInternal` y el mensaje «internal error, the details are in the panel log». El motivo real solo se escribe en el registro del panel. Los errores que el panel provoca a propósito conservan su código aunque el estado sea `5xx` (por ejemplo, `ErrDatabaseNotAvailable`).
 
 Por eso, las rutas cuyo fallo debe poder leer el administrador (pruebas de correo, Discord, Cloudflare y S3, orígenes de modpacks, cambios de subdominio, el asistente del servidor) responden `422` en lugar de `502`, para que el texto llegue al navegador.
 
@@ -108,7 +108,8 @@ Un nodo solo comprueba el token del panel; los permisos del usuario ya los ha co
 | `ErrInvalidSession`, `ErrSessionExpired` | El paso de 2FA no tiene un inicio de sesión pendiente, o tiene más de 5 minutos |
 | `ErrNoPermission` | La acción no está permitida para esta cuenta |
 | `ErrUserNotFound`, `ErrServerNotFound` | Usuario o servidor desconocido |
-| `ErrNodeInvalid`, `ErrNodeHasServers` | Nodo desconocido; no se puede eliminar un nodo con servidores |
+| `ErrNodeInvalid`, `ErrNodeHasServers`, `ErrNodeHasProducts` | Nodo desconocido; no se puede eliminar un nodo con servidores, ni uno en el que un producto de la tienda crea sus servidores (`409`) |
+| `ErrTemplateInUse`, `ErrTemplateRepoInUse` | No se puede eliminar una plantilla con la que un producto de la tienda crea sus servidores, ni el único repositorio que la tiene (`409`) |
 | `ErrNodeAuthFailed` | El nodo rechazó el token del panel (`502`, véase [Fallos de autenticación con el nodo](#fallos-de-autenticación-con-el-nodo)) |
 | `ErrServerOwner` | El propietario de un servidor no se puede limitar ni quitar |
 | `ErrInviteSignupsClosed` | Invitación a un correo desconocido con los registros cerrados |

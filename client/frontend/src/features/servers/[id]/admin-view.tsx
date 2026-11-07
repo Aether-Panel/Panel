@@ -16,6 +16,7 @@ import { useExperimental } from '@/contexts/config-context';
 import { BetaBadge } from '@/components/beta-badge';
 import { useServerSettings } from '@/hooks/use-server-settings';
 import { useAuth } from '@/contexts/providers';
+import { leftoversFrom, rememberLeftovers } from '../delete-leftovers';
 
 const CodeEditor = lazy(() => import('./code-editor'));
 const CloneServerCard = lazy(() => import('./clone-server-card'));
@@ -92,8 +93,10 @@ export default function AdminView({ serverId }: Readonly<{ serverId: string }>) 
     const handleDelete = async () => {
         setIsDeleting(true);
         try {
-            await api.delete(`/api/servers/${serverId}`);
+            const answer = await api.delete<unknown>(`/api/servers/${serverId}`);
             sileo.success({ title: t('common.success'), description: t('servers.admin.delete.success') });
+            // databases a host could not drop: the servers page warns about them after the navigation
+            rememberLeftovers(leftoversFrom(answer));
             window.location.href = '/servers';
         } catch (e: any) {
             sileo.error({ title: t('common.error'), description: e.message || t('servers.admin.delete.error') });

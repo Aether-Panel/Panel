@@ -154,10 +154,10 @@ Without credentials no authentication is sent, which works for public repositori
 | `GET /api/templates/:repo` | `login` | List the templates of a repository (summaries) |
 | `GET /api/templates/:repo/:name` | `login` | Read one template in full |
 | `PUT /api/templates/0/:name` | `templates.local.edit` | Create or replace a local template (body: the template JSON) |
-| `DELETE /api/templates/0/:name` | `templates.local.edit` | Delete a local template |
+| `DELETE /api/templates/0/:name` | `templates.local.edit` | Delete a local template; refused (`409` `ErrTemplateInUse`) while a store product creates its servers with it and no other repository has a template of that name |
 | `POST /api/templates/upload` | `templates.local.edit` | Upload local templates (`multipart/form-data`, field `files`, repeatable) |
 | `POST /api/templates` | `templates.repo.create` | Add a Git repository: `{"name": "...", "url": "https://...", "branch": "main"}`, plus optional `pat`, `username`, `password` or `sshKey` for a private repository |
-| `DELETE /api/templates/:repo` | `templates.repo.delete` | Remove a Git repository |
+| `DELETE /api/templates/:repo` | `templates.repo.delete` | Remove a Git repository; refused (`409` `ErrTemplateRepoInUse`) while it is the only one with a store product's template |
 
 Example upload:
 

@@ -43,7 +43,7 @@ func setupExTransferTest(t *testing.T) *gorm.DB {
 	require.NoError(t, db.AutoMigrate(&models.User{}, &models.Node{}, &models.Server{}, &models.ExTransferSession{}, &models.ExTransferLog{}))
 
 	previous := removeOriginArchive
-	removeOriginArchive = func(*gorm.DB, string) {}
+	removeOriginArchive = func(*gorm.DB, string) bool { return true }
 	t.Cleanup(func() { removeOriginArchive = previous })
 
 	return db

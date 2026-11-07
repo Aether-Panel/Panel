@@ -14,7 +14,13 @@ import (
 	"golang.org/x/crypto/ssh"
 	"net"
 	"os"
+	"time"
 )
+
+// accessRecheckInterval is how long an open connection may outlive the user's access: the
+// handshake is the only other check, and deleting the user or taking away the login or the
+// server's SFTP scope must also end the connections they already have
+const accessRecheckInterval = 30 * time.Second
 
 var sftpServer net.Listener
 
@@ -138,6 +144,12 @@ func handleConn(conn net.Conn, serverConfig *ssh.ServerConfig) error {
 	// The incoming Request channel must be serviced.
 	go PrintDiscardRequests(reqs)
 
+	if checker, ok := auth.(skypanel.SFTPRecheck); ok {
+		done := make(chan struct{})
+		defer close(done)
+		go watchAccess(done, checker, sc.Permissions, accessRecheckInterval, sc.Close, sc.User())
+	}
+
 	// Service the incoming channel.
 	for newChannel := range chans {
 		// Channels have a type, depending on the application level
@@ -175,6 +187,39 @@ func handleConn(conn net.Conn, serverConfig *ssh.ServerConfig) error {
 		}
 	}
 	return nil
+}
+
+// watchAccess asks the authorization every interval whether the connection may stay open and
+// closes it on a no. An error is no answer (the database or the panel is down): the connection
+// stays, and the error is logged once until a check gets through again.
+func watchAccess(done <-chan struct{}, checker skypanel.SFTPRecheck, perms *ssh.Permissions, interval time.Duration, closeConn func() error, user string) {
+	// its own goroutine: a panic in a check must not take the whole daemon down
+	defer skypanel.Recover()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	failing := false
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+		}
+
+		allowed, err := checker.Recheck(perms)
+		if err != nil {
+			if !failing {
+				logging.Error.Printf("Cannot check whether SFTP user %s still has access, the connection stays open: %s", user, err)
+			}
+			failing = true
+			continue
+		}
+		failing = false
+		if !allowed {
+			logging.Info.Printf("SFTP user %s no longer has access, closing the connection", user)
+			_ = closeConn()
+			return
+		}
+	}
 }
 
 // replySubsystemRequests accepts only the sftp subsystem request and refuses everything else

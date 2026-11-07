@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Trash2, Plus, Pencil, Package } from '@/components/icons';
 import { sileo } from "@/lib/toast";
-import { api } from '@/lib/api-client';
+import { api, ApiError } from '@/lib/api-client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslations } from '@/contexts/translations-context';
 import { SettingsCard, SettingsCardHeader } from './general-tab';
@@ -43,6 +43,8 @@ export function ProductsView() {
         port_range_max: 0,
     });
     const [usePortRange, setUsePortRange] = useState(false);
+    // why the panel refused the product (an unknown template or node), shown in the form
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     const fetchData = async () => {
         try {
@@ -62,6 +64,7 @@ export function ProductsView() {
     }, []);
 
     const handleSubmit = async () => {
+        setSaveError(null);
         try {
             const url = editingId ? `/api/provision/products/${editingId}` : '/api/provision/products';
 
@@ -86,7 +89,9 @@ export function ProductsView() {
             sileo.success({ title: t('common.success'), description: t('settings.products.toast.saved') });
         } catch (e) {
             console.error(e);
-            sileo.error({ title: t('common.error'), description: t('settings.products.toast.saveFailed') });
+            const reason = e instanceof ApiError && e.message ? e.message : null;
+            setSaveError(reason);
+            sileo.error({ title: t('common.error'), description: reason ?? t('settings.products.toast.saveFailed') });
         }
     };
 
@@ -114,6 +119,7 @@ export function ProductsView() {
         });
         setUsePortRange(false);
         setEditingId(null);
+        setSaveError(null);
         setIsDialogOpen(true);
     };
 
@@ -131,6 +137,7 @@ export function ProductsView() {
         });
         setUsePortRange(!!(product.port_range_min && product.port_range_max));
         setEditingId(product.id);
+        setSaveError(null);
         setIsDialogOpen(true);
     };
 
@@ -333,6 +340,11 @@ export function ProductsView() {
                             )}
                         </div>
                     </div>
+                    {saveError && (
+                        <p role="alert" className="break-words rounded-lg border border-destructive/30 bg-destructive/[0.07] px-3 py-2 text-sm text-destructive-bright">
+                            {saveError}
+                        </p>
+                    )}
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsDialogOpen(false)}>{t('common.cancel')}</Button>
                         <Button onClick={handleSubmit}>{t('settings.products.save')}</Button>

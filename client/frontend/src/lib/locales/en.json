@@ -1232,7 +1232,9 @@
         "description": "This action is permanent. All server files and data will be erased.",
         "button": "Delete",
         "success": "Server has been deleted.",
-        "error": "Could not delete the server."
+        "error": "Could not delete the server.",
+        "leftoversTitle": "Databases left on their host",
+        "leftovers": "The server was deleted, but these MySQL databases and their users could not be removed from their host and are still there: {{databases}}. An administrator has to remove them by hand."
       },
       "deleteDialog": {
         "title": "Are you absolutely sure?",
@@ -5235,7 +5237,15 @@
     "ErrNodeJoinCode": "That join code does not exist, was already used or has expired: generate a new one in the panel.",
     "ErrNodeJoinLocal": "The panel's own node is installed with the panel: it is not deployed on another machine.",
     "ErrNodeJoinURL": "First set the panel's base URL in Settings → General (for example https://panel.yourdomain.com): the new node reaches the panel there.",
-    "ErrTemplateTooLarge": "The template is larger than 2 MB, the most the panel stores."
+    "ErrTemplateTooLarge": "The template is larger than 2 MB, the most the panel stores.",
+    "ErrNodeHasServers": "This node still has servers. Move them to another node or delete them first.",
+    "ErrNodeHasProducts": "The store products {{products}} create their servers on this node. Point them at another node or delete them first.",
+    "ErrTemplateInUse": "The store products {{products}} create their servers with this template. Point them at another template or delete them first.",
+    "ErrTemplateRepoInUse": "The store products {{products}} use templates only this repository has. Point them at other templates or delete them first.",
+    "ErrProductTemplateRequired": "A product needs a template.",
+    "ErrProductTemplateNotFound": "No template repository has a template named {{template}}. Check the name or add the template first.",
+    "ErrProductTemplateUnreadable": "The template {{template}} could not be looked up: the template repository {{repo}} could not be read. Try again later.",
+    "ErrProductNodeNotFound": "Node {{node}} does not exist. Pick another node."
   },
   "apiErrorValues": {
     "ErrDiscordTestFailed": {

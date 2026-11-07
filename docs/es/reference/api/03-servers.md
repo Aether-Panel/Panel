@@ -194,6 +194,12 @@ Errores: `400 ErrNodeInvalid` para un nodo desconocido, `403` por las reglas de 
 
 Detiene el servidor, lo elimina en el nodo (junto con los archivos de sus copias de seguridad guardados en ese nodo; las copias ya subidas al almacenamiento externo se quedan allí) y borra sus permisos, registros de copias de seguridad, clientes OAuth2, sesiones, historial de disponibilidad y registros DNS. Sus bases de datos MySQL y los usuarios de estas se eliminan de sus hosts. Un servidor con subservidores responde `400` hasta que se eliminen. `?skipNode` lo elimina solo del panel, sin contactar con el nodo. Respuesta: `204`; los miembros reciben un aviso por correo (plantilla `deletedServer`).
 
+Un host de bases de datos al que no se puede llegar (o que rechaza el borrado) no detiene la eliminación. El servidor se borra igualmente y la respuesta es `200` con lo que quedó en el host, para eliminarlo a mano (el cliente web lo muestra como aviso):
+
+```json
+{ "leftoverDatabases": [ { "hostId": 2, "hostName": "mariadb-1", "database": "s_a1b2c3d4_world", "username": "u_x7k2" } ] }
+```
+
 ### `POST /api/servers/:serverId/suspend`
 
 Alterna la suspensión del servidor y de sus subservidores. Al suspender, también se detienen. La respuesta es el objeto servidor con el nuevo valor de `suspended`. Un servidor suspendido no se puede arrancar ni reiniciar (`403`), ni puede clonarlo quien no sea administrador.
