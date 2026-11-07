@@ -623,6 +623,12 @@ func editServer(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// dropServerDatabases drops the server's MySQL databases and users from their hosts. A
+// variable so tests can see when it runs.
+var dropServerDatabases = func(db *gorm.DB, serverID string) error {
+	return (&services.Database{DB: db}).DropAllForServer(serverID)
+}
+
 // @Summary Deletes a server
 // @Description Deletes a server from the panel
 // @Success 204 {object} nil
@@ -662,16 +668,15 @@ func deleteServer(c *gin.Context) {
 
 	releaseSubdomain(db, server)
 
+	// before the rows go: on MySQL/Postgres deleting the server cascades its database rows,
+	// and without them nothing knows which schemas and users to drop from the hosts
+	if err := dropServerDatabases(db, server.Identifier); response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
 	if err := db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where(serverIdentifierRefQuery, server.Identifier).Delete(&models.Permissions{}).Error; err != nil {
 			return err
-		}
-
-		var clientIDs []uint
-		if err := tx.Model(&models.Client{}).Where(serverIDQuery, server.Identifier).Pluck("id", &clientIDs).Error; err == nil && len(clientIDs) > 0 {
-			if err := tx.Where("client_id IN ?", clientIDs).Delete(&models.Permissions{}).Error; err != nil {
-				return err
-			}
 		}
 
 		if err := tx.Where(serverIDQuery, server.Identifier).Delete(&models.UptimeStatus{}).Error; err != nil {
@@ -680,10 +685,16 @@ func deleteServer(c *gin.Context) {
 		if err := tx.Where(serverIDQuery, server.Identifier).Delete(&models.Backup{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Where(serverIDQuery, server.Identifier).Delete(&models.Client{}).Error; err != nil {
+		if err := tx.Where(serverIDQuery, server.Identifier).Delete(&models.Database{}).Error; err != nil {
+			return err
+		}
+		if err := services.DeleteServerClients(tx, server.Identifier); err != nil {
 			return err
 		}
 		if err := tx.Where(serverIdentifierRefQuery, server.Identifier).Delete(&models.Session{}).Error; err != nil {
+			return err
+		}
+		if err := services.DeleteServerTransfers(tx, server.Identifier); err != nil {
 			return err
 		}
 

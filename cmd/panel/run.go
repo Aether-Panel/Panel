@@ -25,6 +25,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers/docker"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/sftp"
+	"github.com/SkyPanel/SkyPanel/v3/internal/update"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web/api"
@@ -337,6 +338,8 @@ func daemon() error {
 	logging.Debug.Printf("Daemon PATH variable: %s", os.Getenv("PATH"))
 
 	servers.LoadFromFolder()
+	// an update restarts the panel before it can remove its own container
+	go update.RemoveLeftovers()
 
 	servers.InitService()
 	// each server's periodic off-site copy, made by this node

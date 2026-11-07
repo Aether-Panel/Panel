@@ -95,6 +95,20 @@ type serverState struct {
 	offlineSince time.Time
 }
 
+// forgetServerState drops what is kept in memory for a deleted server: its alert state and
+// its last game query. Nothing removes them otherwise, and a server created again with the
+// id would inherit them.
+func forgetServerState(serverID string) {
+	stateTrackingLock.Lock()
+	delete(serverStateTracking, serverID)
+	stateTrackingLock.Unlock()
+
+	queryLock.Lock()
+	delete(queryCache, serverID)
+	delete(sourceQueryMisses, serverID)
+	queryLock.Unlock()
+}
+
 // offlineAlertDelay gives afterExit time to explain an exit before the admin is told
 const offlineAlertDelay = 15 * time.Second
 

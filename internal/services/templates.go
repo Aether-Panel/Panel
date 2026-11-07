@@ -293,8 +293,36 @@ func (t *Template) AddRepo(repo *models.TemplateRepo) error {
 	return t.DB.Save(repo).Error
 }
 
+// DeleteRepo removes the repo and its git checkout, which nothing else would ever reuse or remove
 func (t *Template) DeleteRepo(id uint) error {
-	return t.DB.Where(&models.TemplateRepo{ID: id}).Delete(&models.TemplateRepo{ID: id}).Error
+	if err := t.DB.Where(&models.TemplateRepo{ID: id}).Delete(&models.TemplateRepo{ID: id}).Error; err != nil {
+		return err
+	}
+	// the repo is gone either way: a checkout that cannot be removed is only logged
+	if err := forgetRepoCheckout(id); err != nil {
+		logging.Error.Printf("template repo %d: its checkout could not be removed: %s", id, err)
+	}
+	return nil
+}
+
+// repoCheckoutPath is the folder a repo is cloned into
+func repoCheckoutPath(id uint) string {
+	return filepath.Join(config.CacheFolder.Value(), "template-repos", fmt.Sprintf("%d", id))
+}
+
+// forgetRepoCheckout removes the repo's checkout from disk and from the in-memory cache
+func forgetRepoCheckout(id uint) error {
+	pathLock.Lock()
+	defer pathLock.Unlock()
+	delete(existingPaths, id)
+
+	// only ever a folder inside template-repos, never the cache folder or anything above it
+	base := filepath.Clean(filepath.Join(config.CacheFolder.Value(), "template-repos"))
+	path := filepath.Clean(repoCheckoutPath(id))
+	if filepath.Dir(path) != base {
+		return fmt.Errorf("invalid template repo path: %s", path)
+	}
+	return os.RemoveAll(path)
 }
 
 func readTemplateFromDisk(name, path string) (*models.Template, error) {
@@ -376,7 +404,7 @@ func pullRepo(repo *models.TemplateRepo, cache repoCache) error {
 
 // cloneRepo makes a fresh checkout of the repo; callers must hold pathLock
 func cloneRepo(repo *models.TemplateRepo) error {
-	path := filepath.Join(config.CacheFolder.Value(), "template-repos", fmt.Sprintf("%d", repo.ID))
+	path := repoCheckoutPath(repo.ID)
 
 	// if the directory already exists, we may need to nuke it
 	fi, err := os.Stat(path)
