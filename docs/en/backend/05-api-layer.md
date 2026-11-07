@@ -138,6 +138,7 @@ Most `/api/servers/{id}/...` routes are a scope check plus `proxyServerRequest`,
 | `GET /auth/challenge` | — | Proof-of-work challenge of the built-in captcha. |
 | `GET /auth/publickey` | — | The panel's public key set (JWKS) used by nodes. |
 | `POST /auth/sftp-key` | `NeedsDatabase` | For remote nodes: checks an SFTP login with an SSH key (`internal/web/auth/sftp_key.go`). Authenticated with the node secret (`Authorization: Bearer <secret>`), body `{"username": "email#serverId", "publicKey": "<authorized_keys line>"}`. Answers `200 {"scope": "<serverId>:server.sftp"}` (never a session), `401 invalid_client` without a valid node secret, `400 invalid_request` ("no access") for any refusal and `429` after too many failed attempts. See [Security](./09-security.md#password-and-key-authentication). |
+| `POST /auth/sftp-check` | `NeedsDatabase` | For remote nodes: whether an open SFTP connection may stay open (`internal/web/auth/sftp_check.go`), asked every 30 seconds per connection. Same node secret, body `{"username": "email#serverId"}`. Answers `200 {"scope": "<serverId>:server.sftp"}`, `400 invalid_request` ("no access") when the user, their `login` or `server.sftp`, or the server is gone (the node closes the connection), `401` without a valid node secret and `500` on a database error (the node keeps the connection). No attempt limit. |
 
 Sign-in, sign-up and password reset check the captcha first: Turnstile when it is enabled and configured, otherwise the built-in proof of work when `panel.captcha.builtin` is on.
 

@@ -69,3 +69,70 @@ func TestValidateSFTPKey_LimitsFailedAttempts(t *testing.T) {
 	assert.ErrorIs(t, err, skypanel.ErrTooManyAttempts, "once the budget is spent even the right key waits")
 	assert.True(t, LoginAttempts.Allowed(fmt.Sprintf("password:user:%d", user.ID)), "key misses do not lock the password login")
 }
+
+// An open connection is checked again with what its sign-in returned
+func TestRecheckSFTP(t *testing.T) {
+	signIn := func(t *testing.T) (*gorm.DB, *models.User, *ssh.Permissions) {
+		db, user, key := setupSFTPKeyLogin(t)
+		perms, err := validateSFTPKey(db, user.Email, "srv1", key)
+		require.NoError(t, err)
+		return db, user, perms
+	}
+	server := "srv1"
+
+	t.Run("still allowed", func(t *testing.T) {
+		db, _, perms := signIn(t)
+		allowed, err := recheckSFTP(db, perms)
+		require.NoError(t, err)
+		assert.True(t, allowed)
+	})
+
+	t.Run("the SFTP scope is taken away", func(t *testing.T) {
+		db, user, perms := signIn(t)
+		require.NoError(t, db.Where("user_id = ? AND server_identifier = ?", user.ID, server).Delete(&models.Permissions{}).Error)
+		allowed, err := recheckSFTP(db, perms)
+		require.NoError(t, err)
+		assert.False(t, allowed)
+	})
+
+	t.Run("the login scope is taken away", func(t *testing.T) {
+		db, user, perms := signIn(t)
+		require.NoError(t, db.Where("user_id = ? AND server_identifier IS NULL", user.ID).Delete(&models.Permissions{}).Error)
+		allowed, err := recheckSFTP(db, perms)
+		require.NoError(t, err)
+		assert.False(t, allowed)
+	})
+
+	t.Run("the user is deleted", func(t *testing.T) {
+		db, user, perms := signIn(t)
+		require.NoError(t, db.Delete(&models.User{}, user.ID).Error)
+		allowed, err := recheckSFTP(db, perms)
+		require.NoError(t, err)
+		assert.False(t, allowed)
+	})
+
+	t.Run("a new account gets the deleted user's id", func(t *testing.T) {
+		db, user, perms := signIn(t)
+		require.NoError(t, db.Delete(&models.User{}, user.ID).Error)
+		require.NoError(t, db.Create(&models.User{ID: user.ID, Username: "someone-else", Email: "else@example.com", HashedPassword: "x"}).Error)
+		allowed, err := recheckSFTP(db, perms)
+		require.NoError(t, err)
+		assert.False(t, allowed, "the permission rows are still there, but it is not the same person")
+	})
+
+	t.Run("the database fails", func(t *testing.T) {
+		db, _, perms := signIn(t)
+		sqlDB, err := db.DB()
+		require.NoError(t, err)
+		require.NoError(t, sqlDB.Close())
+		_, err = recheckSFTP(db, perms)
+		assert.Error(t, err, "no answer is not a no: the caller keeps the connection")
+	})
+
+	t.Run("permissions without a user", func(t *testing.T) {
+		db, _, _ := signIn(t)
+		allowed, err := recheckSFTP(db, &ssh.Permissions{Extensions: map[string]string{"server_id": server}})
+		require.NoError(t, err)
+		assert.False(t, allowed)
+	})
+}

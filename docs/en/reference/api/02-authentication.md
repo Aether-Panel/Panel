@@ -18,6 +18,7 @@ How a request proves who sent it, how the panel decides what it may do, and the 
 | GET | `/auth/publickey` | Public | The panel's JWT public keys (JWKS) |
 | POST | `/oauth2/token` | Client credentials or node secret | Issues a token |
 | POST | `/auth/sftp-key` | Node secret | Checks an SFTP login with an SSH key for a remote node |
+| POST | `/auth/sftp-check` | Node secret | Whether an open SFTP connection of a remote node may stay open |
 | GET | `/api/config` | Public | Branding, sign-up and anti-bot settings, version |
 
 ## Ways to authenticate
@@ -28,7 +29,7 @@ How a request proves who sent it, how the panel decides what it may do, and the 
 | Bearer token | `Authorization: Bearer <token>` | Scripts and integrations: a session token or an OAuth2 access token |
 | API key | `X-Api-Key: ak_...` or `Authorization: Bearer ak_...` | Only the billing routes under `/api/v1` (see [Provisioning](./07-provisioning.md)) |
 | Panel JWT | `Authorization: Bearer <jwt>` | The `/daemon` routes, panel to node, except the public `GET`/`HEAD`/`OPTIONS /daemon` and `GET /daemon/features` (see [Daemon](./09-daemon.md)) |
-| Node secret | `Authorization: Bearer <secret>` | Node to panel: the OAuth2 password grant and `POST /auth/sftp-key` (SFTP logins) |
+| Node secret | `Authorization: Bearer <secret>` | Node to panel: the OAuth2 password grant, `POST /auth/sftp-key` and `POST /auth/sftp-check` (SFTP logins) |
 | Signed links | Token in the path or query | `/auth/sso?token=...`, `/api/map-view/...` |
 | Ed25519 signatures | In the body or query | `/api/extransfer/*`, panel to panel, except `validate`, which takes the transfer token (see [External transfer](./08-external-transfer.md)) |
 
@@ -257,6 +258,29 @@ Answer (`Cache-Control: no-store`); like the password grant it never contains a 
 | `500 {"error": "server_error"}` | The panel could not look the node up |
 
 The attempt budget is apart from the password one (key `sshkey:user:<id>`): an SSH client offers each of its keys in turn, and those misses must not lock the owner out of signing in with a password. Key logins on the panel's own node count on the same budget, so the limit is the same on every node. A success resets it. A node on an older version takes passwords only. A node whose panel does not have this route yet, or whose `daemon.auth.url` is not an absolute `http(s)` URL, refuses key logins and logs why; passwords keep working.
+
+### `POST /auth/sftp-check`
+
+How a remote node checks the SFTP connections it already let in. The node asks every 30 seconds for each open connection, with the login it signed in with, and closes the connection when the answer is `400`: the user was deleted, lost `login`, lost `server.sftp` on the server (or the server itself), or the server is no longer on that node. Any other answer, or none (panel unreachable, a panel without this route), keeps the connection open, so an outage does not drop everyone. It signs in with the node secret, as `/auth/sftp-key` does, waits at most 15 seconds and counts nothing against the attempt limits: the password or key was checked at sign-in.
+
+```json
+{ "username": "player@example.com#a1b2c3d4" }
+```
+
+Answer (`Cache-Control: no-store`), never a session:
+
+```json
+{ "scope": "a1b2c3d4:server.sftp" }
+```
+
+| Error | When |
+|-------|------|
+| `401 {"error": "invalid_client"}` | No bearer header, or the secret is not a node's |
+| `400 {"error": "invalid_request", "error_description": "bad request"}` | The body is not valid JSON or is larger than 4 KiB |
+| `400 {"error": "invalid_request", "error_description": "no access"}` | Bad username, server gone or not on the asking node, unknown account, or no `login` / `server.sftp` |
+| `500 {"error": "server_error"}` | The panel could not read its database; the node keeps the connection |
+
+The panel's own node does the same check against the database, with the account's id, so a new account that gets a deleted user's id (SQLite reuses them) or an email change also ends the connection.
 
 ## Public configuration
 

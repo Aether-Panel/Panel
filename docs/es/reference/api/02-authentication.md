@@ -18,6 +18,7 @@ Cómo demuestra una petición quién la envía, cómo decide el panel qué puede
 | GET | `/auth/publickey` | Pública | Las claves públicas JWT del panel (JWKS) |
 | POST | `/oauth2/token` | Credenciales de cliente o secreto del nodo | Emite un token |
 | POST | `/auth/sftp-key` | Secreto del nodo | Comprueba un inicio de sesión SFTP con clave SSH para un nodo remoto |
+| POST | `/auth/sftp-check` | Secreto del nodo | Si una conexión SFTP abierta de un nodo remoto puede seguir abierta |
 | GET | `/api/config` | Pública | Marca, registros, configuración anti-bots y versión |
 
 ## Formas de autenticarse
@@ -28,7 +29,7 @@ Cómo demuestra una petición quién la envía, cómo decide el panel qué puede
 | Token bearer | `Authorization: Bearer <token>` | Scripts e integraciones: un token de sesión o un token de acceso OAuth2 |
 | Clave de API | `X-Api-Key: ak_...` o `Authorization: Bearer ak_...` | Solo las rutas de facturación bajo `/api/v1` (véase [Aprovisionamiento](./07-provisioning.md)) |
 | JWT del panel | `Authorization: Bearer <jwt>` | Las rutas `/daemon`, del panel al nodo, salvo las públicas `GET`/`HEAD`/`OPTIONS /daemon` y `GET /daemon/features` (véase [Daemon](./09-daemon.md)) |
-| Secreto del nodo | `Authorization: Bearer <secreto>` | Del nodo al panel: la concesión de contraseña de OAuth2 y `POST /auth/sftp-key` (inicios de sesión SFTP) |
+| Secreto del nodo | `Authorization: Bearer <secreto>` | Del nodo al panel: la concesión de contraseña de OAuth2, `POST /auth/sftp-key` y `POST /auth/sftp-check` (inicios de sesión SFTP) |
 | Enlaces firmados | Token en la ruta o en la consulta | `/auth/sso?token=...`, `/api/map-view/...` |
 | Firmas Ed25519 | En el cuerpo o en la consulta | `/api/extransfer/*`, de panel a panel, salvo `validate`, que recibe el token de transferencia (véase [Transferencia externa](./08-external-transfer.md)) |
 
@@ -257,6 +258,29 @@ Respuesta (`Cache-Control: no-store`); como la concesión de contraseña, nunca 
 | `500 {"error": "server_error"}` | El panel no pudo buscar el nodo |
 
 El contador de intentos es independiente del de contraseñas (clave `sshkey:user:<id>`): un cliente SSH ofrece sus claves una tras otra, y esos fallos no deben impedir al propietario entrar con su contraseña. Los inicios de sesión con clave en el nodo propio del panel cuentan en el mismo contador, así que el límite es igual en todos los nodos. Un acierto lo reinicia. Un nodo con una versión anterior solo admite contraseñas. Un nodo cuyo panel aún no tiene esta ruta, o cuyo `daemon.auth.url` no es una URL `http(s)` absoluta, rechaza los inicios de sesión con clave y registra el motivo; las contraseñas siguen funcionando.
+
+### `POST /auth/sftp-check`
+
+Cómo comprueba un nodo remoto las conexiones SFTP que ya dejó entrar. El nodo pregunta cada 30 segundos por cada conexión abierta, con el usuario con el que entró, y la cierra cuando la respuesta es `400`: el usuario se borró, perdió `login`, perdió `server.sftp` en el servidor (o el propio servidor), o el servidor ya no está en ese nodo. Cualquier otra respuesta, o ninguna (panel inalcanzable, un panel sin esta ruta), mantiene la conexión abierta, para que una caída no eche a todo el mundo. Se identifica con el secreto del nodo, como `/auth/sftp-key`, espera como máximo 15 segundos y no cuenta nada en los límites de intentos: la contraseña o la clave ya se comprobaron al entrar.
+
+```json
+{ "username": "player@example.com#a1b2c3d4" }
+```
+
+Respuesta (`Cache-Control: no-store`), nunca una sesión:
+
+```json
+{ "scope": "a1b2c3d4:server.sftp" }
+```
+
+| Error | Cuándo |
+|-------|--------|
+| `401 {"error": "invalid_client"}` | Sin cabecera bearer, o el secreto no es de un nodo |
+| `400 {"error": "invalid_request", "error_description": "bad request"}` | El cuerpo no es JSON válido o pasa de 4 KiB |
+| `400 {"error": "invalid_request", "error_description": "no access"}` | Usuario mal formado, servidor borrado o que no está en el nodo que pregunta, cuenta desconocida, o sin `login` / `server.sftp` |
+| `500 {"error": "server_error"}` | El panel no pudo leer su base de datos; el nodo mantiene la conexión |
+
+El nodo propio del panel hace la misma comprobación contra la base de datos, con el id de la cuenta, así que una cuenta nueva que reciba el id de un usuario borrado (SQLite los reutiliza) o un cambio de email también cierran la conexión.
 
 ## Configuración pública
 
