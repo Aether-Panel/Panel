@@ -66,12 +66,13 @@ const (
 )
 
 // sessionArchiveRemoval removes, when called, the archive the sessions (confirmed or cancelled)
-// left and, when the node does not confirm it is gone, records them so the sweep tries again.
+// left, behind the same guards as the sweep, and when it could not (another transfer of the
+// server is using the file, or the node did not confirm) records them so the sweep tries again.
 // The removal it uses is read now, so callers can run it in a goroutine of its own.
 func sessionArchiveRemoval(db *gorm.DB, serverID string, sessionIDs ...string) func() {
 	remove := removeOriginArchive
 	return func() {
-		if remove(db, serverID) {
+		if removeOriginArchiveGuarded(db, serverID, time.Now(), remove) {
 			return
 		}
 		for _, id := range sessionIDs {
@@ -163,7 +164,7 @@ func removeExpiredOriginArchives(db *gorm.DB, now time.Time) error {
 	}
 	var errs []error
 	for serverID, sessionIDs := range byServer {
-		if !removeExpiredOriginArchive(db, serverID, now) {
+		if !removeOriginArchiveGuarded(db, serverID, now, removeOriginArchive) {
 			continue
 		}
 		for _, id := range sessionIDs {
@@ -175,11 +176,12 @@ func removeExpiredOriginArchives(db *gorm.DB, now time.Time) error {
 	return errors.Join(errs...)
 }
 
-// removeExpiredOriginArchive removes the archive expired sessions left and reports whether the
+// removeOriginArchiveGuarded removes the server's archive with remove and reports whether the
 // node confirmed it is gone. It leaves it, for a later run, while the server is in another
-// transfer that uses the same file: a newer session sending it, or a pull into it running on
-// this panel.
-func removeExpiredOriginArchive(db *gorm.DB, serverID string, now time.Time) bool {
+// transfer that uses the same file: a session still sending it (MIGRATING and live), or a
+// pull into it running on this panel. The server's archive lock keeps a new archive from being
+// started meanwhile.
+func removeOriginArchiveGuarded(db *gorm.DB, serverID string, now time.Time, remove func(*gorm.DB, string) bool) bool {
 	unlock := lockOriginArchive(serverID)
 	defer unlock()
 
@@ -196,5 +198,5 @@ func removeExpiredOriginArchive(db *gorm.DB, serverID string, now time.Time) boo
 	if live > 0 {
 		return false
 	}
-	return removeOriginArchive(db, serverID)
+	return remove(db, serverID)
 }

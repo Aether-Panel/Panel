@@ -466,3 +466,27 @@ func TestSessionArchiveRemoval_NothingToRetryWhenTheNodeConfirms(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, calls())
 }
+
+// The removal right after a confirm goes through the sweep's guards: while another session of
+// the server is still sending its own archive (same file names), it waits for the sweep.
+func TestSessionArchiveRemoval_LeavesTheArchiveOfALiveTransfer(t *testing.T) {
+	db := setupExTransferTest(t)
+	setRemovable, calls := switchArchiveRemoval(t)
+	setRemovable(true)
+	pub, priv := newExTestKey(t)
+	a := newExTestSession(t, db, models.StatusMigrating, pub, nil)
+	b := newExTestSession(t, db, models.StatusMigrating, pub, nil)
+
+	code, _ := callExSigned(t, db, confirmExTransfer, a.SessionUUID, exSign(priv, "CONFIRM", a.SessionUUID))
+	require.Equal(t, http.StatusOK, code)
+	assert.Eventually(t, func() bool {
+		return countExLogs(t, db, a.SessionUUID, "ARCHIVE_PENDING") == 1
+	}, 5*time.Second, 10*time.Millisecond)
+	assert.Equal(t, 0, calls(), "b's archive was not touched")
+
+	// without b the confirm removes it at once
+	code, _ = callExSigned(t, db, confirmExTransfer, b.SessionUUID, exSign(priv, "CONFIRM", b.SessionUUID))
+	require.Equal(t, http.StatusOK, code)
+	assert.Eventually(t, func() bool { return calls() == 1 }, 5*time.Second, 10*time.Millisecond)
+	assert.EqualValues(t, 0, countExLogs(t, db, b.SessionUUID, "ARCHIVE_PENDING"))
+}
