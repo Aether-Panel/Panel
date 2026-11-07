@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
@@ -159,6 +160,24 @@ func TestPutTemplate_InvalidBodiesAreRejected(t *testing.T) {
 	var count int64
 	require.NoError(t, db.Model(&models.Template{}).Count(&count).Error)
 	assert.Zero(t, count, "nothing was stored")
+}
+
+func TestPutTemplate_ABodyOverTheUploadLimitIsRefused(t *testing.T) {
+	r, db := templatesRouter(t)
+
+	// valid JSON, so only its size can refuse it
+	big := `{"display":"Big","run":{"command":"x"},"notes":"` + strings.Repeat("a", maxTemplateFileSize) + `"}`
+	w := sendRaw(r, http.MethodPut, "/api/templates/0/big", big)
+	assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+	assert.Contains(t, w.Body.String(), "ErrTemplateTooLarge")
+
+	var count int64
+	require.NoError(t, db.Model(&models.Template{}).Count(&count).Error)
+	assert.Zero(t, count, "nothing was stored")
+
+	// a body just under the limit is still saved
+	fits := `{"display":"Fits","run":{"command":"x"},"notes":"` + strings.Repeat("a", maxTemplateFileSize-100) + `"}`
+	assert.Equal(t, http.StatusNoContent, sendRaw(r, http.MethodPut, "/api/templates/0/fits", fits).Code)
 }
 
 func TestPutTemplate_NameAndReadmeInTheBodyAreNotStored(t *testing.T) {

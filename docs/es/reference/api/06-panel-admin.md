@@ -264,7 +264,7 @@ Leer plantillas solo requiere `login`, porque los formularios de nuevo servidor 
 | `GET /api/templates/:repo` | Las plantillas del repositorio |
 | `GET /api/templates/:repo/:name` | Una plantilla: la definición tal como la escribió su autor (mismo orden de claves, con los campos que el panel no conoce), seguida de `name` y `readme`; `404` si no existe |
 | `DELETE /api/templates/:repo` | `204` |
-| `PUT /api/templates/0/:name` | Cuerpo: una definición (un objeto JSON). Crea o sustituye la plantilla local. Se comprueba como antes (`400` si no se lee como definición de servidor) y se guarda tal como llega, sin sus claves `name` y `readme`: el nombre lo da la URL y el readme guardado se conserva. `204` |
+| `PUT /api/templates/0/:name` | Cuerpo: una definición (un objeto JSON). Crea o sustituye la plantilla local. Se comprueba como antes (`400` si no se lee como definición de servidor) y se guarda tal como llega, sin sus claves `name` y `readme`: el nombre lo da la URL y el readme guardado se conserva. `204`; `413 ErrTemplateTooLarge` si el cuerpo pasa de 2 MB |
 | `DELETE /api/templates/0/:name` | `204`; `404` si no existe |
 | `POST /api/templates/upload` | Campo multipart `files`, uno o varios archivos `.json` de hasta 2 MB; el nombre de la plantilla es el del archivo (`minecraft.json` → `minecraft`). El archivo se guarda tal como está (si le falta `display`, se añade al final). Responde con las plantillas creadas; `400 ErrInvalidTemplate` para un archivo que no es JSON o que no tiene ni pasos de instalación ni comando de ejecución |
 

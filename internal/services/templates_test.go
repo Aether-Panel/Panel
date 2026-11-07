@@ -168,3 +168,18 @@ func TestReadTemplateFromDisk_ServesTheTemplateAsWritten(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, authoredTemplate[:len(authoredTemplate)-1]+`,"name":"paper","readme":"# Paper"}`, string(out))
 }
+
+func TestSummarizeTemplate_KeepsTheIcon(t *testing.T) {
+	tmpl := &models.Template{}
+	require.NoError(t, tmpl.SetDefinition([]byte(`{"display":"My survival","icon":"rust","type":"rust","data":{"seed":{"value":"1"}}}`)))
+
+	out, err := json.Marshal(summarizeTemplate("my-survival", tmpl))
+	require.NoError(t, err)
+
+	var summary map[string]any
+	require.NoError(t, json.Unmarshal(out, &summary))
+	assert.Equal(t, "rust", summary["icon"], "the list shows the logo picked in the editor")
+	assert.Equal(t, "My survival", summary["display"])
+	assert.Equal(t, "my-survival", summary["name"])
+	assert.Nil(t, summary["data"], "the summary still leaves the variables out")
+}

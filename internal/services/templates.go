@@ -115,6 +115,7 @@ func summarizeTemplate(name string, v *models.Template) *models.Template {
 		Name: name,
 		Server: skypanel.Server{
 			Display:               v.Server.Display,
+			Icon:                  v.Server.Icon,
 			Type:                  v.Server.Type,
 			Environment:           v.Server.Environment,
 			SupportedEnvironments: v.Server.SupportedEnvironments,

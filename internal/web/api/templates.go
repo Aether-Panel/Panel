@@ -180,6 +180,7 @@ func getTemplateFromRepo(c *gin.Context) {
 // @Summary Adds or updates a template
 // @Success 204 {object} nil
 // @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 413 {object} skypanel.ErrorResponse
 // @Failure 500 {object} skypanel.ErrorResponse
 // @Param template body skypanel.Server true "Template"
 // @Param name path string true "Template name"
@@ -192,9 +193,16 @@ func putTemplate(c *gin.Context) {
 
 	templateName := c.Param("name")
 
+	// the body is stored whole, unknown keys included, so it gets the same cap as an upload
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxTemplateFileSize)
 	// the body is checked as a server definition, as always, and then stored as written:
 	// decoding it into skypanel.Server would sort the variables and drop unknown fields
 	body, err := io.ReadAll(c.Request.Body)
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		response.HandleError(c, skypanel.CreateError("the template is larger than 2 MB", "ErrTemplateTooLarge"), http.StatusRequestEntityTooLarge)
+		return
+	}
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
