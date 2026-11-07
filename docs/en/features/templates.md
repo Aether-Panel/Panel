@@ -62,7 +62,7 @@ In the list, each template's **⋯** menu has **Duplicate** and, on local ones, 
 - In the **Duplicate** search, the down arrow moves into the list and **Enter** opens the first result (only once something has been typed).
 - A copy keeps its source's name when no local template has it; otherwise it becomes `<name>-copy` (or `-copy-2`…) and its display name gets "(copy)" added.
 - Base templates write their variables' texts (display name and description) in the language of whoever creates them: that is what server creators will read. The Minecraft one uses Paper; vanilla means swapping the `paperdl` step for `mojangdl`. The Steam one leaves the `appid` and the executable empty (and required): fill them in before saving, or whoever creates the server will have to type them.
-- They all use only `ghcr.io/aether-panel/*` or official images, and the panel accepts each of them as it is when saved.
+- They all use only `ghcr.io/aether-panel/*` or official images, and the panel accepts each of them when saved (the Steam one once its `appid` and executable are filled in).
 
 #### The page
 
@@ -100,7 +100,7 @@ The form and the JSON check the template against the same schema while you type:
 
 The toolbar's status line sums up what is left (**No problems**, how many errors and warnings, or what blocks saving). With anything left it is a button that opens **Errors and warnings**: the whole list grouped by section, what blocks saving first; picking one opens its section and moves the focus to its field.
 
-**Save** is off for a saved template without changes and with an error that blocks saving: an empty or invalid name, a name another local template has, the local templates not being readable to check it (**Check again** retries), a step that is not an object, or broken JSON. With other errors, **Save** asks first (**Save anyway**). On save, the panel validates the template as always; if it refuses it, its message is shown.
+**Save** is off for a saved template without changes, or when there is an error that blocks saving: an empty or invalid name, a name another local template has, the local templates not being readable to check it (**Check again** retries), a step that is not an object, or broken JSON. With other errors, **Save** asks first (**Save anyway**). On save, the panel validates the template as always; if it refuses it, its message is shown.
 
 #### Preview
 

@@ -62,7 +62,7 @@ En la lista, el menú **⋯** de cada plantilla tiene **Duplicar** y, en las loc
 - En el buscador de **Duplicar**, la flecha abajo pasa a la lista e **Intro** abre el primer resultado (solo cuando se ha escrito algo).
 - Una copia conserva el nombre de su origen si está libre entre las plantillas locales; si no, pasa a `<nombre>-copy` (o `-copy-2`…) y a su nombre visible se le añade «(copia)».
 - Las plantillas base escriben los textos de sus variables (nombre visible y descripción) en el idioma de quien las crea: es lo que leerán quienes creen servidores con ella. La de Minecraft usa Paper; vanilla es cambiar el paso `paperdl` por `mojangdl`. La de Steam deja vacíos (y obligatorios) el `appid` y el ejecutable: conviene rellenarlos antes de guardar; si no, quien cree el servidor tendrá que escribirlos.
-- Todas usan solo imágenes `ghcr.io/aether-panel/*` u oficiales, y el panel las acepta tal cual al guardarlas.
+- Todas usan solo imágenes `ghcr.io/aether-panel/*` u oficiales, y el panel las acepta al guardarlas (la de Steam, una vez rellenados el `appid` y el ejecutable).
 
 #### La página
 
@@ -100,7 +100,7 @@ El formulario y el JSON comprueban la plantilla con el mismo esquema mientras se
 
 La línea de estado de la barra resume qué falta (**Sin problemas**, cuántos errores y avisos, o qué impide guardar). Con algo pendiente es un botón que abre **Errores y avisos**: la lista completa agrupada por sección, con primero lo que impide guardar; al elegir uno, el editor abre su sección y lleva el foco a su campo.
 
-**Guardar** se desactiva en una plantilla ya guardada que no tiene cambios y con un error que impide guardar: el nombre vacío o no válido, un nombre que ya usa otra plantilla local, no haber podido leer las plantillas locales para comprobarlo (**Volver a comprobar** lo reintenta), un paso que no es un objeto o un JSON roto. Con otros errores, **Guardar** pregunta antes (**Guardar igualmente**). Al guardar, el panel valida la plantilla como siempre; si la rechaza, su mensaje se muestra.
+**Guardar** se desactiva en una plantilla ya guardada que no tiene cambios, o cuando hay un error que impide guardar: el nombre vacío o no válido, un nombre que ya usa otra plantilla local, no haber podido leer las plantillas locales para comprobarlo (**Volver a comprobar** lo reintenta), un paso que no es un objeto o un JSON roto. Con otros errores, **Guardar** pregunta antes (**Guardar igualmente**). Al guardar, el panel valida la plantilla como siempre; si la rechaza, su mensaje se muestra.
 
 #### Vista previa
 
