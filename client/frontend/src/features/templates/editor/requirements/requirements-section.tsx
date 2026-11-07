@@ -4,7 +4,7 @@ import { useTranslations } from '@/contexts/translations-context';
 import { cn } from '@/lib/utils';
 import { fieldId, useTemplateEditor } from '../editor-context';
 import { FieldIssues, issuesId } from '../field';
-import { isPlainObject, pathKey, type JsonObject, type Path } from '../paths';
+import { getIn, isPlainObject, pathKey, type JsonObject, type Path } from '../paths';
 import { NotEditableHere } from '../steps/field-controls';
 import { StringListControl } from '../steps/string-list-control';
 import { isUnderPath } from '../validation';
@@ -42,7 +42,8 @@ function AlternativesField({ path, labelKey, known }: Readonly<{ path: Path; lab
               id={index === 0 ? id : undefined}
               type="button"
               aria-pressed={on}
-              onClick={() => change((tpl) => writeOptional(tpl, path, toggleAlternative(value, option), true))}
+              // the row as it is when the change applies, not as this render saw it
+              onClick={() => change((tpl) => writeOptional(tpl, path, toggleAlternative(getIn(tpl, path), option), true))}
               className={cn(
                 'inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
                 on ? 'border-primary/50 bg-primary/10 text-foreground' : 'border-border/70 text-muted-foreground hover:bg-accent/50 hover:text-foreground',

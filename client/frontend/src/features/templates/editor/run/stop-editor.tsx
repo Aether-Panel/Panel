@@ -50,7 +50,12 @@ function StopCodeControl({ value, onChange }: Readonly<{ value: unknown; onChang
           />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" variant="outline" className="h-10 shrink-0 gap-1.5 px-3 text-muted-foreground">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 shrink-0 gap-1.5 px-3 text-muted-foreground"
+                aria-label={t('templates.editor.run.stop.code.pickLabel')}
+              >
                 {t('templates.editor.run.stop.code.pick')}
                 <ChevronDown aria-hidden="true" />
               </Button>

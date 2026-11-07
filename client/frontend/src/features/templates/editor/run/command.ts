@@ -63,3 +63,8 @@ export function toSingle(value: unknown): string {
 export function defaultEntryIndex(entries: readonly JsonObject[]): number {
   return entries.findIndex((entry) => !hasCondition(entry));
 }
+
+/** The text with its line breaks turned into spaces: the node runs the command as one line. */
+export function oneLine(text: string): string {
+  return text.replace(/\r\n|\r|\n/g, ' ');
+}

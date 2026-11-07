@@ -16,7 +16,8 @@ export const commandFallback: WarningRule = (template) => {
   const entries = commandEntries(run.command);
   const defaults = entries.flatMap((entry, index) => (hasCondition(entry) ? [] : [index]));
   if (defaults.length === 0) return [{ path: ['run', 'command'], code: 'noDefaultCommand' }];
-  return defaults.slice(1).map((index) => ({ path: ['run', 'command', index], code: 'extraDefaultCommand' }));
+  // on the entry's condition, which is what to set to make it reachable
+  return defaults.slice(1).map((index) => ({ path: ['run', 'command', index, 'if'], code: 'extraDefaultCommand' }));
 };
 
 /**

@@ -72,15 +72,19 @@ func (r Requirements) Test(server Server) error {
 		// and check them now
 
 		for _, v := range r.Binaries {
+			// "java || java21": any one of the alternatives on the PATH satisfies the row
 			binaries := parseRequirementRow(v)
+			if len(binaries) == 0 {
+				continue
+			}
 
-			found := true
+			found := false
 			for k, binary := range binaries {
 				parsed := utils.ReplaceTokens(binary, server.DataToMap())
 				binaries[k] = parsed
-				_, err := exec.LookPath(parsed)
-				if err != nil {
-					found = false
+				if _, err := exec.LookPath(parsed); err == nil {
+					found = true
+					break
 				}
 			}
 			if !found {

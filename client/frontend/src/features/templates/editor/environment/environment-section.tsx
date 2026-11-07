@@ -8,16 +8,17 @@ import { useTranslations } from '@/contexts/translations-context';
 import { cn } from '@/lib/utils';
 import { ENVIRONMENT_TYPES } from '../../schema/template';
 import { fieldId, useTemplateEditor } from '../editor-context';
-import { textValue } from '../field';
+import { FieldIssues, issuesId, textValue } from '../field';
 import { deleteIn, isPlainObject, moveIn, pathKey, setIn } from '../paths';
 import { IssueCountBadges } from '../section-nav';
 import { DragHandle, MoveButtons, SortableList, useListIds, useSortableItem } from '../sortable';
 import { countIssues, isUnderPath, type EditorIssue } from '../validation';
 import { EnvironmentFields } from './environment-fields';
 
-// Entorno: where a server created from the template runs by default, and the environments the
-// "Crear servidor" form offers instead (it takes the first Docker one listed, with its image and
-// ports, when the user picks Docker).
+// Entorno: the template's default environment, and its supported ones. The panel's "Crear
+// servidor" form always creates servers in Docker, with the first Docker entry of the supported
+// environments (its image, ports and settings); the default environment is kept in the template
+// but that form does not use it.
 
 const LIST_PATH = ['supportedEnvironments'];
 const NEW_TYPES = ['host', 'docker'] as const;
@@ -87,7 +88,7 @@ function SupportedCard({ sortId, environment, index, count, issues, onMove, onRe
 
 function SupportedEnvironments() {
   const { t } = useTranslations();
-  const { template, issues, change } = useTemplateEditor();
+  const { template, issues, issuesAt, change } = useTemplateEditor();
   const raw = template.supportedEnvironments;
   const list = Array.isArray(raw) ? raw : [];
   const ids = useListIds(list.length);
@@ -148,7 +149,9 @@ function SupportedEnvironments() {
   }
 
   return (
-    <div className="space-y-3">
+    // goTo() on the list as a whole (no Docker entry) lands here
+    <div id={fieldId(LIST_PATH)} tabIndex={-1} aria-describedby={issuesId(fieldId(LIST_PATH))} className="space-y-3 rounded-lg outline-none">
+      <FieldIssues id={issuesId(fieldId(LIST_PATH))} issues={issuesAt(LIST_PATH)} />
       {list.length === 0 ? (
         <EmptyState
           icon={Box}

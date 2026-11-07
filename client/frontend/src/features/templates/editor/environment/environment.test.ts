@@ -2,7 +2,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { JsonObject } from '../paths';
 import { imageSource } from './images';
-import { thirdPartyImages } from './rules';
+import { dockerEnvironment, STEPPER_FALLBACK_IMAGE, thirdPartyImages } from './rules';
+import { DEFAULT_DOCKER_IMAGE } from './images';
 
 const FIXTURES = new URL('../../schema/__fixtures__/community/', import.meta.url);
 const community = readdirSync(FIXTURES)
@@ -22,12 +23,18 @@ describe('where a Docker image comes from', () => {
     ['docker.io/library/mariadb:11', 'official'],
     ['docker.io/node:22', 'official'],
     ['postgres@sha256:abc', 'official'],
-    ['steamcmd/steamcmd', 'thirdParty'],
-    ['steamcmd/steamcmd:ubuntu-20', 'thirdParty'],
-    ['oven/bun:${bunversion}', 'thirdParty'],
-    ['docker.io/oven/bun', 'thirdParty'],
-    ['mcr.microsoft.com/dotnet/runtime:${dotnetversion}', 'thirdParty'],
+    // vendors' own images
+    ['steamcmd/steamcmd', 'official'],
+    ['steamcmd/steamcmd:ubuntu-20', 'official'],
+    ['oven/bun:${bunversion}', 'official'],
+    ['docker.io/oven/bun', 'official'],
+    ['mcr.microsoft.com/dotnet/runtime:${dotnetversion}', 'official'],
+    ['mcr.microsoft.com/dotnet/sdk:8.0', 'official'],
+    ['someone/steamcmd', 'thirdParty'],
+    ['oven/other', 'thirdParty'],
+    ['steamcmd/steamcmd-fork', 'thirdParty'],
     ['ghcr.io/someone/image', 'thirdParty'],
+    ['ghcr.io/steamcmd/steamcmd', 'thirdParty'],
     ['ghcr.io/aether-panel', 'thirdParty'],
     ['localhost:5000/game', 'thirdParty'],
     ['${image}', 'unknown'],
@@ -47,13 +54,13 @@ describe('where a Docker image comes from', () => {
 describe('the third-party image warning', () => {
   it('sits on the image of each Docker environment that uses one', () => {
     const template = {
-      environment: { type: 'docker', image: 'steamcmd/steamcmd' },
+      environment: { type: 'docker', image: 'someone/steamcmd' },
       supportedEnvironments: [
         { type: 'host' },
         { type: 'docker', image: 'ghcr.io/aether-panel/steamcmd' },
-        { type: 'docker', image: 'oven/bun' },
+        { type: 'docker', image: 'someone/bun' },
         // only Docker reads the image
-        { type: 'host', image: 'oven/bun' },
+        { type: 'host', image: 'someone/bun' },
       ],
     };
     expect(thirdPartyImages(template)).toEqual([
@@ -62,21 +69,22 @@ describe('the third-party image warning', () => {
     ]);
   });
 
-  it('flags exactly the community images that break the rule', () => {
-    const flagged = new Set<string>();
-    for (const template of community) {
-      for (const warning of thirdPartyImages(template)) {
-        const [root, index] = warning.path;
-        const environment = root === 'environment' ? template.environment : (template.supportedEnvironments as JsonObject[])[index as number];
-        flagged.add(String((environment as JsonObject).image));
-      }
-    }
-    expect([...flagged].sort()).toEqual([
-      'mcr.microsoft.com/dotnet/runtime:${dotnetversion}',
-      'mcr.microsoft.com/dotnet/sdk:${dotnetversion}',
-      'oven/bun:${bunversion}',
-      'steamcmd/steamcmd',
-      'steamcmd/steamcmd:ubuntu-20',
+  it('finds no image in the community templates that breaks the rule', () => {
+    for (const template of community) expect(thirdPartyImages(template)).toEqual([]);
+  });
+});
+
+describe('the missing Docker environment warning', () => {
+  it('names the image the create form will fall back to', () => {
+    expect(dockerEnvironment({ supportedEnvironments: [{ type: 'docker', image: 'ubuntu' }] })).toEqual([]);
+    expect(dockerEnvironment({ supportedEnvironments: [{ type: 'host' }, { type: 'docker' }] })).toEqual([]);
+    // a list without Docker: create-server-stepper sends ubuntu:22.04
+    expect(dockerEnvironment({ supportedEnvironments: [{ type: 'host' }] })).toEqual([
+      { path: ['supportedEnvironments'], code: 'noDockerEnvironment', params: { image: STEPPER_FALLBACK_IMAGE } },
     ]);
+    expect(dockerEnvironment({ supportedEnvironments: [] })[0].params).toEqual({ image: STEPPER_FALLBACK_IMAGE });
+    // no list: a bare Docker environment, which the node runs with its default image
+    expect(dockerEnvironment({ environment: { type: 'docker', image: 'ubuntu' } })[0].params).toEqual({ image: DEFAULT_DOCKER_IMAGE });
+    expect(dockerEnvironment({ supportedEnvironments: null })[0].params).toEqual({ image: DEFAULT_DOCKER_IMAGE });
   });
 });

@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { JsonObject } from '../paths';
-import { canMakeSingle, commandEntries, commandMode, defaultEntryIndex, hasCondition, toConditional, toSingle } from './command';
+import { canMakeSingle, commandEntries, commandMode, defaultEntryIndex, hasCondition, oneLine, toConditional, toSingle } from './command';
 import { commandFallback, stopMethod } from './rules';
 import { hasStopCode, stopMode, switchStopMode } from './stop';
 
@@ -55,6 +55,11 @@ describe('the start command', () => {
     expect(canMakeSingle([{ command: 'a' }, 'junk'])).toBe(false);
   });
 
+  it('keeps a pasted block on one line', () => {
+    expect(oneLine('java -jar\nserver.jar\r\nnogui\rnow')).toBe('java -jar server.jar nogui now');
+    expect(oneLine('one line')).toBe('one line');
+  });
+
   it('finds the fallback the node uses: the first entry without a condition', () => {
     const entries = commandEntries([{ if: "env == 'host'", command: 'a' }, { command: 'b' }, { command: 'c' }]);
     expect(defaultEntryIndex(entries)).toBe(1);
@@ -65,7 +70,7 @@ describe('the start command', () => {
     expect(commandFallback({ run: { command: [{ if: 'x', command: 'a' }] } })).toEqual([{ path: ['run', 'command'], code: 'noDefaultCommand' }]);
     expect(commandFallback({ run: { command: [] } })).toEqual([{ path: ['run', 'command'], code: 'noDefaultCommand' }]);
     expect(commandFallback({ run: { command: [{ command: 'a' }, { if: 'x', command: 'b' }, { command: 'c' }] } })).toEqual([
-      { path: ['run', 'command', 2], code: 'extraDefaultCommand' },
+      { path: ['run', 'command', 2, 'if'], code: 'extraDefaultCommand' },
     ]);
     expect(commandFallback({ run: { command: 'a' } })).toEqual([]);
     expect(commandFallback({ run: null })).toEqual([]);

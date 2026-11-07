@@ -9,7 +9,10 @@ import { FieldIssues, issuesId } from '../field';
 import { pathKey, setIn, type JsonObject, type Path } from '../paths';
 import { DragHandle, MoveButtons, SortableList, useListIds, useSortableItem } from '../sortable';
 import { ConditionField } from '../steps/condition-field';
+import { AdvancedFold } from '../advanced-fold';
 import { NotEditableHere } from '../steps/field-controls';
+import { isEmptyValue } from '../steps/model';
+import { StdinControl } from '../steps/stdin-control';
 import { isUnderPath, type EditorIssue } from '../validation';
 import { canMakeSingle, commandEntries, commandMode, defaultEntryIndex, hasCondition, toConditional, toSingle, type CommandMode } from './command';
 import { CommandText } from './command-text';
@@ -21,8 +24,8 @@ import { CommandText } from './command-text';
 
 const COMMAND_PATH: Path = ['run', 'command'];
 
-/** The keys of an entry the form edits; any other one (its own stdin) is kept and named. */
-const ENTRY_KEYS = new Set(['if', 'command']);
+/** The keys of an entry the form edits; any other one is kept and named. */
+const ENTRY_KEYS = new Set(['if', 'command', 'stdin']);
 
 function EntryCard({ sortId, entry, index, count, isDefault, issues, onWrite, onMove, onRemove }: Readonly<{
   sortId: string;
@@ -90,6 +93,25 @@ function EntryCard({ sortId, entry, index, count, isDefault, issues, onWrite, on
           issues={commandIssues}
           onChange={(text) => onWrite(index, 'command', text)}
         />
+        {/* the node uses an entry's own console when it names a type (Server.Start), else the
+            section's: few templates need one, so it is folded away */}
+        <AdvancedFold
+          id={`${fieldId(path)}-advanced`}
+          label={t('templates.editor.run.command.advanced')}
+          summary={t('templates.editor.run.command.stdinLabel')}
+          inUse={!isEmptyValue(entry.stdin) || issues.some((i) => isUnderPath(i.path, pathKey([...path, 'stdin'])))}
+          holds={(target) => isUnderPath(pathKey(target), pathKey([...path, 'stdin']))}
+        >
+          <StdinControl
+            id={fieldId([...path, 'stdin'])}
+            path={[...path, 'stdin']}
+            label={t('templates.editor.run.command.stdinLabel')}
+            hint={t('templates.editor.run.command.stdinHint')}
+            value={entry.stdin}
+            issues={issues.filter((i) => isUnderPath(i.path, pathKey([...path, 'stdin'])))}
+            onChange={(next) => onWrite(index, 'stdin', next)}
+          />
+        </AdvancedFold>
         {extra.length > 0 && <p className="text-pretty text-xs text-muted-foreground">{t('templates.editor.run.command.extraKeys', { keys: extra.join(', ') })}</p>}
         {/* about the entry as a whole (a fallback the node never reaches) */}
         <FieldIssues id={issuesId(fieldId(path))} issues={own} />

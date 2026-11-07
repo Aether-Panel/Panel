@@ -5,7 +5,7 @@ import { copyName, duplicateTemplate, editorSource, importTemplate, prepareLoade
 import { deleteIn, getIn, moveIn, renameKeyIn, setIn, type JsonObject } from './paths';
 import { sameTemplateName, storedTemplateName, templateNameProblem } from './template-name';
 import { countIssues, isUnderPath, validateTemplate, type EditorIssue } from './validation';
-import { defaultEnvironment, integerVariableValue } from './warnings';
+import { defaultEnvironment, integerVariableValue, templateWarnings } from './warnings';
 
 const FIXTURES = new URL('../schema/__fixtures__/community/', import.meta.url);
 
@@ -225,6 +225,9 @@ describe('template name', () => {
   });
 });
 
+/** Environments that raise no warning, for tests about something else. */
+const ENVIRONMENTS = { environment: { type: 'host' }, supportedEnvironments: [{ type: 'docker', image: 'ubuntu' }] };
+
 describe('validation', () => {
   it('blocks saving on a bad name or a step that is not an object, nothing else', () => {
     const issues = validateTemplate({
@@ -239,18 +242,20 @@ describe('validation', () => {
       'install.2.type: templates.editor.validation.unknownOperation [warning]',
       'run.stopCode: templates.editor.validation.invalidInteger [error]',
       'environment.type: templates.editor.warnings.noDefaultEnvironment [warning]',
+      'supportedEnvironments: templates.editor.warnings.noDockerEnvironment [warning]',
     ]);
-    expect(countIssues(issues)).toEqual({ errors: 4, warnings: 2 });
+    expect(countIssues(issues)).toEqual({ errors: 4, warnings: 3 });
   });
 
   it('blocks saving while the local names are unknown', () => {
-    const unknown = validateTemplate({ name: 'paper', environment: { type: 'host' } }, { takenNames: null });
+    const env = ENVIRONMENTS;
+    const unknown = validateTemplate({ name: 'paper', ...env }, { takenNames: null });
     expect(describeIssues(unknown)).toEqual(['name: templates.editor.validation.namesUnchecked [error, blocking]']);
-    expect(validateTemplate({ name: 'paper', environment: { type: 'host' } }, { takenNames: [] })).toEqual([]);
+    expect(validateTemplate({ name: 'paper', ...env }, { takenNames: [] })).toEqual([]);
   });
 
   it('lets the opened template save under its own name while the local names are unknown', () => {
-    const env = { environment: { type: 'host' } };
+    const env = ENVIRONMENTS;
     expect(validateTemplate({ name: 'paper', ...env }, { takenNames: null, originalName: 'paper' })).toEqual([]);
     expect(describeIssues(validateTemplate({ name: 'velocity', ...env }, { takenNames: null, originalName: 'paper' }))).toEqual([
       'name: templates.editor.validation.namesUnchecked [error, blocking]',
@@ -258,7 +263,7 @@ describe('validation', () => {
   });
 
   it('warns that a change of case or accents alone is not saved', () => {
-    const issues = validateTemplate({ name: 'Paper', environment: { type: 'host' } }, { takenNames: ['paper'], originalName: 'paper' });
+    const issues = validateTemplate({ name: 'Paper', ...ENVIRONMENTS }, { takenNames: ['paper'], originalName: 'paper' });
     expect(describeIssues(issues)).toEqual(['name: templates.editor.warnings.nameCaseOnly [warning]']);
     expect(issues[0].params).toEqual({ name: 'paper' });
   });
@@ -344,5 +349,29 @@ describe('editor address', () => {
     ['?import', { kind: 'import' }],
   ])('%s opens %j', (search, source) => {
     expect(editorSource(search)).toEqual(source);
+  });
+});
+
+describe('warnings on the community templates', () => {
+  // the only warnings a community template may raise, each a real finding (see the report)
+  const EXPECTED: Record<string, readonly string[]> = {
+    // variables nothing uses: cstrike tvport, fivem fxbuild, terraria-tmodloader tversion,
+    // terraria-tshock tshockversion
+    'cstrike.json': ['unusedVariable'],
+    'fivem.json': ['unusedVariable'],
+    'terraria-tmodloader.json': ['unusedVariable'],
+    'terraria-tshock.json': ['unusedVariable'],
+    // no supported environments: the create form falls back to the generic image
+    'dontstarvetogether.json': ['noDockerEnvironment'],
+    'eco.json': ['noDockerEnvironment'],
+  };
+
+  it('raise only the expected ones', () => {
+    const files = readdirSync(FIXTURES).filter((f) => f.endsWith('.json'));
+    for (const file of files) {
+      const template = JSON.parse(readFileSync(new URL(file, FIXTURES), 'utf8')) as JsonObject;
+      const codes = templateWarnings(template).map((w) => w.code).sort();
+      expect(codes, file).toEqual([...(EXPECTED[file] ?? [])].sort());
+    }
   });
 });

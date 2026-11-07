@@ -5,6 +5,7 @@ import { InsertVariableButton } from '../insert-variable';
 import { FieldLabel, isEditableScalar, NotEditableHere } from '../steps/field-controls';
 import { useInsertTarget } from '../steps/use-insert-target';
 import type { EditorIssue } from '../validation';
+import { oneLine } from './command';
 
 // One command line (the server's start command, one entry of a conditional list). Start commands
 // are long (a java line with its flags), so the box grows with the text and wraps it instead of
@@ -34,7 +35,8 @@ export function CommandText({ id, label, required = false, hint, placeholder, va
             className={cn('min-h-[2.75rem] min-w-0 flex-1 resize-y font-mono text-[13px] leading-relaxed [field-sizing:content]', INVALID_CONTROL)}
             rows={2}
             value={textValue(value)}
-            onChange={(e) => onChange(e.target.value)}
+            // a pasted block with line breaks stays one line
+            onChange={(e) => onChange(oneLine(e.target.value))}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.nativeEvent.isComposing) e.preventDefault();
             }}

@@ -3950,10 +3950,11 @@
         "extraDefaultCommand": "The node only uses the first entry without a condition: this one will never be used. Give it a condition or remove it.",
         "stopCommandIgnored": "There is also a signal code, and with it the node never sends this command. Remove one of the two.",
         "noStopMethod": "There's no stop command or signal code: on stop, the panel will send an empty line to the console and the server most likely won't stop.",
-        "thirdPartyImage": "Third-party image. The project only uses its own images (ghcr.io/aether-panel/…) or official Docker Hub images such as ubuntu or eclipse-temurin: a third-party image can change or vanish without notice. If a program is missing, it gets added to our images.",
+        "thirdPartyImage": "Third-party image. The project only uses its own images (ghcr.io/aether-panel/…) or official ones, from Docker Hub (such as ubuntu or eclipse-temurin) or from the program's vendor (such as mcr.microsoft.com or steamcmd/steamcmd): a third-party image can change or vanish without notice. If a program is missing, it gets added to our images.",
         "keepAliveFrequency": "The node can't read this frequency and won't send the command. Use a duration with a unit, such as 30s, 5m or 1h30m.",
         "keepAliveIncomplete": "The keep-alive needs both the frequency and the command: with only one, nothing is sent.",
-        "groupUnknownVariable": "“{{key}}” isn't a variable of the template: the group can't show it."
+        "groupUnknownVariable": "“{{key}}” isn't a variable of the template: the group can't show it.",
+        "noDockerEnvironment": "No supported environment is Docker. The “Create server” form always creates servers in Docker, so it will use the image {{image}}, which most likely lacks what the template needs. Add a Docker environment with its image."
       },
       "sortable": {
         "handle": "Drag to move \"{{item}}\"",
@@ -4233,7 +4234,7 @@
           "single": "One command",
           "conditional": "By condition",
           "singleBlocked": "To go back to one command, leave a single entry and remove its condition.",
-          "singleBlockedKeys": "This entry has settings of its own (such as its console) that a single command doesn't keep. Remove them in the JSON view to go back to one command.",
+          "singleBlockedKeys": "This entry has settings of its own, such as its console, that a single command doesn't keep. Remove them to go back to one command.",
           "label": "Start command",
           "hint": "What the node runs in the server's folder. Variables such as ${memory} are replaced with their value.",
           "line": "Command",
@@ -4245,7 +4246,10 @@
           "conditionalHint": "On start, the node tries the entries in order and uses the first whose condition holds; if none does, it uses the first one without a condition.",
           "extraKeys": "It also has {{keys}}, which the form doesn't show. They're kept; you can change them in the JSON view.",
           "add": "Add command",
-          "conditionLabel": "When it is used"
+          "conditionLabel": "When it is used",
+          "advanced": "Advanced options",
+          "stdinLabel": "Console for this entry",
+          "stdinHint": "Only when the server starts with this entry. Not set, the one in the Console section is used."
         },
         "workingDirectory": {
           "label": "Working directory",
@@ -4265,7 +4269,8 @@
             "choice": "Signal code",
             "label": "Signal code",
             "hint": "The number of the signal sent to the process. The usual ones are 15 (SIGTERM) and 2 (SIGINT, like pressing Ctrl+C).",
-            "pick": "Common"
+            "pick": "Common",
+            "pickLabel": "Common signals"
           },
           "signals": {
             "SIGTERM": "Asks the program to shut down. The most common one.",
@@ -4329,17 +4334,17 @@
       "environment": {
         "default": {
           "title": "Default environment",
-          "description": "Where servers created from this template run, unless another one is picked."
+          "description": "It is kept in the template, but the panel's “Create server” form doesn't use it: it always creates servers in Docker, with the first Docker environment under “Supported environments”."
         },
         "supported": {
           "title": "Supported environments",
-          "description": "The ones offered when creating a server. When Docker is picked, the first Docker environment in the list is used, with its image and ports.",
+          "description": "The “Create server” form creates servers in Docker with the first Docker environment of this list: its image, ports and settings.",
           "item": "Environment {{n}}: {{type}}",
           "remove": "Remove “{{item}}”",
           "add": "Add environment",
           "empty": {
             "title": "No supported environments",
-            "description": "Creating a server only uses the default environment. Add Docker to choose between the host and a container."
+            "description": "Without a Docker environment here, the “Create server” form uses a generic image. Add one with the image the template needs."
           }
         },
         "type": {
@@ -4347,7 +4352,7 @@
           "hint": {
             "docker": "In a Docker container, isolated from the node, with the image below.",
             "host": "Directly on the node, with the programs it has installed.",
-            "unset": "Without one, the server has nowhere to run until someone changes it."
+            "unset": "Not set."
           }
         },
         "types": {
@@ -4359,7 +4364,7 @@
         },
         "image": {
           "label": "Image",
-          "hint": "An image from ghcr.io/aether-panel/ or an official Docker Hub one. The tag can use a variable, such as eclipse-temurin:${javaversion}."
+          "hint": "An image from ghcr.io/aether-panel/ or an official one (from Docker Hub or from the program's vendor). The tag can use a variable, such as eclipse-temurin:${javaversion}."
         },
         "portBindings": {
           "label": "Ports",
@@ -4437,8 +4442,8 @@
           "untitled": "Group {{n}}",
           "countOne": "1 variable",
           "countMany": "{{count}} variables",
-          "conditionHelp": "The group is only shown when its condition holds.",
-          "conditionNone": "Always shown.",
+          "conditionHelp": "It is kept in the template, but the panel doesn't apply it yet: the group is always shown.",
+          "conditionNone": "No condition.",
           "orderHint": "The settings page shows the groups in the order of this list; “Order” is kept for templates that use it.",
           "displayField": {
             "label": "Name",

@@ -3950,10 +3950,11 @@
         "extraDefaultCommand": "El nodo solo usa la primera entrada sin condición: esta no se usará nunca. Ponle una condición o quítala.",
         "stopCommandIgnored": "Hay también un código de señal, y con él el nodo no envía este comando. Quita uno de los dos.",
         "noStopMethod": "No hay comando de parada ni código de señal: al parar, el panel enviará una línea vacía a la consola y el servidor seguramente no se detendrá.",
-        "thirdPartyImage": "Imagen de terceros. El proyecto solo usa sus propias imágenes (ghcr.io/aether-panel/…) o imágenes oficiales de Docker Hub, como ubuntu o eclipse-temurin: una imagen de terceros puede cambiar o desaparecer sin aviso. Si falta algún programa, se añade a nuestras imágenes.",
+        "thirdPartyImage": "Imagen de terceros. El proyecto solo usa sus propias imágenes (ghcr.io/aether-panel/…) o imágenes oficiales, de Docker Hub (como ubuntu o eclipse-temurin) o del fabricante del programa (como mcr.microsoft.com o steamcmd/steamcmd): una imagen de terceros puede cambiar o desaparecer sin aviso. Si falta algún programa, se añade a nuestras imágenes.",
         "keepAliveFrequency": "El nodo no entiende esta frecuencia y no enviará el comando. Usa una duración con unidad, como 30s, 5m o 1h30m.",
         "keepAliveIncomplete": "El keep-alive necesita la frecuencia y el comando: con solo uno, no se envía nada.",
-        "groupUnknownVariable": "«{{key}}» no es ninguna variable de la plantilla: el grupo no puede mostrarla."
+        "groupUnknownVariable": "«{{key}}» no es ninguna variable de la plantilla: el grupo no puede mostrarla.",
+        "noDockerEnvironment": "Ningún entorno admitido es Docker. El formulario «Crear servidor» crea siempre los servidores en Docker, así que usará la imagen {{image}}, que seguramente no tiene lo que necesita la plantilla. Añade un entorno Docker con su imagen."
       },
       "sortable": {
         "handle": "Arrastrar para mover «{{item}}»",
@@ -4233,7 +4234,7 @@
           "single": "Un comando",
           "conditional": "Según condición",
           "singleBlocked": "Para volver a un solo comando, deja una única entrada y quítale la condición.",
-          "singleBlockedKeys": "Esta entrada tiene ajustes propios (como su consola) que un solo comando no guarda. Quítalos en la vista JSON para volver a un solo comando.",
+          "singleBlockedKeys": "Esta entrada tiene ajustes propios, como su consola, que un solo comando no guarda. Quítalos para volver a un solo comando.",
           "label": "Comando de arranque",
           "hint": "Lo que el nodo ejecuta en la carpeta del servidor. Las variables, como ${memory}, se sustituyen por su valor.",
           "line": "Comando",
@@ -4245,7 +4246,10 @@
           "conditionalHint": "Al arrancar, el nodo prueba las entradas en orden y usa la primera cuya condición se cumple; si no se cumple ninguna, usa la primera sin condición.",
           "extraKeys": "También tiene {{keys}}, que el formulario no muestra. Se conservan; puedes cambiarlos en la vista JSON.",
           "add": "Añadir comando",
-          "conditionLabel": "Cuándo se usa"
+          "conditionLabel": "Cuándo se usa",
+          "advanced": "Opciones avanzadas",
+          "stdinLabel": "Consola de esta entrada",
+          "stdinHint": "Solo cuando se arranca con esta entrada. Sin configurar, se usa la de la sección Consola."
         },
         "workingDirectory": {
           "label": "Carpeta de trabajo",
@@ -4265,7 +4269,8 @@
             "choice": "Código de señal",
             "label": "Código de señal",
             "hint": "El número de la señal que se envía al proceso. Las habituales son 15 (SIGTERM) y 2 (SIGINT, como pulsar Ctrl+C).",
-            "pick": "Habituales"
+            "pick": "Habituales",
+            "pickLabel": "Señales habituales"
           },
           "signals": {
             "SIGTERM": "Pide al programa que se cierre. La más habitual.",
@@ -4329,17 +4334,17 @@
       "environment": {
         "default": {
           "title": "Entorno por defecto",
-          "description": "Dónde se ejecutan los servidores creados desde esta plantilla, si no se elige otro."
+          "description": "Se guarda en la plantilla, pero el formulario «Crear servidor» del panel no lo usa: crea siempre los servidores en Docker, con el primer entorno Docker de «Entornos admitidos»."
         },
         "supported": {
           "title": "Entornos admitidos",
-          "description": "Los que se ofrecen al crear un servidor. Si se elige Docker, se usa el primer entorno Docker de la lista, con su imagen y sus puertos.",
+          "description": "El formulario «Crear servidor» crea los servidores en Docker con el primer entorno Docker de esta lista: su imagen, sus puertos y sus ajustes.",
           "item": "Entorno {{n}}: {{type}}",
           "remove": "Quitar «{{item}}»",
           "add": "Añadir entorno",
           "empty": {
             "title": "Sin entornos admitidos",
-            "description": "Al crear un servidor solo se usa el entorno por defecto. Añade Docker para poder elegir entre el host y un contenedor."
+            "description": "Sin un entorno Docker aquí, el formulario «Crear servidor» usa una imagen genérica. Añade uno con la imagen que necesita la plantilla."
           }
         },
         "type": {
@@ -4347,7 +4352,7 @@
           "hint": {
             "docker": "En un contenedor Docker, aislado del nodo, con la imagen indicada.",
             "host": "Directamente en el nodo, con los programas que tenga instalados.",
-            "unset": "Sin elegir, el servidor no tiene dónde ejecutarse hasta que alguien lo cambie."
+            "unset": "Sin definir."
           }
         },
         "types": {
@@ -4359,7 +4364,7 @@
         },
         "image": {
           "label": "Imagen",
-          "hint": "Una imagen de ghcr.io/aether-panel/ o una oficial de Docker Hub. La etiqueta puede usar una variable, como eclipse-temurin:${javaversion}."
+          "hint": "Una imagen de ghcr.io/aether-panel/ o una oficial (de Docker Hub o del fabricante del programa). La etiqueta puede usar una variable, como eclipse-temurin:${javaversion}."
         },
         "portBindings": {
           "label": "Puertos",
@@ -4437,8 +4442,8 @@
           "untitled": "Grupo {{n}}",
           "countOne": "1 variable",
           "countMany": "{{count}} variables",
-          "conditionHelp": "El grupo solo se muestra cuando su condición se cumple.",
-          "conditionNone": "Se muestra siempre.",
+          "conditionHelp": "Se guarda en la plantilla, pero el panel aún no la aplica: el grupo se muestra siempre.",
+          "conditionNone": "Sin condición.",
           "orderHint": "La página de ajustes muestra los grupos en el orden de esta lista; «Orden» se guarda para las plantillas que lo usan.",
           "displayField": {
             "label": "Nombre",

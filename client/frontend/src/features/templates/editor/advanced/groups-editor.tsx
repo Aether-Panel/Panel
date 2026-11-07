@@ -10,7 +10,6 @@ import { deleteIn, isPlainObject, moveIn, pathKey, setIn, type JsonObject } from
 import { IssueCountBadges } from '../section-nav';
 import { DragHandle, MoveButtons, SortableList, useListIds, useSortableItem } from '../sortable';
 import { ConditionField } from '../steps/condition-field';
-import { conditionPreset } from '../steps/condition';
 import { NotEditableHere, NumberControl, TextControl } from '../steps/field-controls';
 import { countIssues, isUnderPath, type EditorIssue } from '../validation';
 import { templateVariables } from '../variables/usage';
@@ -44,14 +43,12 @@ function GroupCard({ sortId, group, index, count, expanded, issues, variables, o
   const object: JsonObject = isPlainObject(group) ? group : {};
   const name = textValue(object.display).trim() || t('templates.editor.advanced.groups.untitled', { n: index + 1 });
   const keys = groupVariables(group);
-  const conditional = conditionPreset(object.if) !== 'none';
-  const summary = [
-    keys.length === 1 ? t('templates.editor.advanced.groups.countOne') : t('templates.editor.advanced.groups.countMany', { count: keys.length }),
-    conditional ? t('templates.editor.steps.condition.tag.custom') : '',
-  ].filter(Boolean);
+  const summary = keys.length === 1 ? t('templates.editor.advanced.groups.countOne') : t('templates.editor.advanced.groups.countMany', { count: keys.length });
   const bodyId = `${fieldId(path)}-body`;
   const at = (key: string) => [...path, key];
   const write = (key: string, value: unknown) => change((tpl) => writeOptional(tpl, at(key), value));
+  // the node's Group always writes these two, as a new group does: cleared, they stay ""
+  const writeText = (key: 'display' | 'description', value: unknown) => update(at(key), typeof value === 'string' ? value : '');
 
   return (
     <li
@@ -79,7 +76,7 @@ function GroupCard({ sortId, group, index, count, expanded, issues, variables, o
           />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium text-foreground">{name}</span>
-            <span className="block truncate text-xs text-muted-foreground">{summary.join(' · ')}</span>
+            <span className="block truncate text-xs text-muted-foreground">{summary}</span>
           </span>
           <IssueCountBadges counts={countIssues(issues)} />
         </button>
@@ -108,7 +105,7 @@ function GroupCard({ sortId, group, index, count, expanded, issues, variables, o
                   value={object.display}
                   issues={issuesAt(at('display'))}
                   variables={false}
-                  onChange={(value) => write('display', value)}
+                  onChange={(value) => writeText('display', value)}
                 />
                 <NumberControl
                   id={fieldId(at('order'))}
@@ -125,7 +122,7 @@ function GroupCard({ sortId, group, index, count, expanded, issues, variables, o
                 value={object.description}
                 issues={issuesAt(at('description'))}
                 variables={false}
-                onChange={(value) => write('description', value)}
+                onChange={(value) => writeText('description', value)}
               />
               <GroupVariables
                 path={at('variables')}
