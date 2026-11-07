@@ -58,3 +58,16 @@ func TestMySQLStepError(t *testing.T) {
 	other := mysqlStepError("failed to drop database s_x", "DROP", &mysql.MySQLError{Number: 1008, Message: "Can't drop database"})
 	assert.NotContains(t, other.Error(), "privilege")
 }
+
+// Creating on a host where nothing listens says the connection failed, not that a privilege
+// is missing
+func TestCreateInMySQL_AnUnreachableHostIsNotAPermissionProblem(t *testing.T) {
+	host := &models.DatabaseHost{Name: "paused-mariadb", Host: "127.0.0.1", Port: 1, Username: "root", Password: "unused"}
+
+	err := (&Database{}).createInMySQL(&models.Database{DatabaseName: "s_new00001_world", Username: "u_world", Password: "Secret1"}, host)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "could not connect to the MySQL host")
+	assert.NotContains(t, strings.ToLower(err.Error()), "permission")
+	assert.NotContains(t, strings.ToLower(err.Error()), "privilege")
+}

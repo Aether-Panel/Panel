@@ -180,6 +180,19 @@ func isMySQLAccessDenied(err error) bool {
 	return errors.As(err, &me) && mysqlAccessDenied[me.Number]
 }
 
+// pingMySQL connects to the host, so a host that is down or refuses the stored credentials
+// says so, not a permission problem with the first statement
+func pingMySQL(db *sql.DB) error {
+	err := db.Ping()
+	if err == nil {
+		return nil
+	}
+	if isMySQLAccessDenied(err) {
+		return fmt.Errorf("could not connect to the MySQL host: it refused the database host's username or password: %w", err)
+	}
+	return fmt.Errorf("could not connect to the MySQL host: %w", err)
+}
+
 // mysqlStepError says which step on a MySQL host failed, with the driver's error. Only an
 // access-denied answer from MySQL mentions the privilege the host account needs: a host that
 // is down or unreachable must not read as a permissions problem.
@@ -269,16 +282,14 @@ func (ds *Database) createInMySQL(database *models.Database, host *models.Databa
 	}
 	defer db.Close()
 
-	// Verificar conexión
-	err = db.Ping()
-	if err != nil {
-		return fmt.Errorf("failed to connect to MySQL host (check credentials and host permissions): %w", err)
+	if err = pingMySQL(db); err != nil {
+		return err
 	}
 
 	// Crear la base de datos (sin IF NOT EXISTS: chocar con un schema existente debe fallar)
 	_, err = db.Exec(createDatabaseStatement(databaseName)) /* #nosec G201 */ // NOSONAR
 	if err != nil {
-		return fmt.Errorf("failed to create database (ensure user has CREATE permissions and the name is free): %w", err)
+		return mysqlStepError("failed to create database "+databaseName, "CREATE", err)
 	}
 
 	// From here a failure undoes what was created: a schema left behind with no panel row
@@ -295,19 +306,19 @@ func (ds *Database) createInMySQL(database *models.Database, host *models.Databa
 	// Crear el usuario (permitir conexión desde cualquier host)
 	_, err = db.Exec(fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%%' IDENTIFIED BY '%s'", database.Username, database.Password)) /* #nosec G201 */ // NOSONAR
 	if err != nil {
-		return fmt.Errorf("failed to create MySQL user (ensure user has CREATE USER permissions): %w", err)
+		return mysqlStepError("failed to create MySQL user "+database.Username, "CREATE USER", err)
 	}
 
 	// Otorgar permisos al usuario sobre la base de datos
 	_, err = db.Exec(fmt.Sprintf("GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'%%'", databaseName, database.Username)) /* #nosec G201 */ // NOSONAR
 	if err != nil {
-		return fmt.Errorf("failed to grant privileges (ensure user has GRANT OPTION): %w", err)
+		return mysqlStepError("failed to grant privileges on "+databaseName, "GRANT OPTION", err)
 	}
 
 	// Aplicar cambios
 	_, err = db.Exec("FLUSH PRIVILEGES")
 	if err != nil {
-		return fmt.Errorf("failed to flush privileges: %w", err)
+		return mysqlStepError("failed to flush privileges", "RELOAD", err)
 	}
 
 	created = true
@@ -345,11 +356,8 @@ func (ds *Database) deleteFromMySQL(database *models.Database) error {
 	defer db.Close()
 
 	// connect first, so a host that is down says so instead of failing the first DROP
-	if err = db.Ping(); err != nil {
-		if isMySQLAccessDenied(err) {
-			return fmt.Errorf("could not connect to the MySQL host: it refused the database host's username or password: %w", err)
-		}
-		return fmt.Errorf("could not connect to the MySQL host: %w", err)
+	if err = pingMySQL(db); err != nil {
+		return err
 	}
 
 	_, err = db.Exec(fmt.Sprintf("DROP USER IF EXISTS '%s'@'%%'", database.Username)) /* #nosec G201 */ // NOSONAR
