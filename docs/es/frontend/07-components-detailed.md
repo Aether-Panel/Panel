@@ -21,7 +21,7 @@ export default function ServerDetail({ id }: Readonly<{ id?: string }>) {
 }
 ```
 
-Archivos: `Dashboard`, `Servers`, `ServerDetail`, `Nodes`, `NodeDetail`, `Users`, `Roles`, `Templates`, `DatabaseHosts`, `Settings`, `ProfileSettings`, `Extension` (todos con `AppShell`), y `Login`, `Register`, `ForgotPassword`, `ResetPassword` (con `AuthShell`).
+Archivos: `Dashboard`, `Servers`, `ServerDetail`, `Nodes`, `NodeDetail`, `Users`, `Roles`, `Templates`, `TemplateEditor`, `DatabaseHosts`, `Settings`, `ProfileSettings`, `Extension` (todos con `AppShell`), y `Login`, `Register`, `ForgotPassword`, `ResetPassword` (con `AuthShell`).
 
 ## Acceso (`features/auth/`)
 
@@ -136,7 +136,10 @@ Todos toman los colores de `CHART_COLORS` y formatean las horas con `chartLocale
 | `features/nodes/node-disk-alert.tsx` | `NodeDiskAlert`, usado en el panel principal y en las páginas de nodos. |
 | `features/users/page.tsx` | Lista de usuarios, crear, editar, permisos. |
 | `features/roles/page.tsx` | Roles con sus scopes, agrupados como en el editor de permisos. |
-| `features/templates/page.tsx` | Repositorios, plantillas de cada repositorio, editor de plantillas locales y subida. |
+| `features/templates/page.tsx` | Repositorios, plantillas de cada repositorio, subida y el menú de cada plantilla (**Editar**, **Duplicar**, **Eliminar**). |
+| `features/templates/new-template-dialog.tsx` | «Nueva plantilla»: en blanco, plantilla base, duplicar (buscador sobre locales y de la comunidad) o importar un `.json`; cada opción abre el editor. |
+| `features/templates/schema/` | Una fuente para cada concepto: el esquema zod de la plantilla (`template.ts`) y uno por operación de instalación (`operations.ts`, con categoría, icono y campos), de los que salen los formularios, la validación en vivo y el JSON Schema de Monaco (`json-schema.ts`). `operations.json` lista las claves de las operaciones; un test de Go comprueba que todas las del backend estén. |
+| `features/templates/editor/` | El editor de plantillas ([Plantillas](../features/templates.md#editor-de-plantillas)). `editor-context.tsx` guarda la plantilla completa (formulario y JSON son dos vistas del mismo objeto, sin pérdidas), `validation.ts` y `warnings.ts` dan los errores y avisos, `sections.tsx` y `section-keys.ts` las secciones con sus contadores, `issue-summary.tsx` la lista de errores y avisos; una carpeta por sección (`variables/`, `steps/` para instalación, desinstalación y pasos de ejecución, `run/`, `environment/`, `requirements/`, `advanced/`), `presets/` las plantillas base y `preview/` la vista previa, que reutiliza `Step3Configuration` e `initialTemplateValues` de `create-server-stepper.tsx`. Las listas se ordenan con dnd-kit (teclado incluido) y con ↑ ↓ (`sortable.tsx`). La lógica pura tiene tests de vitest (`yarn test`). |
 | `features/database-hosts/page.tsx` | Hosts de bases de datos con prueba de conexión (`POST /api/databasehosts/test`). |
 
 ## Configuración (`features/settings/`)

@@ -40,7 +40,7 @@ For full endpoint details see the [API reference](../reference/11-api-reference.
 | [Activity log and access records](activity-and-access-log.md) | Per-server activity log and panel sign-in records |
 | [Database hosts and server databases](database-hosts.md) | MySQL/MariaDB hosts and per-server databases |
 | [Panel settings](panel-settings.md) | The Panel Settings page, its tabs and the experimental feature switches |
-| [Templates](templates.md) | Local and community templates, upload rules, template repositories |
+| [Templates](templates.md) | Local and community templates, the visual template editor, upload rules, template repositories |
 | [Panel updates](panel-updates.md) | Update check and in-panel self-update for the panel and its nodes |
 | [Billing integration: provisioning API and sign-in links](provisioning-and-sso.md) | API keys, products, `/api/v1` provisioning routes and one-time sign-in links |
 

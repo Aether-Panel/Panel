@@ -19,6 +19,7 @@ Routes come from the files in `src/pages/` (Astro file-based routing). Every pag
 | `/users/` | `users.astro` | `Users` → `features/users/page.tsx` | App |
 | `/roles/` | `roles.astro` | `Roles` → `features/roles/page.tsx` | App |
 | `/templates/` | `templates.astro` | `Templates` → `features/templates/page.tsx` | App |
+| `/templates/editor/` (`?name=`, `?from=`, `?preset=`, `?import`) | `templates/editor.astro` | `TemplateEditor` → `features/templates/editor/page.tsx` | App |
 | `/database-hosts/` | `database-hosts.astro` | `DatabaseHosts` → `features/database-hosts/page.tsx` | App |
 | `/settings/` | `settings.astro` | `Settings` → `features/settings/page.tsx` | App |
 | `/profile/settings/` | `profile/settings.astro` | `ProfileSettings` → `features/profile/settings/page.tsx` | App |
@@ -124,7 +125,8 @@ Sections are cards with the title and description on the left and the fields on 
 | Node detail | System info, disks, servers on the node, low-disk alert, edit and delete | `nodes.view` |
 | Users | User list, create, edit, permissions | `users.info.search` (management actions need more scopes) |
 | Roles | Roles and their scopes | `admin` |
-| Templates | Repositories, local templates, editor, upload | `templates.view` (editing needs `templates.local.edit`, adding repositories `templates.repo.create`) |
+| Templates | Repositories, local templates, upload, "New template" (blank, base, duplicate, import) | `templates.view` (creating, editing and duplicating need `templates.local.edit`, adding repositories `templates.repo.create`) |
+| Template editor (`/templates/editor/`) | Sections with forms, JSON (Monaco) and split views, live validation, a preview of the "Create server" form; see [Templates](../features/templates.md#template-editor) | `templates.local.edit` |
 | Database hosts | External MySQL/MariaDB hosts, connection test | `admin` |
 | Settings | Tabs: General, Discord, Mail, Off-site backups (S3), Domains (Cloudflare), API keys, Products and Extensions (these three for `admin` only), Updates | `settings.edit` |
 | Account Settings (`/profile/settings/`) | Account details, password, two-factor authentication, SSH keys, OAuth2 clients, interface language | any signed-in user |

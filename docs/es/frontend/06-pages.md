@@ -19,6 +19,7 @@ Las rutas salen de los archivos de `src/pages/` (enrutamiento basado en archivos
 | `/users/` | `users.astro` | `Users` → `features/users/page.tsx` | App |
 | `/roles/` | `roles.astro` | `Roles` → `features/roles/page.tsx` | App |
 | `/templates/` | `templates.astro` | `Templates` → `features/templates/page.tsx` | App |
+| `/templates/editor/` (`?name=`, `?from=`, `?preset=`, `?import`) | `templates/editor.astro` | `TemplateEditor` → `features/templates/editor/page.tsx` | App |
 | `/database-hosts/` | `database-hosts.astro` | `DatabaseHosts` → `features/database-hosts/page.tsx` | App |
 | `/settings/` | `settings.astro` | `Settings` → `features/settings/page.tsx` | App |
 | `/profile/settings/` | `profile/settings.astro` | `ProfileSettings` → `features/profile/settings/page.tsx` | App |
@@ -124,7 +125,8 @@ Las secciones son tarjetas con el título y la descripción a la izquierda y los
 | Detalle del nodo | Información del sistema, discos, servidores del nodo, alerta de disco bajo, editar y eliminar | `nodes.view` |
 | Usuarios | Lista de usuarios, crear, editar, permisos | `users.info.search` (las acciones de gestión requieren más scopes) |
 | Roles | Roles y sus scopes | `admin` |
-| Plantillas | Repositorios, plantillas locales, editor, subida | `templates.view` (editar requiere `templates.local.edit`; añadir repositorios, `templates.repo.create`) |
+| Plantillas | Repositorios, plantillas locales, subida, «Nueva plantilla» (en blanco, base, duplicar, importar) | `templates.view` (crear, editar y duplicar requieren `templates.local.edit`; añadir repositorios, `templates.repo.create`) |
+| Editor de plantillas (`/templates/editor/`) | Secciones con formulario, vista JSON (Monaco) y dividida, validación en vivo, vista previa del formulario «Crear servidor»; ver [Plantillas](../features/templates.md#editor-de-plantillas) | `templates.local.edit` |
 | Hosts de BD | Hosts externos MySQL/MariaDB, prueba de conexión | `admin` |
 | Configuración | Pestañas: General, Discord, Correo, Copias externas (S3), Dominios (Cloudflare), Claves API, Productos y Extensiones (estas tres solo para `admin`), Actualizaciones | `settings.edit` |
 | Configuración de la cuenta (`/profile/settings/`) | Datos de la cuenta, contraseña, verificación en dos pasos, claves SSH, clientes OAuth2, idioma de la interfaz | cualquier usuario con sesión |

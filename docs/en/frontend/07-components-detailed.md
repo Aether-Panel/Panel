@@ -21,7 +21,7 @@ export default function ServerDetail({ id }: Readonly<{ id?: string }>) {
 }
 ```
 
-Files: `Dashboard`, `Servers`, `ServerDetail`, `Nodes`, `NodeDetail`, `Users`, `Roles`, `Templates`, `DatabaseHosts`, `Settings`, `ProfileSettings`, `Extension` (all in `AppShell`), and `Login`, `Register`, `ForgotPassword`, `ResetPassword` (in `AuthShell`).
+Files: `Dashboard`, `Servers`, `ServerDetail`, `Nodes`, `NodeDetail`, `Users`, `Roles`, `Templates`, `TemplateEditor`, `DatabaseHosts`, `Settings`, `ProfileSettings`, `Extension` (all in `AppShell`), and `Login`, `Register`, `ForgotPassword`, `ResetPassword` (in `AuthShell`).
 
 ## Auth (`features/auth/`)
 
@@ -136,7 +136,10 @@ All of them take colours from `CHART_COLORS` and format times with `chartLocale(
 | `features/nodes/node-disk-alert.tsx` | `NodeDiskAlert`, used on the dashboard and node pages. |
 | `features/users/page.tsx` | Users list, create, edit, permissions. |
 | `features/roles/page.tsx` | Roles with their scopes, grouped as in the permission editor. |
-| `features/templates/page.tsx` | Repositories, templates per repository, local template editor and upload. |
+| `features/templates/page.tsx` | Repositories, templates per repository, upload and each template's menu (**Edit**, **Duplicate**, **Delete**). |
+| `features/templates/new-template-dialog.tsx` | "New template": blank, base template, duplicate (a search over local and community templates) or import a `.json`; each choice opens the editor. |
+| `features/templates/schema/` | One source per concept: the template's zod schema (`template.ts`) and one per install operation (`operations.ts`, with category, icon and fields), from which the forms, the live validation and Monaco's JSON Schema (`json-schema.ts`) come. `operations.json` lists the operation keys; a Go test checks every backend operation is there. |
+| `features/templates/editor/` | The template editor ([Templates](../features/templates.md#template-editor)). `editor-context.tsx` holds the whole template (form and JSON are two views of the same object, nothing lost), `validation.ts` and `warnings.ts` give the errors and warnings, `sections.tsx` and `section-keys.ts` the sections with their counts, `issue-summary.tsx` the list of errors and warnings; one folder per section (`variables/`, `steps/` for install, uninstall and run steps, `run/`, `environment/`, `requirements/`, `advanced/`), `presets/` the base templates and `preview/` the preview, which reuses `Step3Configuration` and `initialTemplateValues` from `create-server-stepper.tsx`. Lists are sorted with dnd-kit (keyboard included) and with ↑ ↓ (`sortable.tsx`). The pure logic has vitest tests (`yarn test`). |
 | `features/database-hosts/page.tsx` | Database hosts with a connection test (`POST /api/databasehosts/test`). |
 
 ## Settings (`features/settings/`)
