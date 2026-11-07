@@ -100,10 +100,14 @@ export function usesOptions(variable: JsonObject): boolean {
   return variableType(variable) === 'option' || variableOptions(variable).length > 0;
 }
 
-/** An option value's text, which the node compares choices by; undefined for anything but text, a number or a switch. */
+/**
+ * An option value's text, which the node compares choices by: text, a number, a switch or a list
+ * ("a,b", so a list value still matches its option as before); undefined for an object.
+ */
 function optionText(value: unknown): string | undefined {
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return value.join(',');
   return undefined;
 }
 

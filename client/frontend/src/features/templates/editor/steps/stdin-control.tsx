@@ -18,9 +18,10 @@ const UNSET = '__unset__';
 /** The types that connect to the game over the network. */
 const NETWORK_TYPES = new Set<string>(['rcon', 'rconws', 'telnet']);
 
-/** A console type as the select shows it: text as is, any other JSON value (which the schema flags) as its JSON. */
+/** A console type as the select shows it: text as is, a list as its text (as before), any other JSON value (which the schema flags) as its JSON. */
 function consoleTypeText(type: unknown): string {
-  return typeof type === 'string' ? type : JSON.stringify(type) ?? '';
+  if (typeof type === 'string') return type;
+  return Array.isArray(type) ? type.join(',') : JSON.stringify(type) ?? '';
 }
 
 export function StdinControl({ id, path, label, hint, value, issues, onChange }: Readonly<{

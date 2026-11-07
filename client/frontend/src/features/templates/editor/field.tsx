@@ -9,14 +9,15 @@ import type { EditorIssue } from './validation';
 export const INVALID_CONTROL = 'aria-[invalid=true]:border-destructive/70';
 
 /**
- * A value as a text input shows it: a string as is, nothing for a missing one, a number or a
- * switch as its text, and an object or a list (which no text field holds in a valid template)
- * as its JSON rather than "[object Object]".
+ * A value as a text input shows it: a string as is, nothing for a missing one, a number, a
+ * switch or a list as its text ("a,b", as the panel always showed it; a variable's value may be
+ * a list), and an object as its JSON rather than "[object Object]".
  */
 export function textValue(value: unknown): string {
   if (typeof value === 'string') return value;
   if (value === undefined || value === null) return '';
   if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+  if (Array.isArray(value)) return value.join(',');
   return JSON.stringify(value) ?? '';
 }
 

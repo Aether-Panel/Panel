@@ -263,6 +263,9 @@ describe('variable model', () => {
     expect(sameOptionValue(undefined, 'undefined')).toBe(false);
     // no option value is an object: two of them are not one choice by their "[object Object]" text
     expect(sameOptionValue({ a: 1 }, { b: 2 })).toBe(false);
+    // a list value (valid for a variable) still matches the option it reads as
+    expect(sameOptionValue('a', ['a'])).toBe(true);
+    expect(sameOptionValue('a,b', ['a', 'b'])).toBe(true);
     expect(newOption([{ value: 'option2' }])).toEqual({ value: 'option3', display: '' });
   });
 });

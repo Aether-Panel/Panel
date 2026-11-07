@@ -8,7 +8,8 @@ describe('a value as a text input shows it', () => {
     [null, ''],
     [25565, '25565'],
     [false, 'false'],
-    [['a', 'b'], '["a","b"]'],
+    // a variable's value may be a list: it reads as the panel always showed it
+    [['a', 'b'], 'a,b'],
     [{ a: 1 }, '{"a":1}'],
   ])('%j reads %j', (value, text) => {
     expect(textValue(value)).toBe(text);

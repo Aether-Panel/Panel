@@ -35,7 +35,7 @@ export function groupIssues(issues: readonly EditorIssue[]): IssueGroup[] {
   const order = (section: EditorSectionId | null) => (section === null ? SECTION_ORDER.length : SECTION_ORDER.indexOf(section));
   return [...bySection.entries()]
     // sort is stable: equal ranks keep validation's order
-    .map(([section, list]) => ({ section, issues: list.toSorted((a, b) => rank(a) - rank(b)) }))
+    .map(([section, list]) => ({ section, issues: [...list].sort((a, b) => rank(a) - rank(b)) }))
     .sort((a, b) => {
       const blockingFirst = Number(b.issues.some((i) => i.blocking)) - Number(a.issues.some((i) => i.blocking));
       return blockingFirst || order(a.section) - order(b.section);
