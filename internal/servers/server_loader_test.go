@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/stretchr/testify/assert"
@@ -38,4 +39,35 @@ func TestWriteFileAtomic_ReplacesTheFileAndLeavesNoTemporaries(t *testing.T) {
 	assert.Equal(t, "new", string(content))
 	entries, _ := os.ReadDir(dir)
 	assert.Len(t, entries, 1, "the temporary file is renamed over, not left behind")
+}
+
+func TestForgetServerState_DropsOnlyThatServer(t *testing.T) {
+	for _, id := range []string{"forgetgone", "forgetkept"} {
+		stateTrackingLock.Lock()
+		serverStateTracking[id] = &serverState{lastAlert: map[string]time.Time{}}
+		stateTrackingLock.Unlock()
+		queryLock.Lock()
+		queryCache[id] = cachedQuery{ok: true, at: time.Now()}
+		sourceQueryMisses[id] = time.Now()
+		queryLock.Unlock()
+	}
+	t.Cleanup(func() { forgetServerState("forgetkept") })
+
+	forgetServerState("forgetgone")
+
+	stateTrackingLock.RLock()
+	_, gone := serverStateTracking["forgetgone"]
+	_, kept := serverStateTracking["forgetkept"]
+	stateTrackingLock.RUnlock()
+	assert.False(t, gone)
+	assert.True(t, kept)
+
+	queryLock.Lock()
+	_, goneQuery := queryCache["forgetgone"]
+	_, goneMiss := sourceQueryMisses["forgetgone"]
+	_, keptQuery := queryCache["forgetkept"]
+	queryLock.Unlock()
+	assert.False(t, goneQuery)
+	assert.False(t, goneMiss)
+	assert.True(t, keptQuery)
 }

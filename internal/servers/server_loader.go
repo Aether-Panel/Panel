@@ -289,6 +289,7 @@ func Delete(id string) (err error) {
 	removeFromCache(id)
 	// after leaving the cache, so a periodic pass still on the server cannot bring it back
 	forgetPeriodic(safeID)
+	forgetServerState(safeID)
 	return
 }
 
