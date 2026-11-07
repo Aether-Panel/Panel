@@ -71,3 +71,34 @@ func TestForgetServerState_DropsOnlyThatServer(t *testing.T) {
 	assert.False(t, goneMiss)
 	assert.True(t, keptQuery)
 }
+
+func TestDelete_ForgetsTheServersInMemoryState(t *testing.T) {
+	p := newCrashTestServer(t)
+	p.Scheduler = NewDefaultScheduler(p.ID())
+	p.RunningEnvironment.RootDirectory = filepath.Join(config.ServersFolder.Value(), p.ID())
+	assert.NoError(t, os.MkdirAll(p.RunningEnvironment.RootDirectory, 0o755))
+	assert.NoError(t, os.WriteFile(filepath.Join(config.ServersFolder.Value(), p.ID()+".json"), []byte("{}"), 0o600))
+	useLoadedServers(t, p)
+	t.Cleanup(func() { forgetServerState(p.ID()) })
+
+	stateTrackingLock.Lock()
+	serverStateTracking[p.ID()] = &serverState{lastAlert: map[string]time.Time{}}
+	stateTrackingLock.Unlock()
+	queryLock.Lock()
+	queryCache[p.ID()] = cachedQuery{ok: true, at: time.Now()}
+	queryLock.Unlock()
+
+	if !assert.NoError(t, Delete(p.ID())) {
+		return
+	}
+
+	assert.Nil(t, GetFromCache(p.ID()))
+	stateTrackingLock.RLock()
+	_, tracked := serverStateTracking[p.ID()]
+	stateTrackingLock.RUnlock()
+	queryLock.Lock()
+	_, cached := queryCache[p.ID()]
+	queryLock.Unlock()
+	assert.False(t, tracked, "a server made later with this id must not inherit its alert state")
+	assert.False(t, cached)
+}
