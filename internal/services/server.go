@@ -101,73 +101,53 @@ func (ss *Server) Update(model *models.Server) error {
 	return res.Error
 }
 
-// Delete a server by ID, This is _not_ ran in a transaction automatically to allow for more flexibility
-// Callers should set the DB to be a transaction if needed
-// (Because Gorm V2 has removed `RollbackUnlessCommitted1)
+// Delete a server by ID: its MySQL databases on their hosts, then every row that belongs to
+// it, in one transaction so a refused step (a foreign key on MySQL) leaves nothing half
+// deleted. When ss.DB is already a transaction, the row deletes run in a savepoint of it.
 func (ss *Server) Delete(id string) error {
-	model := &models.Server{
-		Identifier: id,
-	}
-
 	// drop the MySQL databases first, while their rows still say where they are: their rows
 	// going away left the schemas and users (with working passwords) on the host, and a new
-	// server with this id failing to create them. An error here deletes nothing.
+	// server with this id failing to create them. An error here deletes nothing. Outside the
+	// transaction: it talks to the hosts, which can take seconds each.
 	if err := (&Database{DB: ss.DB}).DropAllForServer(id); err != nil {
 		return err
 	}
 
-	err := ss.DB.Delete(models.Permissions{}, "server_identifier = ?", id).Error
-	if err != nil {
-		return err
-	}
-
-	err = DeleteServerClients(ss.DB, id)
-	if err != nil {
-		return err
-	}
-
-	err = ss.DB.Delete(models.Backup{}, serverIDQuery, id).Error
-	if err != nil {
-		return err
-	}
-
-	err = ss.DB.Delete(models.Database{}, serverIDQuery, id).Error
-	if err != nil {
-		return err
-	}
-
-	err = ss.DB.Delete(models.UptimeStatus{}, serverIDQuery, id).Error
-	if err != nil {
-		return err
-	}
-
-	// Remove sessions scoped to this server so no orphaned rows survive a
-	// deletion. This mirrors the cleanup performed by the API delete handler and
-	// keeps ServerService.Delete the single source of truth for dependent rows.
-	err = ss.DB.Delete(models.Session{}, "server_identifier = ?", id).Error
-	if err != nil {
-		return err
-	}
-
-	err = DeleteServerTransfers(ss.DB, id)
-	if err != nil {
-		return err
-	}
-
-	err = ss.DB.Delete(model).Error
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return ss.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(models.Permissions{}, "server_identifier = ?", id).Error; err != nil {
+			return err
+		}
+		if err := DeleteServerClients(tx, id); err != nil {
+			return err
+		}
+		for _, owned := range []interface{}{models.Backup{}, models.Database{}, models.UptimeStatus{}} {
+			if err := tx.Delete(owned, serverIDQuery, id).Error; err != nil {
+				return err
+			}
+		}
+		// sessions scoped to this server, so no orphaned rows survive it
+		if err := tx.Delete(models.Session{}, "server_identifier = ?", id).Error; err != nil {
+			return err
+		}
+		if err := DeleteServerTransfers(tx, id); err != nil {
+			return err
+		}
+		return tx.Delete(&models.Server{Identifier: id}).Error
+	})
 }
 
-// DeleteServerClients removes the server's OAuth clients and the sessions made for them.
-// Sessions go first: CreateForClient gives them no server_identifier, so nothing else
-// finds them, and where foreign keys are on they would block the clients' delete.
+// DeleteServerClients removes the server's OAuth clients with their permissions and the
+// sessions made for them. Those go first: CreateForClient gives the sessions no
+// server_identifier, so nothing else finds them, and where foreign keys are on both would
+// block the clients' delete.
 func DeleteServerClients(db *gorm.DB, serverID string) error {
-	clientIDs := db.Model(&models.Client{}).Select("id").Where(serverIDQuery, serverID)
-	if err := db.Where("client_id IN (?)", clientIDs).Delete(&models.Session{}).Error; err != nil {
+	clientIDs := func() *gorm.DB {
+		return db.Model(&models.Client{}).Select("id").Where(serverIDQuery, serverID)
+	}
+	if err := db.Where("client_id IN (?)", clientIDs()).Delete(&models.Permissions{}).Error; err != nil {
+		return err
+	}
+	if err := db.Where("client_id IN (?)", clientIDs()).Delete(&models.Session{}).Error; err != nil {
 		return err
 	}
 	return db.Delete(models.Client{}, serverIDQuery, serverID).Error

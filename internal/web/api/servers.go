@@ -679,13 +679,6 @@ func deleteServer(c *gin.Context) {
 			return err
 		}
 
-		var clientIDs []uint
-		if err := tx.Model(&models.Client{}).Where(serverIDQuery, server.Identifier).Pluck("id", &clientIDs).Error; err == nil && len(clientIDs) > 0 {
-			if err := tx.Where("client_id IN ?", clientIDs).Delete(&models.Permissions{}).Error; err != nil {
-				return err
-			}
-		}
-
 		if err := tx.Where(serverIDQuery, server.Identifier).Delete(&models.UptimeStatus{}).Error; err != nil {
 			return err
 		}

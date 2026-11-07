@@ -109,3 +109,32 @@ func TestUserDelete_RemovesTheirTransfersAndClientSessions(t *testing.T) {
 	assert.EqualValues(t, 1, countRows(t, db, &models.ExTransferSession{}, "session_uuid = ?", keptTransfer), "another user's transfer stays")
 	assert.EqualValues(t, 1, countRows(t, db, &models.ExTransferLog{}, "session_id = ?", keptTransfer))
 }
+
+func TestServerDelete_RemovesItsClientsPermissions(t *testing.T) {
+	db := setupDeleteCleanupDB(t, &models.Database{}, &models.DatabaseHost{})
+	gone, _ := addCleanupServer(t, db, "gone-00001", 1)
+	kept, _ := addCleanupServer(t, db, "kept-00002", 1)
+	// client-scoped permissions carry no server_identifier
+	for _, clientID := range []uint{gone, kept} {
+		id := clientID
+		require.NoError(t, db.Omit(clause.Associations).Create(&models.Permissions{ClientID: &id}).Error)
+	}
+
+	require.NoError(t, (&Server{DB: db}).Delete("gone-00001"))
+
+	assert.Zero(t, countRows(t, db, &models.Permissions{}, "client_id = ?", gone))
+	assert.EqualValues(t, 1, countRows(t, db, &models.Permissions{}, "client_id = ?", kept), "another server's client keeps its permissions")
+}
+
+func TestServerDelete_AFailingStepLeavesEveryRow(t *testing.T) {
+	db := setupDeleteCleanupDB(t, &models.Database{}, &models.DatabaseHost{})
+	clientID, _ := addCleanupServer(t, db, "gone-00001", 1)
+	// a late step (the transfer logs) fails
+	require.NoError(t, db.Migrator().DropTable(&models.ExTransferLog{}))
+
+	assert.Error(t, (&Server{DB: db}).Delete("gone-00001"))
+
+	assert.EqualValues(t, 1, countRows(t, db, &models.Server{}, "identifier = ?", "gone-00001"))
+	assert.EqualValues(t, 1, countRows(t, db, &models.Client{}, "id = ?", clientID), "the earlier deletes are rolled back")
+	assert.EqualValues(t, 1, countRows(t, db, &models.Session{}, "client_id = ?", clientID))
+}
