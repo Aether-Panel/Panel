@@ -45,7 +45,7 @@ func createProduct(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
-	if !validateProduct(c, db, &req) {
+	if !validateProduct(c, db, &req, true, true) {
 		return
 	}
 
@@ -71,12 +71,16 @@ func updateProduct(c *gin.Context) {
 		return
 	}
 
+	// read before binding: the binding writes through the node_id pointer
+	oldTemplate, oldNode := product.Template, provisionNodeID(&product)
 	if err := c.ShouldBindJSON(&product); response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 
 	product.ID = uint(id)
-	if !validateProduct(c, db, &product) {
+	// only what the edit changes is checked: an unreachable templates.url index must not block
+	// changing the limits or the name of a product whose template it already had
+	if !validateProduct(c, db, &product, product.Template != oldTemplate, provisionNodeID(&product) != oldNode) {
 		return
 	}
 	err = db.Save(&product).Error
@@ -105,25 +109,14 @@ func deleteProduct(c *gin.Context) {
 
 // validateProduct refuses a product provisioning could not use: a template no repo has, looked
 // up the way provisioning does, or a node (the pinned one, else the fallback) that does not
-// exist. False when a response has been written.
-func validateProduct(c *gin.Context, db *gorm.DB, product *models.ProvisionProduct) bool {
-	if strings.TrimSpace(product.Template) == "" {
-		response.HandleError(c, skypanel.ErrProductTemplateRequired, http.StatusBadRequest)
+// exist; each only when asked to check it. False when a response has been written.
+func validateProduct(c *gin.Context, db *gorm.DB, product *models.ProvisionProduct, checkTemplate, checkNode bool) bool {
+	if checkTemplate && !validateProductTemplate(c, db, product.Template) {
 		return false
 	}
-	if err := lookupProductTemplate(&services.Template{DB: db}, product.Template); err != nil {
-		status := http.StatusInternalServerError
-		switch {
-		case errors.Is(err, skypanel.ErrProductTemplateNotFound("")):
-			status = http.StatusBadRequest
-		case errors.Is(err, skypanel.ErrProductTemplateUnreadable("", "")):
-			// the request may be right: the repo (the templates.url index) could not be asked
-			status = http.StatusBadGateway
-		}
-		response.HandleError(c, err, status)
-		return false
+	if !checkNode {
+		return true
 	}
-
 	nodeID := provisionNodeID(product)
 	_, err := (&services.Node{DB: db}).Get(nodeID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -131,6 +124,27 @@ func validateProduct(c *gin.Context, db *gorm.DB, product *models.ProvisionProdu
 		return false
 	}
 	return !response.HandleError(c, err, http.StatusInternalServerError)
+}
+
+func validateProductTemplate(c *gin.Context, db *gorm.DB, template string) bool {
+	if strings.TrimSpace(template) == "" {
+		response.HandleError(c, skypanel.ErrProductTemplateRequired, http.StatusBadRequest)
+		return false
+	}
+	err := lookupProductTemplate(&services.Template{DB: db}, template)
+	if err == nil {
+		return true
+	}
+	status := http.StatusInternalServerError
+	switch {
+	case errors.Is(err, skypanel.ErrProductTemplateNotFound("")):
+		status = http.StatusBadRequest
+	case errors.Is(err, skypanel.ErrProductTemplateUnreadable("", "")):
+		// the request may be right: the repo (the templates.url index) could not be asked
+		status = http.StatusBadGateway
+	}
+	response.HandleError(c, err, status)
+	return false
 }
 
 // lookupProductTemplate is nil when a repo provisioning reads has the template (see

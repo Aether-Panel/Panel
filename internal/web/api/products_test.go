@@ -116,3 +116,34 @@ func TestCreateProduct_SaysWhenTheTemplateIndexCannotBeRead(t *testing.T) {
 	w = doJSON(r, http.MethodPost, "/products", gin.H{"product_id": "b", "template": "my-paper", "default_node": node.ID})
 	assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
 }
+
+// An edit is checked only for what it changes: with the templates.url index down, the limits
+// of a product whose template is in the index can still be changed, its template cannot.
+func TestUpdateProduct_ChecksOnlyWhatChanges(t *testing.T) {
+	db, r, node := setupProductForm(t)
+	other := &models.Node{Name: "eu-2", PublicHost: "10.0.0.3", PrivateHost: "10.0.0.3", PublicPort: 8080, PrivatePort: 8080, SFTPPort: 5657, Secret: "node-secret-0123456789"}
+	require.NoError(t, db.Create(other).Error)
+	product := &models.ProvisionProduct{ProductID: "minecraft_2gb", Template: "paper", DefaultNode: node.ID}
+	require.NoError(t, db.Create(product).Error)
+	path := "/products/" + itoa(product.ID)
+	down := httptest.NewServer(http.NotFoundHandler())
+	down.Close()
+	require.NoError(t, config.TemplatesURL.Set(down.URL+"/index.json", false))
+
+	w := doJSON(r, http.MethodPut, path, gin.H{"cpu": 200, "memory": 4096, "display_name": "Minecraft 4 GB"})
+	assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	w = doJSON(r, http.MethodPut, path, gin.H{"default_node": other.ID})
+	assert.Equal(t, http.StatusOK, w.Code, "a node that exists, the template untouched: %s", w.Body.String())
+
+	var stored models.ProvisionProduct
+	require.NoError(t, db.First(&stored, product.ID).Error)
+	assert.Equal(t, 200, stored.CPU)
+	assert.Equal(t, other.ID, stored.DefaultNode)
+
+	w = doJSON(r, http.MethodPut, path, gin.H{"template": "rust"})
+	assert.Equal(t, http.StatusBadGateway, w.Code)
+	code, _ := refusedCode(t, w)
+	assert.Equal(t, "ErrProductTemplateUnreadable", code)
+	require.NoError(t, db.First(&stored, product.ID).Error)
+	assert.Equal(t, "paper", stored.Template)
+}
