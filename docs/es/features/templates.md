@@ -37,6 +37,8 @@ Se guardan en la base de datos del panel, una fila por nombre de plantilla. Subi
 
 Si el archivo no tiene `display`, se usa el nombre.
 
+El panel guarda el JSON de la plantilla tal como se escribió, tanto al subirla como al guardarla: las variables conservan su orden y los campos que el panel no conoce no se pierden. Las plantillas guardadas antes de este cambio mantienen el orden alfabético con el que se guardaron hasta que se vuelvan a guardar.
+
 El diálogo **Crear plantilla** / **Editar plantilla** tiene tres pestañas sincronizadas: **General** (**Nombre (ID único)**, **Nombre visible**, **Categoría (tipo)**), **Configuración de ejecución** (**Comando de inicio**, **Comando de parada**, **Directorio de trabajo**) y **JSON** (la plantilla completa, con **Cargar desde archivo JSON**). Al guardar se envía el JSON con `PUT /api/templates/0/<nombre>`; una plantilla con el mismo nombre se sustituye.
 
 ### Plantillas de la comunidad

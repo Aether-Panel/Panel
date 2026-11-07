@@ -262,11 +262,11 @@ Reading templates only needs `login`, because the new-server and Splitter forms 
 | `GET /api/templates` | `[{"id": 0, "name": "Local", "url": "", "branch": "", "isLocal": true}]` |
 | `POST /api/templates` | `{"name": "mine", "url": "https://github.com/me/templates.git", "branch": "main"}`, plus optional credentials for a private repository: `pat`, `username`, `password`, `sshKey` (see below). Answers the repository, never its credentials; `400 ErrFieldRequired` without `name` |
 | `GET /api/templates/:repo` | The repository's templates |
-| `GET /api/templates/:repo/:name` | One template: the definition plus `name` and `readme`; `404` when unknown |
+| `GET /api/templates/:repo/:name` | One template: the definition as its author wrote it (same key order, fields the panel does not know included), followed by `name` and `readme`; `404` when unknown |
 | `DELETE /api/templates/:repo` | `204` |
-| `PUT /api/templates/0/:name` | Body: a definition. Creates or replaces the local template. `204` |
+| `PUT /api/templates/0/:name` | Body: a definition (a JSON object). Creates or replaces the local template. It is checked as before (`400` when it does not read as a server definition) and stored as written, without its `name` and `readme` keys: the URL gives the name, and the stored readme is kept. `204` |
 | `DELETE /api/templates/0/:name` | `204`; `404` when unknown |
-| `POST /api/templates/upload` | Multipart field `files`, one or more `.json` files of up to 2 MB; the template name is the file name (`minecraft.json` → `minecraft`). Answers the created templates; `400 ErrInvalidTemplate` for a file that is not JSON or has neither install steps nor a run command |
+| `POST /api/templates/upload` | Multipart field `files`, one or more `.json` files of up to 2 MB; the template name is the file name (`minecraft.json` → `minecraft`). The file is stored as written (a missing `display` is added at its end). Answers the created templates; `400 ErrInvalidTemplate` for a file that is not JSON or has neither install steps nor a run command |
 
 Private repositories: over HTTPS, `pat` (a personal access token, sent with the user `username`, or `git` when empty) or `username` + `password`; over SSH (`git@host:owner/repo.git` or `ssh://...`), `sshKey` holds the private key, `password` its passphrase, and the user is `username`, else the one in the URL, else `git`. For SSH the host must be in the `known_hosts` of the account that runs the panel. The web client has no form for adding repositories yet. Internals: [Services → Template](../../backend/11-services.md#11-template-templatesgo).
 

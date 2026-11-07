@@ -262,11 +262,11 @@ Leer plantillas solo requiere `login`, porque los formularios de nuevo servidor 
 | `GET /api/templates` | `[{"id": 0, "name": "Local", "url": "", "branch": "", "isLocal": true}]` |
 | `POST /api/templates` | `{"name": "mine", "url": "https://github.com/me/templates.git", "branch": "main"}`, más credenciales opcionales para un repositorio privado: `pat`, `username`, `password`, `sshKey` (véase abajo). Responde con el repositorio, nunca con sus credenciales; `400 ErrFieldRequired` sin `name` |
 | `GET /api/templates/:repo` | Las plantillas del repositorio |
-| `GET /api/templates/:repo/:name` | Una plantilla: la definición más `name` y `readme`; `404` si no existe |
+| `GET /api/templates/:repo/:name` | Una plantilla: la definición tal como la escribió su autor (mismo orden de claves, con los campos que el panel no conoce), seguida de `name` y `readme`; `404` si no existe |
 | `DELETE /api/templates/:repo` | `204` |
-| `PUT /api/templates/0/:name` | Cuerpo: una definición. Crea o sustituye la plantilla local. `204` |
+| `PUT /api/templates/0/:name` | Cuerpo: una definición (un objeto JSON). Crea o sustituye la plantilla local. Se comprueba como antes (`400` si no se lee como definición de servidor) y se guarda tal como llega, sin sus claves `name` y `readme`: el nombre lo da la URL y el readme guardado se conserva. `204` |
 | `DELETE /api/templates/0/:name` | `204`; `404` si no existe |
-| `POST /api/templates/upload` | Campo multipart `files`, uno o varios archivos `.json` de hasta 2 MB; el nombre de la plantilla es el del archivo (`minecraft.json` → `minecraft`). Responde con las plantillas creadas; `400 ErrInvalidTemplate` para un archivo que no es JSON o que no tiene ni pasos de instalación ni comando de ejecución |
+| `POST /api/templates/upload` | Campo multipart `files`, uno o varios archivos `.json` de hasta 2 MB; el nombre de la plantilla es el del archivo (`minecraft.json` → `minecraft`). El archivo se guarda tal como está (si le falta `display`, se añade al final). Responde con las plantillas creadas; `400 ErrInvalidTemplate` para un archivo que no es JSON o que no tiene ni pasos de instalación ni comando de ejecución |
 
 Repositorios privados: por HTTPS, `pat` (un token de acceso personal, enviado con el usuario `username`, o `git` si está vacío) o `username` + `password`; por SSH (`git@host:propietario/repo.git` o `ssh://...`), `sshKey` contiene la clave privada, `password` su frase de paso, y el usuario es `username`, si no el de la URL, si no `git`. Para SSH el host debe estar en el `known_hosts` de la cuenta que ejecuta el panel. El cliente web aún no tiene un formulario para añadir repositorios. Funcionamiento interno: [Servicios → Template](../../backend/11-services.md#11-template-templatesgo).
 

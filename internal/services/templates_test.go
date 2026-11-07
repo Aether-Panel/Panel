@@ -3,14 +3,18 @@ package services
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
@@ -112,4 +116,55 @@ func TestGetAllFromVps_ReusesTheIndex(t *testing.T) {
 	_, err = ts.getAllFromVps(server.URL + "/index.json?v=2")
 	require.NoError(t, err)
 	assert.Equal(t, int32(3), indexHits.Load())
+}
+
+// a community template, written with its variables out of alphabetical order and a field
+// the panel does not know
+const authoredTemplate = `{"display":"Paper","data":{"version":{"value":"1.21","hint":"x"},"memory":{"type":"integer","value":1024},"eula":{"type":"boolean","value":false}},"run":{"command":"java"}}`
+
+func TestGetFromVps_ServesTheTemplateAsWritten(t *testing.T) {
+	vpsCache = vpsCacheEntry{}
+	t.Cleanup(func() { vpsCache = vpsCacheEntry{} })
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/index.json":
+			_, _ = fmt.Fprint(w, `{"paper":{"url":"paper.json"}}`)
+		case "/paper.json":
+			_, _ = fmt.Fprint(w, authoredTemplate)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(server.Close)
+	ts := &Template{}
+
+	tmpl, err := ts.getFromVps(server.URL+"/index.json", "paper")
+	require.NoError(t, err)
+	assert.Equal(t, 1024, tmpl.Variables["memory"].Value, "Go still reads it typed")
+	out, err := json.Marshal(tmpl)
+	require.NoError(t, err)
+	assert.Equal(t, authoredTemplate[:len(authoredTemplate)-1]+`,"name":"paper"}`, string(out))
+
+	list, err := ts.getAllFromVps(server.URL + "/index.json")
+	require.NoError(t, err)
+	require.Len(t, list, 1)
+	out, err = json.Marshal(list[0])
+	require.NoError(t, err)
+	assert.Equal(t, authoredTemplate[:len(authoredTemplate)-1]+`,"name":"paper"}`, string(out))
+}
+
+func TestReadTemplateFromDisk_ServesTheTemplateAsWritten(t *testing.T) {
+	cache := t.TempDir()
+	require.NoError(t, config.CacheFolder.Set(cache, false))
+	t.Cleanup(func() { _ = config.CacheFolder.Set("cache", false) })
+	path := filepath.Join(cache, "template-repos", "1", "minecraft", "paper.json")
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(authoredTemplate), 0o600))
+
+	tmpl, err := readTemplateFromDisk("paper", path)
+	require.NoError(t, err)
+	tmpl.Readme = "# Paper"
+	out, err := json.Marshal(tmpl)
+	require.NoError(t, err)
+	assert.Equal(t, authoredTemplate[:len(authoredTemplate)-1]+`,"name":"paper","readme":"# Paper"}`, string(out))
 }

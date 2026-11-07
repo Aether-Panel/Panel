@@ -37,6 +37,8 @@ Stored in the panel database, one row per template name. Uploading a file create
 
 If the file has no `display`, the name is used.
 
+The panel keeps a template's JSON as it was written, whether uploaded or saved: the variables keep their order and fields the panel does not know are not lost. Templates saved before this behaviour came in keep the alphabetical order they were stored with until they are saved again.
+
 The **Create Template** / **Edit template** dialog has three tabs that stay in sync: **General** (**Name (unique ID)**, **Display name**, **Category (type)**), **Run Configuration** (**Start command**, **Stop command**, **Working directory**) and **JSON** (the whole template, with **Load from JSON file**). Saving sends the JSON with `PUT /api/templates/0/<name>`; a template with the same name is replaced.
 
 ### Community templates
