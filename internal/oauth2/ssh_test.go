@@ -76,6 +76,7 @@ func TestValidateKey_AsksThePanel(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "srv1", perms.Extensions["server_id"])
+	assert.Equal(t, ssh.FingerprintSHA256(key), perms.Extensions["key"], "kept for the checks of the open connection")
 	assert.Equal(t, "/auth/sftp-key", gotPath)
 	assert.Equal(t, "Bearer node-secret", gotAuth)
 	assert.Equal(t, "alice@example.com#srv1", gotBody["username"])
@@ -156,6 +157,12 @@ func TestRecheck_AsksThePanel(t *testing.T) {
 	assert.Equal(t, "/auth/sftp-check", gotPath)
 	assert.Equal(t, "Bearer node-secret", gotAuth)
 	assert.Equal(t, "alice@example.com#srv1", gotBody["username"])
+	assert.NotContains(t, gotBody, "keyFingerprint", "a password connection sends no key")
+
+	perms.Extensions["key"] = "SHA256:abc"
+	_, err = (&WebSSHAuthorization{}).Recheck(perms)
+	require.NoError(t, err)
+	assert.Equal(t, "SHA256:abc", gotBody["keyFingerprint"], "a key connection asks about its key")
 }
 
 // Only the panel's refusal ends the connection; no answer keeps it
@@ -168,6 +175,10 @@ func TestRecheck_PanelAnswers(t *testing.T) {
 	}{
 		{http.StatusOK, `{"scope":"srv1:server.sftp"}`, true, false},
 		{http.StatusBadRequest, `{"error":"invalid_request","error_description":"no access"}`, false, false},
+		// a 400 that is not the panel's refusal (a proxy, a WAF, a bad request) says nothing about the user
+		{http.StatusBadRequest, `{"error":"invalid_request","error_description":"bad request"}`, false, true},
+		{http.StatusBadRequest, `<html>400 Bad Request</html>`, false, true},
+		{http.StatusBadRequest, ``, false, true},
 		// a 200 for another server, or without SFTP, is not this connection's access
 		{http.StatusOK, `{"scope":"srv2:server.sftp"}`, false, false},
 		{http.StatusOK, `{"scope":"srv1:server.view"}`, false, false},

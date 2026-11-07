@@ -17,7 +17,13 @@ const (
 	sftpExtServerID = "server_id"
 	sftpExtUserID   = "user_id"
 	sftpExtEmail    = "email"
+	// sftpExtKey is the SHA256 fingerprint of the SSH key a connection signed in with, empty
+	// for a password: removing that key from the account ends the connection
+	sftpExtKey = "key"
 )
+
+var _ skypanel.SFTPRecheck = (*DatabaseSFTPAuthorization)(nil)
+var _ skypanel.SFTPKeyAuthorization = (*DatabaseSFTPAuthorization)(nil)
 
 type DatabaseSFTPAuthorization struct {
 }
@@ -105,6 +111,7 @@ func validateSFTPKey(db *gorm.DB, email, serverID string, key ssh.PublicKey) (*s
 	if err != nil {
 		return nil, err
 	}
+	perms.Extensions[sftpExtKey] = stored.Fingerprint
 	LoginAttempts.Reset(limitKey)
 	return perms, nil
 }
@@ -168,6 +175,12 @@ func recheckSFTP(db *gorm.DB, perms *ssh.Permissions) (bool, error) {
 	// connection; an email change also ends it, as the login name no longer matches
 	if !strings.EqualFold(user.Email, perms.Extensions[sftpExtEmail]) {
 		return false, nil
+	}
+	if fingerprint := perms.Extensions[sftpExtKey]; fingerprint != "" {
+		kept, err := (&SSHKey{DB: db}).HasFingerprint(user.ID, fingerprint)
+		if err != nil || !kept {
+			return false, err
+		}
 	}
 	return sftpAllowed(db, user.ID, serverID)
 }

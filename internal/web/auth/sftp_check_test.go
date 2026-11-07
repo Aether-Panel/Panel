@@ -13,11 +13,18 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/ssh"
 )
 
 func (h *sftpKeyHarness) recheck(t *testing.T, secret, username string) (int, map[string]interface{}) {
 	t.Helper()
-	body, _ := json.Marshal(SFTPCheckRequest{Username: username})
+	return h.recheckKey(t, secret, username, "")
+}
+
+// recheckKey checks a connection that signed in with the SSH key of that fingerprint
+func (h *sftpKeyHarness) recheckKey(t *testing.T, secret, username, fingerprint string) (int, map[string]interface{}) {
+	t.Helper()
+	body, _ := json.Marshal(SFTPCheckRequest{Username: username, KeyFingerprint: fingerprint})
 	req := httptest.NewRequest(http.MethodPost, "/auth/sftp-check", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	if secret != "" {
@@ -103,7 +110,7 @@ func TestSFTPCheck_ADatabaseErrorIsNotANo(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, sqlDB.Close())
 
-	_, err = checkSFTPAccess(h.db, node, "alice@example.com#srv1")
+	_, err = checkSFTPAccess(h.db, node, "alice@example.com#srv1", "")
 
 	require.Error(t, err)
 	assert.NotErrorIs(t, err, errSFTPNoAccess)
@@ -120,4 +127,35 @@ func TestSFTPCheck_CountsNoAttempts(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, status)
 	}
 	assert.True(t, services.LoginAttempts.Allowed(sftpKeyAttemptKey(h.user.ID)))
+}
+
+// A connection opened with an SSH key ends when the key is removed from the account; one
+// opened with the password does not depend on the keys
+func TestSFTPCheck_TheKeyMustStillBeThere(t *testing.T) {
+	h := newSFTPCheckHarness(t)
+	key, _, _, _, err := ssh.ParseAuthorizedKey([]byte(h.key))
+	require.NoError(t, err)
+	fingerprint := ssh.FingerprintSHA256(key)
+
+	status, _ := h.recheckKey(t, "node-secret", "alice@example.com#srv1", fingerprint)
+	assert.Equal(t, http.StatusOK, status, "the key is still on the account")
+
+	status, answer := h.recheckKey(t, "node-secret", "alice@example.com#srv1", ssh.FingerprintSHA256(mustParseKey(t, newSFTPTestKey(t))))
+	assert.Equal(t, http.StatusBadRequest, status, "a key that is not hers")
+	assert.Equal(t, "no access", answer["error_description"])
+
+	require.NoError(t, h.db.Where("user_id = ?", h.user.ID).Delete(&models.SSHKey{}).Error)
+
+	status, answer = h.recheckKey(t, "node-secret", "alice@example.com#srv1", fingerprint)
+	assert.Equal(t, http.StatusBadRequest, status, "the key was removed")
+	assert.Equal(t, "no access", answer["error_description"])
+
+	status, _ = h.recheck(t, "node-secret", "alice@example.com#srv1")
+	assert.Equal(t, http.StatusOK, status, "a password connection does not depend on the keys")
+}
+
+func mustParseKey(t *testing.T, line string) ssh.PublicKey {
+	key, _, _, _, err := ssh.ParseAuthorizedKey([]byte(line))
+	require.NoError(t, err)
+	return key
 }

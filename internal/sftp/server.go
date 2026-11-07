@@ -193,6 +193,8 @@ func handleConn(conn net.Conn, serverConfig *ssh.ServerConfig) error {
 // closes it on a no. An error is no answer (the database or the panel is down): the connection
 // stays, and the error is logged once until a check gets through again.
 func watchAccess(done <-chan struct{}, checker skypanel.SFTPRecheck, perms *ssh.Permissions, interval time.Duration, closeConn func() error, user string) {
+	// its own goroutine: a panic in a check must not take the whole daemon down
+	defer skypanel.Recover()
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	failing := false

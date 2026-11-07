@@ -264,8 +264,10 @@ El contador de intentos es independiente del de contraseñas (clave `sshkey:user
 Cómo comprueba un nodo remoto las conexiones SFTP que ya dejó entrar. El nodo pregunta cada 30 segundos por cada conexión abierta, con el usuario con el que entró, y la cierra cuando la respuesta es `400`: el usuario se borró, perdió `login`, perdió `server.sftp` en el servidor (o el propio servidor), o el servidor ya no está en ese nodo. Cualquier otra respuesta, o ninguna (panel inalcanzable, un panel sin esta ruta), mantiene la conexión abierta, para que una caída no eche a todo el mundo. Se identifica con el secreto del nodo, como `/auth/sftp-key`, espera como máximo 15 segundos y no cuenta nada en los límites de intentos: la contraseña o la clave ya se comprobaron al entrar.
 
 ```json
-{ "username": "player@example.com#a1b2c3d4" }
+{ "username": "player@example.com#a1b2c3d4", "keyFingerprint": "SHA256:..." }
 ```
+
+`keyFingerprint` solo se envía para una conexión abierta con una clave SSH: la clave debe seguir en la cuenta, así que quitarla cierra la conexión. Una conexión con contraseña no lo incluye.
 
 Respuesta (`Cache-Control: no-store`), nunca una sesión:
 
@@ -277,7 +279,7 @@ Respuesta (`Cache-Control: no-store`), nunca una sesión:
 |-------|--------|
 | `401 {"error": "invalid_client"}` | Sin cabecera bearer, o el secreto no es de un nodo |
 | `400 {"error": "invalid_request", "error_description": "bad request"}` | El cuerpo no es JSON válido o pasa de 4 KiB |
-| `400 {"error": "invalid_request", "error_description": "no access"}` | Usuario mal formado, servidor borrado o que no está en el nodo que pregunta, cuenta desconocida, o sin `login` / `server.sftp` |
+| `400 {"error": "invalid_request", "error_description": "no access"}` | Usuario mal formado, servidor borrado o que no está en el nodo que pregunta, cuenta desconocida, la clave SSH quitada, o sin `login` / `server.sftp`. El nodo solo cierra la conexión con esta respuesta exacta; cualquier otro `400` (de un proxy, por ejemplo) la mantiene |
 | `500 {"error": "server_error"}` | El panel no pudo leer su base de datos; el nodo mantiene la conexión |
 
 El nodo propio del panel hace la misma comprobación contra la base de datos, con el id de la cuenta, así que una cuenta nueva que reciba el id de un usuario borrado (SQLite los reutiliza) o un cambio de email también cierran la conexión.

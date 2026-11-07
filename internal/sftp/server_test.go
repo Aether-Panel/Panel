@@ -102,3 +102,22 @@ func TestWatchAccess_StopsWithTheConnection(t *testing.T) {
 	assert.Equal(t, calls, checker.callCount(), "a closed connection is not checked any more")
 	assert.Empty(t, closed)
 }
+
+type panickingRecheck struct{}
+
+func (panickingRecheck) Recheck(*ssh.Permissions) (bool, error) { panic("broken check") }
+
+// a panic in a check ends the watch, not the daemon
+func TestWatchAccess_SurvivesAPanickingCheck(t *testing.T) {
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		watchAccess(make(chan struct{}), panickingRecheck{}, &ssh.Permissions{}, time.Millisecond, func() error { return nil }, "alice@example.com#srv1")
+	}()
+
+	select {
+	case <-finished:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the watch must end after the panic")
+	}
+}

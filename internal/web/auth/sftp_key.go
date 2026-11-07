@@ -30,7 +30,7 @@ const sftpKeyRequestLimit = 16 * 1024
 
 // sftpKeyNoAccess is the one refusal every failed check gets, so the answer does not tell
 // whether the account, the server or the key was wrong
-const sftpKeyNoAccess = "no access"
+const sftpKeyNoAccess = oauth2.SFTPNoAccess
 
 // @Summary Check an SFTP key login
 // @Description For nodes: whether a public key offered to the node's SFTP server is one of the user's SSH keys, and the user may still sign in and use SFTP on that server, which must be on this node. The node signs in with its secret, as for the OAuth2 password check. Only the granted scope is answered, never a session.

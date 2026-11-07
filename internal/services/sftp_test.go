@@ -136,3 +136,29 @@ func TestRecheckSFTP(t *testing.T) {
 		assert.False(t, allowed)
 	})
 }
+
+// A connection opened with an SSH key ends when that key is removed; a password connection
+// does not depend on the keys
+func TestRecheckSFTP_KeyConnections(t *testing.T) {
+	db, user, key := setupSFTPKeyLogin(t)
+	byKey, err := validateSFTPKey(db, user.Email, "srv1", key)
+	require.NoError(t, err)
+	assert.Equal(t, ssh.FingerprintSHA256(key), byKey.Extensions["key"])
+	byPassword, err := sftpPermissions(db, user, "srv1")
+	require.NoError(t, err)
+	assert.Empty(t, byPassword.Extensions["key"])
+
+	allowed, err := recheckSFTP(db, byKey)
+	require.NoError(t, err)
+	assert.True(t, allowed, "the key is still on the account")
+
+	require.NoError(t, db.Where("user_id = ?", user.ID).Delete(&models.SSHKey{}).Error)
+
+	allowed, err = recheckSFTP(db, byKey)
+	require.NoError(t, err)
+	assert.False(t, allowed, "the key was removed")
+
+	allowed, err = recheckSFTP(db, byPassword)
+	require.NoError(t, err)
+	assert.True(t, allowed, "a password connection is unchanged")
+}

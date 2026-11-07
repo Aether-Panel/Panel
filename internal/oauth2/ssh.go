@@ -35,8 +35,15 @@ const panelCheckTimeout = 15 * time.Second
 // panelAnswerLimit bounds what is read of the panel's answer to a check
 const panelAnswerLimit = 64 * 1024
 
-// sftpExtUsername keeps the SFTP login in the connection's permissions, for Recheck
-const sftpExtUsername = "username"
+// Extensions of a connection's permissions read again by Recheck: the SFTP login, and the
+// SHA256 fingerprint of the SSH key it signed in with (none for a password)
+const (
+	sftpExtUsername = "username"
+	sftpExtKey      = "key"
+)
+
+var _ skypanel.SFTPKeyAuthorization = (*WebSSHAuthorization)(nil)
+var _ skypanel.SFTPRecheck = (*WebSSHAuthorization)(nil)
 
 // errSFTPRefused is the one answer every refused login gets
 var errSFTPRefused = errors.New("incorrect username or password")
@@ -68,7 +75,13 @@ func (ws *WebSSHAuthorization) ValidateKey(username string, key ssh.PublicKey) (
 
 	switch status {
 	case http.StatusOK:
-		return sftpPermissionsFromAnswer(bytes.NewReader(answer), username)
+		perms, err := sftpPermissionsFromAnswer(bytes.NewReader(answer), username)
+		if err != nil {
+			return nil, err
+		}
+		// removing this key from the account ends the connection
+		perms.Extensions[sftpExtKey] = ssh.FingerprintSHA256(key)
+		return perms, nil
 	case http.StatusBadRequest:
 		// a key that is not the user's: clients offer every key they have in turn, so this
 		// is routine and not worth an error in the log
@@ -89,7 +102,11 @@ func (ws *WebSSHAuthorization) Recheck(perms *ssh.Permissions) (bool, error) {
 		return false, nil
 	}
 	username := perms.Extensions[sftpExtUsername]
-	status, answer, err := askPanel(sftpAccessCheckPath, map[string]string{"username": username})
+	body := map[string]string{"username": username}
+	if fingerprint := perms.Extensions[sftpExtKey]; fingerprint != "" {
+		body["keyFingerprint"] = fingerprint
+	}
+	status, answer, err := askPanel(sftpAccessCheckPath, body)
 	if err != nil {
 		return false, err
 	}
@@ -107,10 +124,17 @@ func (ws *WebSSHAuthorization) Recheck(perms *ssh.Permissions) (bool, error) {
 		// the answer must still be for the server this connection opened
 		return granted.Extensions["server_id"] == perms.Extensions["server_id"], nil
 	case http.StatusBadRequest:
-		return false, nil
-	default:
-		return false, fmt.Errorf("the panel answered [%d] [%s]", status, answer[:min(len(answer), 200)])
+		if isPanelRefusal(answer) {
+			return false, nil
+		}
 	}
+	return false, fmt.Errorf("the panel answered [%d] [%s]", status, answer[:min(len(answer), 200)])
+}
+
+// isPanelRefusal says whether a 400 is the panel's own "no access", not a proxy's or a WAF's
+func isPanelRefusal(answer []byte) bool {
+	var refusal ErrorResponse
+	return json.Unmarshal(answer, &refusal) == nil && refusal.ErrorDescription == SFTPNoAccess
 }
 
 // askPanel posts a JSON body to one of the panel's routes for nodes, signed in with the

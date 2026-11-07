@@ -80,6 +80,17 @@ func (s *SSHKey) Delete(userID, id uint) error {
 	return nil
 }
 
+// HasFingerprint says whether the key with that SHA256 fingerprint is still on the user's
+// account: an SFTP connection opened with a key ends when the key is removed
+func (s *SSHKey) HasFingerprint(userID uint, fingerprint string) (bool, error) {
+	if fingerprint == "" {
+		return false, nil
+	}
+	var count int64
+	err := s.DB.Model(&models.SSHKey{}).Where("user_id = ? AND fingerprint = ?", userID, fingerprint).Count(&count).Error
+	return count > 0, err
+}
+
 // FindForLogin returns the user's stored key matching the one offered, or nil.
 func (s *SSHKey) FindForLogin(userID uint, offered ssh.PublicKey) (*models.SSHKey, error) {
 	var key models.SSHKey
