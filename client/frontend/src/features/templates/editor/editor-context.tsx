@@ -11,6 +11,15 @@ import type { EditorSectionId } from './sections';
 
 export type EditorView = 'form' | 'json' | 'split';
 
+/**
+ * The field goTo() was last asked to show. A section that folds parts away (the variable cards)
+ * opens the one holding it; `seq` tells two requests for the same path apart.
+ */
+export interface FocusRequest {
+  path: Path;
+  seq: number;
+}
+
 /** A text field (or the JSON editor) that "Insertar variable" and similar helpers type into. */
 export interface InsertTarget {
   insert: (text: string) => void;
@@ -49,6 +58,7 @@ export interface TemplateEditorValue {
   section: EditorSectionId;
   /** Shows a section in the form and, given a path, focuses the field editing it. */
   goTo: (section: EditorSectionId, path?: Path) => void;
+  focusRequest: FocusRequest | null;
 
   /** Called by a field on focus; helpers then insert into the field last focused. */
   setInsertTarget: (target: InsertTarget) => void;
@@ -88,6 +98,7 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
   const [takenNames, setTakenNames] = useState(initialTakenNames);
   const [view, setView] = useState<EditorView>('form');
   const [section, setSection] = useState<EditorSectionId>('info');
+  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
   const insertTarget = useRef<InsertTarget | null>(null);
 
   const update = useCallback((path: Path, value: unknown) => setDoc((d) => Document.updateAt(d, path, value)), []);
@@ -117,7 +128,8 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
     setSection(target);
     setView((v) => (v === 'json' ? 'form' : v));
     if (!path) return;
-    // after the section has rendered
+    setFocusRequest((previous) => ({ path, seq: (previous?.seq ?? 0) + 1 }));
+    // after the section has rendered (and opened what holds the field, in a layout effect)
     requestAnimationFrame(() => {
       const el = document.getElementById(fieldId(path));
       el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -158,11 +170,12 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
       setView,
       section,
       goTo,
+      focusRequest,
       setInsertTarget,
       releaseInsertTarget,
       insertIntoField,
     }),
-    [doc, originalName, takenNames, recheckNames, update, remove, change, setJsonText, markSaved, issues, issuesAt, view, section, goTo, setInsertTarget, releaseInsertTarget, insertIntoField],
+    [doc, originalName, takenNames, recheckNames, update, remove, change, setJsonText, markSaved, issues, issuesAt, view, section, goTo, focusRequest, setInsertTarget, releaseInsertTarget, insertIntoField],
   );
 
   return <TemplateEditorContext.Provider value={value}>{children}</TemplateEditorContext.Provider>;

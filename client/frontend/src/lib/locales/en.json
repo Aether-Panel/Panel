@@ -3333,7 +3333,8 @@
         },
         "variables": {
           "label": "Variables",
-          "description": "What people fill in when they create a server: port, version, password…"
+          "description": "What people fill in when they create a server: port, version, password…",
+          "countLabel": "{{count}} variables"
         },
         "install": {
           "label": "Installation",
@@ -3942,7 +3943,126 @@
       "warnings": {
         "integerVariableValue": "Not a whole number: the node will change it without warning (text, for example, becomes 0).",
         "noDefaultEnvironment": "The template has no default environment: choose host or Docker.",
-        "nameCaseOnly": "The panel does not tell names apart by case or accents: when saved, the template keeps the name \"{{name}}\"."
+        "nameCaseOnly": "The panel does not tell names apart by case or accents: when saved, the template keeps the name \"{{name}}\".",
+        "undefinedVariable": "{{token}} is not a variable of the template: the node leaves the text as it is. Create it in Variables, or ignore this if it is a shell variable.",
+        "undefinedConditionVariable": "The condition reads \"{{name}}\", which is not a variable: the step will fail when it is evaluated.",
+        "unusedVariable": "No command, step or condition uses this variable.",
+        "conditionVariableKey": "\"{{name}}\" has a hyphen or starts with a digit, so a condition cannot read it by name: write {{token}} instead."
+      },
+      "sortable": {
+        "handle": "Drag to move \"{{item}}\"",
+        "roleDescription": "sortable item",
+        "instructions": "To move an item, press space or Enter on its handle, move it with the up and down arrows and press space or Enter to drop it. Escape cancels.",
+        "picked": "Picked up \"{{item}}\". It is in position {{position}} of {{count}}.",
+        "over": "\"{{item}}\" moves to position {{position}} of {{count}}.",
+        "outside": "\"{{item}}\" is outside the list.",
+        "dropped": "Dropped \"{{item}}\" in position {{position}} of {{count}}.",
+        "cancelled": "Move cancelled: \"{{item}}\" is back in position {{position}} of {{count}}.",
+        "moveUp": "Move \"{{item}}\" up",
+        "moveDown": "Move \"{{item}}\" down",
+        "movedTo": "\"{{item}}\" is now in position {{position}} of {{count}}."
+      },
+      "insertVariable": {
+        "button": "Insert variable",
+        "noField": "First click the field you want to insert the variable into.",
+        "search": "Search variables…",
+        "empty": "No variable matches.",
+        "templateGroup": "Template variables",
+        "builtinGroup": "From the panel",
+        "builtin": {
+          "rootDir": "Server folder"
+        }
+      },
+      "variables": {
+        "add": "Add variable",
+        "countOne": "1 variable, in the order the create-server form shows it.",
+        "countMany": "{{count}} variables, in the order the create-server form shows them.",
+        "expandAll": "Open all",
+        "collapseAll": "Close all",
+        "menu": "Actions for \"{{key}}\"",
+        "duplicate": "Duplicate",
+        "empty": {
+          "title": "No variables",
+          "description": "Add the choices made by whoever creates the server, such as the port, the version or the memory. Commands and steps then use them as ${key}."
+        },
+        "undefined": {
+          "title": "The template uses these variables, but they are not defined. Click one to create it:",
+          "create": "Create the variable {{name}}"
+        },
+        "deleteConfirm": {
+          "title": "Delete \"{{key}}\"?",
+          "descriptionOne": "It is used in 1 place in the template. If you delete it, that use gets no value: {{token}} is left as it is and a condition that reads it fails.",
+          "descriptionMany": "It is used in {{count}} places in the template. If you delete it, those uses get no value: {{token}} is left as it is and a condition that reads it fails."
+        },
+        "badges": {
+          "required": "Required",
+          "internal": "Internal"
+        },
+        "key": {
+          "label": "Key",
+          "hint": "Commands and steps write it as ${key}. Letters, digits, _ and -.",
+          "usedOne": "Used in 1 place.",
+          "usedMany": "Used in {{count}} places.",
+          "conditionUnsafe": "An \"if\" condition cannot read it by name (it has a hyphen or starts with a digit); write {{token}} there.",
+          "keyRequired": "Type a key.",
+          "keyInvalid": "Only letters, digits, hyphens and underscores, no spaces.",
+          "keyTaken": "Another variable already has this key.",
+          "renameUsesOne": "Also change its use: {{from}} → {{to}}",
+          "renameUsesMany": "Also change its {{count}} uses: {{from}} → {{to}}"
+        },
+        "type": {
+          "label": "Type",
+          "string": "Text",
+          "integer": "Whole number",
+          "boolean": "Yes / No",
+          "option": "List of options",
+          "other": "Other: {{type}}"
+        },
+        "value": {
+          "label": "Default value",
+          "yes": "Yes",
+          "no": "No",
+          "noOptions": "Add options below to pick one.",
+          "pick": "Pick an option",
+          "notAnOption": "{{value}} (not in the list)"
+        },
+        "display": {
+          "label": "Display name",
+          "placeholder": "e.g. Server port"
+        },
+        "desc": {
+          "label": "Description",
+          "placeholder": "A sentence that helps choose the value."
+        },
+        "options": {
+          "title": "Options",
+          "hint": "What can be chosen. The value is what the template receives; the text is what users see.",
+          "valueColumn": "Value",
+          "displayColumn": "Display text",
+          "valueLabel": "Value of option {{n}}",
+          "displayLabel": "Display text of option {{n}}",
+          "valuePlaceholder": "value",
+          "displayPlaceholder": "Text users see",
+          "remove": "Remove the option \"{{item}}\"",
+          "add": "Add option",
+          "none": "No options yet.",
+          "empty": "(empty)",
+          "numbered": "option {{n}}"
+        },
+        "flags": {
+          "required": {
+            "label": "Required",
+            "description": "It needs a value before the server can be created."
+          },
+          "userEdit": {
+            "label": "Editable by users",
+            "description": "The server's users can change it later in its settings. Otherwise only an administrator can."
+          },
+          "internal": {
+            "label": "Internal",
+            "description": "Not shown when creating the server or in its settings: the default value is always used."
+          }
+        }
       }
     }
   },

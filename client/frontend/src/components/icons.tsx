@@ -49,6 +49,7 @@ import {
     CrownIcon,
     CubeIcon,
     DatabaseIcon,
+    DotsSixVerticalIcon,
     DotsThreeIcon,
     DownloadSimpleIcon,
     EnvelopeIcon,
@@ -178,6 +179,7 @@ export const Blocks = panelIcon(CubeIcon);
 export const BookOpenText = panelIcon(BookOpenTextIcon);
 export const Bot = panelIcon(RobotIcon);
 export const Box = panelIcon(CubeIcon);
+export const Braces = panelIcon(BracketsCurlyIcon);
 export const CalendarClock = panelIcon(CalendarCheckIcon);
 export const Check = panelIcon(CheckIcon);
 export const CheckCircle2 = panelIcon(CheckCircleIcon);
@@ -228,6 +230,7 @@ export const Gamepad2 = panelIcon(GameControllerIcon);
 export const Gauge = panelIcon(GaugeIcon);
 export const GitBranch = panelIcon(GitBranchIcon);
 export const Github = panelIcon(GithubLogoIcon);
+export const GripVertical = panelIcon(DotsSixVerticalIcon);
 export const Unlink = panelIcon(LinkBreakIcon);
 export const GitCompareArrows = panelIcon(GitDiffIcon);
 export const Globe = panelIcon(GlobeSimpleIcon);

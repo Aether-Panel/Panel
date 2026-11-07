@@ -3333,7 +3333,8 @@
         },
         "variables": {
           "label": "Variables",
-          "description": "Lo que rellena quien crea un servidor: puerto, versión, contraseña…"
+          "description": "Lo que rellena quien crea un servidor: puerto, versión, contraseña…",
+          "countLabel": "{{count}} variables"
         },
         "install": {
           "label": "Instalación",
@@ -3942,7 +3943,126 @@
       "warnings": {
         "integerVariableValue": "No es un número entero: el nodo lo cambiará sin avisar (un texto, por ejemplo, pasa a ser 0).",
         "noDefaultEnvironment": "La plantilla no tiene entorno por defecto: elige host o Docker.",
-        "nameCaseOnly": "El panel no distingue mayúsculas ni acentos en los nombres: al guardar, la plantilla sigue llamándose «{{name}}»."
+        "nameCaseOnly": "El panel no distingue mayúsculas ni acentos en los nombres: al guardar, la plantilla sigue llamándose «{{name}}».",
+        "undefinedVariable": "{{token}} no es ninguna variable de la plantilla: el nodo deja el texto tal cual. Créala en Variables, o ignora el aviso si es una variable del shell.",
+        "undefinedConditionVariable": "La condición lee «{{name}}», que no es ninguna variable: el paso fallará al evaluarla.",
+        "unusedVariable": "Ningún comando, paso ni condición usa esta variable.",
+        "conditionVariableKey": "«{{name}}» lleva guion o empieza por número, y una condición no puede leerla por su nombre: escribe {{token}} en su lugar."
+      },
+      "sortable": {
+        "handle": "Arrastrar para mover «{{item}}»",
+        "roleDescription": "elemento reordenable",
+        "instructions": "Para mover un elemento, pulsa espacio o Intro sobre su asa, muévelo con las flechas arriba y abajo y pulsa espacio o Intro para soltarlo. Escape cancela.",
+        "picked": "Has cogido «{{item}}». Está en la posición {{position}} de {{count}}.",
+        "over": "«{{item}}» pasa a la posición {{position}} de {{count}}.",
+        "outside": "«{{item}}» está fuera de la lista.",
+        "dropped": "Has soltado «{{item}}» en la posición {{position}} de {{count}}.",
+        "cancelled": "Movimiento cancelado: «{{item}}» vuelve a la posición {{position}} de {{count}}.",
+        "moveUp": "Subir «{{item}}»",
+        "moveDown": "Bajar «{{item}}»",
+        "movedTo": "«{{item}}» está ahora en la posición {{position}} de {{count}}."
+      },
+      "insertVariable": {
+        "button": "Insertar variable",
+        "noField": "Haz clic primero en el campo donde quieres insertar la variable.",
+        "search": "Buscar variable…",
+        "empty": "Ninguna variable coincide.",
+        "templateGroup": "Variables de la plantilla",
+        "builtinGroup": "Del panel",
+        "builtin": {
+          "rootDir": "Carpeta del servidor"
+        }
+      },
+      "variables": {
+        "add": "Añadir variable",
+        "countOne": "1 variable, en el orden en que se muestran al crear un servidor.",
+        "countMany": "{{count}} variables, en el orden en que se muestran al crear un servidor.",
+        "expandAll": "Abrir todas",
+        "collapseAll": "Cerrar todas",
+        "menu": "Acciones de «{{key}}»",
+        "duplicate": "Duplicar",
+        "empty": {
+          "title": "Sin variables",
+          "description": "Añade las opciones que elige quien crea el servidor, como el puerto, la versión o la memoria. Luego se usan como ${clave} en los comandos y pasos."
+        },
+        "undefined": {
+          "title": "La plantilla usa estas variables, pero no están definidas. Pulsa una para crearla:",
+          "create": "Crear la variable {{name}}"
+        },
+        "deleteConfirm": {
+          "title": "¿Eliminar «{{key}}»?",
+          "descriptionOne": "Se usa en 1 sitio de la plantilla. Si la eliminas, ese uso se queda sin valor: {{token}} se deja tal cual y una condición que la lea falla.",
+          "descriptionMany": "Se usa en {{count}} sitios de la plantilla. Si la eliminas, esos usos se quedan sin valor: {{token}} se deja tal cual y una condición que la lea falla."
+        },
+        "badges": {
+          "required": "Obligatoria",
+          "internal": "Interna"
+        },
+        "key": {
+          "label": "Clave",
+          "hint": "En comandos y pasos se escribe ${clave}. Letras, números, _ y -.",
+          "usedOne": "Se usa en 1 sitio.",
+          "usedMany": "Se usa en {{count}} sitios.",
+          "conditionUnsafe": "Una condición «if» no puede leerla por su nombre (lleva guion o empieza por número); allí usa {{token}}.",
+          "keyRequired": "Escribe una clave.",
+          "keyInvalid": "Solo letras, números, guiones y guiones bajos, sin espacios.",
+          "keyTaken": "Ya hay otra variable con esta clave.",
+          "renameUsesOne": "Cambiar también su uso: {{from}} → {{to}}",
+          "renameUsesMany": "Cambiar también sus {{count}} usos: {{from}} → {{to}}"
+        },
+        "type": {
+          "label": "Tipo",
+          "string": "Texto",
+          "integer": "Número entero",
+          "boolean": "Sí / No",
+          "option": "Lista de opciones",
+          "other": "Otro: {{type}}"
+        },
+        "value": {
+          "label": "Valor por defecto",
+          "yes": "Sí",
+          "no": "No",
+          "noOptions": "Añade opciones abajo para elegir una.",
+          "pick": "Elige una opción",
+          "notAnOption": "{{value}} (no está en la lista)"
+        },
+        "display": {
+          "label": "Nombre visible",
+          "placeholder": "p. ej. Puerto del servidor"
+        },
+        "desc": {
+          "label": "Descripción",
+          "placeholder": "Una frase que ayude a elegir el valor."
+        },
+        "options": {
+          "title": "Opciones",
+          "hint": "Lo que se puede elegir. El valor es lo que recibe la plantilla; el texto, lo que ve el usuario.",
+          "valueColumn": "Valor",
+          "displayColumn": "Texto visible",
+          "valueLabel": "Valor de la opción {{n}}",
+          "displayLabel": "Texto visible de la opción {{n}}",
+          "valuePlaceholder": "valor",
+          "displayPlaceholder": "Texto que ve el usuario",
+          "remove": "Quitar la opción «{{item}}»",
+          "add": "Añadir opción",
+          "none": "Aún no hay opciones.",
+          "empty": "(vacía)",
+          "numbered": "opción {{n}}"
+        },
+        "flags": {
+          "required": {
+            "label": "Obligatoria",
+            "description": "Hay que darle un valor para poder crear el servidor."
+          },
+          "userEdit": {
+            "label": "Editable por los usuarios",
+            "description": "Los usuarios del servidor pueden cambiarla después en sus ajustes. Si no, solo un administrador."
+          },
+          "internal": {
+            "label": "Interna",
+            "description": "No se muestra al crear el servidor ni en sus ajustes: se usa siempre el valor por defecto."
+          }
+        }
       }
     }
   },

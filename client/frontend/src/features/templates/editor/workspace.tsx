@@ -16,6 +16,7 @@ import { saveLocalTemplate } from './load';
 import { setIn } from './paths';
 import { storedTemplateName } from './template-name';
 import { IssueCountBadges, SectionNav, SectionSelect } from './section-nav';
+import { InsertVariableButton } from './insert-variable';
 import { getSection } from './sections';
 import { EditorToolbar } from './toolbar';
 import { useLeaveGuard, useMediaQuery, useSaveShortcut } from './use-page-guards';
@@ -82,20 +83,24 @@ function JsonPanel({ split }: Readonly<{ split: boolean }>) {
     <Card className={cn('flex min-w-0 flex-col overflow-hidden', split ? 'sticky top-[9.5rem] h-[calc(100svh-11rem)] min-h-[24rem]' : 'h-[72svh] min-h-[24rem]')}>
       <div className="flex items-center justify-between gap-3 border-b border-border/50 px-4 py-2.5">
         <h2 className="text-sm font-semibold">{t('templates.editor.json.title')}</h2>
-        {/* not a live region: the toolbar's status line already announces that the JSON broke */}
-        <span className="text-xs">
-          {jsonProblem ? (
-            <span className="flex items-center gap-1.5 text-destructive-bright">
-              <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
-              {t('templates.editor.json.invalidShort')}
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5 text-muted-foreground">
-              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-              {t('templates.editor.json.valid')}
-            </span>
-          )}
-        </span>
+        <div className="flex items-center gap-3">
+          {/* not a live region: the toolbar's status line already announces that the JSON broke */}
+          <span className="text-xs">
+            {jsonProblem ? (
+              <span className="flex items-center gap-1.5 text-destructive-bright">
+                <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                {t('templates.editor.json.invalidShort')}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-muted-foreground">
+                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                {t('templates.editor.json.valid')}
+              </span>
+            )}
+          </span>
+          {/* types ${key} at Monaco's cursor (or into the form field focused last, in split view) */}
+          <InsertVariableButton compact className="h-8 w-8" />
+        </div>
       </div>
       {jsonProblem && (
         <div className="space-y-1 border-b border-destructive/30 bg-destructive/[0.07] px-4 py-2.5 text-sm text-destructive-bright">
