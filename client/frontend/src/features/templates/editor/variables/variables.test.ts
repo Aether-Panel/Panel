@@ -1,9 +1,10 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { booleanValue } from '@/lib/template-boolean';
 import type { JsonObject } from '../paths';
 import { validateTemplate } from '../validation';
 import {
-  booleanValue, insertVariable, integerFromText, isPinnedKey, newOption, newVariable, optionValueFromText, sameOptionValue, uniqueVariableKey, usesOptions,
+  insertVariable, integerFromText, isPinnedKey, newOption, newVariable, optionValueFromText, sameOptionValue, uniqueVariableKey, usesOptions,
   withVariableType,
 } from './model';
 import { conditionVariableKeys, undefinedConditionVariables, undefinedVariables, unusedVariables } from './rules';

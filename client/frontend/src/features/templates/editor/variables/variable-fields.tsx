@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslations } from '@/contexts/translations-context';
+import { booleanValue } from '@/lib/template-boolean';
 import { sileo } from '@/lib/toast';
 import { CONDITION_SAFE_VARIABLE_KEY } from '../../schema/common';
 import { VARIABLE_TYPES } from '../../schema/template';
@@ -14,7 +15,7 @@ import { FieldIssues, INVALID_CONTROL, issuesId, TemplateField, textValue } from
 import { pathKey, type JsonObject, type Path } from '../paths';
 import type { EditorIssue } from '../validation';
 import {
-  booleanValue, integerFromText, isPinnedKey, isValidVariableKey, sameOptionValue, usesOptions, variableOptions, variableType, withVariableType,
+  integerFromText, isPinnedKey, isValidVariableKey, sameOptionValue, usesOptions, variableOptions, variableType, withVariableType,
 } from './model';
 import type { VariableActions } from './variable-card';
 

@@ -14,12 +14,28 @@ describe('initialTemplateValues', () => {
     ['a boolean true', { type: 'boolean', value: true }, true],
     ['a boolean written "false"', { type: 'boolean', value: 'false' }, false],
     ['a boolean written "true"', { type: 'boolean', value: 'true' }, true],
+    ['a boolean false', { type: 'boolean', value: false }, false],
+    ['a boolean default false', { type: 'boolean', default: false }, false],
+    ['a boolean without a value', { type: 'boolean' }, false],
+    ['a boolean written as text the node does not read', { type: 'boolean', value: 'yes' }, true],
+    ['a boolean written as an empty text', { type: 'boolean', value: '' }, false],
     ['an integer written as text', { type: 'integer', value: '25565' }, 25565],
     ['an integer that is not a number', { type: 'integer', value: 'abc' }, 0],
     ['an object value, as JSON', { value: { a: 1 } }, '{"a":1}'],
     ['a list value, as JSON', { value: ['x', 'y'] }, '["x","y"]'],
   ])('an object variable: %s', (_, variable, expected) => {
     expect(initialTemplateValues({ data: { key: variable } }).values).toEqual({ key: expected });
+  });
+
+  // the node reads a boolean with strconv.ParseBool's words (Go's cast.ToBoolE), and so does the
+  // template editor; GET now answers them as written, so the wizard must read them the same way
+  it.each([
+    ['1', true], ['t', true], ['T', true], ['TRUE', true], ['true', true], ['True', true],
+    ['0', false], ['f', false], ['F', false], ['FALSE', false], ['false', false], ['False', false],
+    [1, true], [0, false], [2, true],
+  ])('a boolean written %j reads as %s, as on the node', (value, expected) => {
+    expect(initialTemplateValues({ data: { pvp: { type: 'boolean', value } } }).values.pvp).toBe(expected);
+    expect(initialTemplateValues({ data: { pvp: { type: 'boolean', default: value } } }).values.pvp).toBe(expected);
   });
 
   it('keeps a scalar variable as text and skips a null one', () => {

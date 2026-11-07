@@ -1,3 +1,4 @@
+import { booleanValue } from '@/lib/template-boolean';
 import { VARIABLE_KEY } from '../../schema/common';
 import { VARIABLE_TYPES } from '../../schema/template';
 import { isPlainObject, setIn, type JsonObject } from '../paths';
@@ -45,21 +46,6 @@ export function insertVariable(template: JsonObject, key: string, variable: Json
   const at = after !== undefined && Object.hasOwn(variables, after) ? entries.findIndex(([k]) => k === after) + 1 : entries.length;
   entries.splice(at, 0, [key, variable]);
   return setIn(template, ['data'], Object.fromEntries(entries));
-}
-
-/** strconv.ParseBool's words, which the node accepts for a boolean variable. */
-const TRUE_WORDS = ['1', 't', 'T', 'TRUE', 'true', 'True'];
-const FALSE_WORDS = ['0', 'f', 'F', 'FALSE', 'false', 'False'];
-
-/** A boolean variable's value as the node reads it; undefined when it reads none. */
-export function booleanValue(value: unknown): boolean | undefined {
-  if (typeof value === 'boolean') return value;
-  if (typeof value === 'number') return value !== 0;
-  if (typeof value === 'string') {
-    if (TRUE_WORDS.includes(value)) return true;
-    if (FALSE_WORDS.includes(value)) return false;
-  }
-  return undefined;
 }
 
 /**

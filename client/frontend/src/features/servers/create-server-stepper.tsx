@@ -15,6 +15,7 @@ import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
 import { cn, formatBytes } from '@/lib/utils';
+import { booleanValue } from '@/lib/template-boolean';
 import { templateLogo, type TemplateLogo as Logo } from '@/lib/template-logos';
 import { TemplateLogo } from '@/components/template-logo';
 import { keyedByContent } from '@/lib/keyed';
@@ -95,7 +96,8 @@ function templateVariableValue(val: any) {
     else if (val.default !== undefined) rawValue = val.default;
 
     if (val.type === 'boolean') {
-        rawValue = rawValue !== 'false' && rawValue !== false && !!rawValue;
+        // read as the node reads it ("0", "f", "False" are off); text it cannot read is on unless empty
+        rawValue = booleanValue(rawValue) ?? !!rawValue;
     }
     if (val.type === 'integer') {
         rawValue = Number(rawValue) || 0;
