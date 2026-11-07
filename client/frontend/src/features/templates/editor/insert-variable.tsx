@@ -6,7 +6,7 @@ import { Braces } from '@/components/icons';
 import { useTranslations } from '@/contexts/translations-context';
 import { sileo } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import { useTemplateEditor } from './editor-context';
+import { useTemplateEditor, useTemplateEditorActions } from './editor-context';
 import { textValue } from './field';
 import { isPlainObject } from './paths';
 import { templateVariables } from './variables/usage';
@@ -18,6 +18,45 @@ import { templateVariables } from './variables/usage';
 /** Names the node fills in by itself, offered after the template's own variables. */
 const BUILTIN_VARIABLES = ['rootDir'] as const;
 
+/** The searchable list in the open popover; mounted only while open, so only then it reads the template. */
+function VariableCommand({ onPick }: Readonly<{ onPick: (key: string) => void }>) {
+  const { t } = useTranslations();
+  const { template } = useTemplateEditor();
+  const variables = Object.entries(templateVariables(template));
+  return (
+    <Command
+      // cmdk matches the value, which holds the key and the visible name
+      filter={(value, search) => (value.toLowerCase().includes(search.trim().toLowerCase()) ? 1 : 0)}
+    >
+      <CommandInput placeholder={t('templates.editor.insertVariable.search')} aria-label={t('templates.editor.insertVariable.search')} />
+      <CommandList>
+        <CommandEmpty>{t('templates.editor.insertVariable.empty')}</CommandEmpty>
+        {variables.length > 0 && (
+          <CommandGroup heading={t('templates.editor.insertVariable.templateGroup')}>
+            {variables.map(([key, variable]) => {
+              const display = isPlainObject(variable) ? textValue(variable.display) : '';
+              return (
+                <CommandItem key={key} value={`${key} ${display}`} onSelect={() => onPick(key)}>
+                  <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{`\${${key}}`}</span>
+                  {display && <span className="max-w-[45%] truncate text-xs text-muted-foreground">{display}</span>}
+                </CommandItem>
+              );
+            })}
+          </CommandGroup>
+        )}
+        <CommandGroup heading={t('templates.editor.insertVariable.builtinGroup')}>
+          {BUILTIN_VARIABLES.map((key) => (
+            <CommandItem key={key} value={`${key} ${t(`templates.editor.insertVariable.builtin.${key}`)}`} onSelect={() => onPick(key)}>
+              <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{`\${${key}}`}</span>
+              <span className="max-w-[45%] truncate text-xs text-muted-foreground">{t(`templates.editor.insertVariable.builtin.${key}`)}</span>
+            </CommandItem>
+          ))}
+        </CommandGroup>
+      </CommandList>
+    </Command>
+  );
+}
+
 export function InsertVariableButton({ onInsert, compact = false, className }: Readonly<{
   /** Inserts into one field; without it the text goes to the field focused last. */
   onInsert?: (text: string) => void;
@@ -26,11 +65,11 @@ export function InsertVariableButton({ onInsert, compact = false, className }: R
   className?: string;
 }>) {
   const { t } = useTranslations();
-  const { template, insertIntoField } = useTemplateEditor();
+  // the closed button reads no template state, so a form full of them is not re-rendered by every edit
+  const { insertIntoField } = useTemplateEditorActions();
   const [open, setOpen] = useState(false);
   // the field takes focus back once the text is in, so the popover must not return it to the button
   const inserted = useRef(false);
-  const variables = Object.entries(templateVariables(template));
   const label = t('templates.editor.insertVariable.button');
 
   const insert = (key: string) => {
@@ -72,36 +111,7 @@ export function InsertVariableButton({ onInsert, compact = false, className }: R
           if (inserted.current) e.preventDefault();
         }}
       >
-        <Command
-          // cmdk matches the value, which holds the key and the visible name
-          filter={(value, search) => (value.toLowerCase().includes(search.trim().toLowerCase()) ? 1 : 0)}
-        >
-          <CommandInput placeholder={t('templates.editor.insertVariable.search')} aria-label={t('templates.editor.insertVariable.search')} />
-          <CommandList>
-            <CommandEmpty>{t('templates.editor.insertVariable.empty')}</CommandEmpty>
-            {variables.length > 0 && (
-              <CommandGroup heading={t('templates.editor.insertVariable.templateGroup')}>
-                {variables.map(([key, variable]) => {
-                  const display = isPlainObject(variable) ? textValue(variable.display) : '';
-                  return (
-                    <CommandItem key={key} value={`${key} ${display}`} onSelect={() => insert(key)}>
-                      <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{`\${${key}}`}</span>
-                      {display && <span className="max-w-[45%] truncate text-xs text-muted-foreground">{display}</span>}
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            )}
-            <CommandGroup heading={t('templates.editor.insertVariable.builtinGroup')}>
-              {BUILTIN_VARIABLES.map((key) => (
-                <CommandItem key={key} value={`${key} ${t(`templates.editor.insertVariable.builtin.${key}`)}`} onSelect={() => insert(key)}>
-                  <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{`\${${key}}`}</span>
-                  <span className="max-w-[45%] truncate text-xs text-muted-foreground">{t(`templates.editor.insertVariable.builtin.${key}`)}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+        <VariableCommand onPick={insert} />
       </PopoverContent>
     </Popover>
   );

@@ -3339,7 +3339,9 @@
         },
         "install": {
           "label": "Instalación",
-          "description": "Los pasos que preparan los archivos del servidor al instalarlo, y los que lo limpian al desinstalarlo."
+          "description": "Los pasos que preparan los archivos del servidor al instalarlo, y los que lo limpian al desinstalarlo.",
+          "countLabelOne": "1 paso",
+          "countLabelMany": "{{count}} pasos"
         },
         "run": {
           "label": "Ejecución",
@@ -4070,6 +4072,144 @@
             "label": "Interna",
             "description": "No se muestra al crear el servidor ni en sus ajustes: se usa siempre el valor por defecto."
           }
+        }
+      },
+      "install": {
+        "title": "Pasos de instalación",
+        "empty": {
+          "title": "Aún no hay pasos de instalación",
+          "description": "Añade los pasos que preparan los archivos del servidor: descargar el juego, extraerlo, escribir su configuración…"
+        },
+        "uninstall": {
+          "title": "Desinstalación",
+          "optional": "(opcional)",
+          "description": "Pasos que se ejecutan al eliminar un servidor, justo antes de borrar sus archivos. Casi nunca hacen falta.",
+          "empty": {
+            "title": "Sin pasos de desinstalación",
+            "description": "Al eliminar el servidor solo se borran sus archivos. Añade un paso si hay que hacer algo más antes."
+          }
+        }
+      },
+      "steps": {
+        "add": "Añadir paso",
+        "countOne": "1 paso",
+        "countMany": "{{count}} pasos",
+        "expandAll": "Abrir todos",
+        "collapseAll": "Cerrar todos",
+        "numbered": "Paso {{n}}: {{name}}",
+        "stepNumber": "Paso {{n}}:",
+        "menu": "Acciones de «{{step}}»",
+        "editJson": "Editar JSON de este paso",
+        "useForm": "Volver al formulario",
+        "insertAfter": "Insertar paso después",
+        "duplicate": "Duplicar",
+        "moveUp": "Subir",
+        "moveDown": "Bajar",
+        "invalidStep": "Paso no válido",
+        "unknownType": "Tipo que el panel no conoce",
+        "notFilled": "Sin rellenar",
+        "noFields": "Este paso no necesita datos.",
+        "taskOnly": "Esta operación es para tareas programadas: durante la instalación, o al arrancar, el panel no puede ejecutarla.",
+        "extraKeys": "También tiene {{keys}}, que el formulario no muestra. Se conservan; puedes cambiarlos en el JSON del paso.",
+        "required": "obligatorio",
+        "pick": "Elige un valor",
+        "unset": "Sin definir",
+        "otherValue": "Otro: {{value}}",
+        "defaultValue": "Por defecto: {{value}}",
+        "suggestions": "Valores habituales de «{{field}}»",
+        "suggestionsShort": "Valores habituales",
+        "notEditableHere": "Este valor no tiene el formato que espera el formulario. Se conserva tal cual; cámbialo en el JSON del paso.",
+        "advanced": "Opciones avanzadas",
+        "list": {
+          "item": "{{field}}, línea {{n}}",
+          "add": "Añadir línea",
+          "remove": "Quitar «{{item}}»"
+        },
+        "keyValue": {
+          "keyLabel": "Nombre {{n}}",
+          "valueLabel": "Valor de «{{key}}»",
+          "add": "Añadir",
+          "none": "Aún no hay ninguno.",
+          "keyRequired": "Escribe un nombre.",
+          "keyTaken": "Ya hay otro con este nombre."
+        },
+        "condition": {
+          "label": "Cuándo se ejecuta",
+          "help": "El paso se salta cuando su condición no se cumple.",
+          "presets": {
+            "none": "Siempre",
+            "host": "Solo en host",
+            "docker": "Solo en Docker",
+            "custom": "Personalizada"
+          },
+          "tag": {
+            "host": "Solo host",
+            "docker": "Solo Docker",
+            "custom": "Con condición"
+          },
+          "hintNone": "Se ejecuta en cualquier entorno.",
+          "hintPreset": "Se guarda como {{expression}}.",
+          "hintCustom": "Una expresión CEL: lee las variables por su nombre, sin ${}. Compara con == y !=, combina con && (y), || (o) y ! (no); los textos van entre comillas simples.",
+          "examples": "Ejemplos:",
+          "insert": "Insertar variable o función",
+          "asText": "como texto (su clave lleva guion)",
+          "functions": "Funciones",
+          "builtin": {
+            "env": "Entorno: host o docker",
+            "os": "Sistema: linux o windows",
+            "arch": "Arquitectura: amd64 o arm64"
+          },
+          "function": {
+            "file_exists": "Si existe un archivo en la carpeta del servidor",
+            "in_path": "Si hay un programa instalado en el sistema"
+          }
+        },
+        "json": {
+          "label": "JSON del paso",
+          "syntax": "El JSON no es válido ({{detail}}); el paso se queda con la última versión válida.",
+          "notObject": "Un paso tiene que ser un objeto entre llaves; el paso se queda con la última versión válida.",
+          "unknownHint": "El panel no tiene formulario para «{{type}}»: puede ser de una versión más nueva o un error al escribirlo. Edítalo aquí o cambia su type.",
+          "invalidHint": "Este paso no es un objeto, así que no se puede ejecutar. Escríbelo como {\"type\": …}."
+        },
+        "palette": {
+          "title": "Añadir paso",
+          "titleAfter": "Insertar paso después del {{n}}",
+          "description": "Elige qué hace el paso. Puedes buscar por nombre o por lo que hace.",
+          "search": "Buscar operación…",
+          "empty": "Ninguna operación coincide.",
+          "keyMove": "moverse",
+          "keyPick": "añadir",
+          "keyClose": "cerrar",
+          "results": "Resultados"
+        },
+        "deleteConfirm": {
+          "title": "¿Eliminar «{{step}}»?",
+          "description": "Se pierde todo lo que tiene configurado. Si te equivocas, no guardes los cambios."
+        }
+      },
+      "stdin": {
+        "types": {
+          "unset": "Sin configurar (entrada estándar)",
+          "stdin": "Entrada estándar",
+          "rcon": "RCON",
+          "rconws": "RCON por WebSocket",
+          "telnet": "Telnet"
+        },
+        "ip": {
+          "label": "Dirección",
+          "help": "Vacía, se conecta al propio servidor."
+        },
+        "port": {
+          "label": "Puerto",
+          "help": "El puerto de la consola remota del juego."
+        },
+        "password": {
+          "label": "Contraseña",
+          "help": "Mejor como variable que escrita aquí."
+        },
+        "secure": {
+          "label": "Conexión segura (wss://)",
+          "help": "Desactívalo si el juego solo acepta ws:// sin cifrar."
         }
       }
     }

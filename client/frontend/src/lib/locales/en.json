@@ -3339,7 +3339,9 @@
         },
         "install": {
           "label": "Installation",
-          "description": "The steps that prepare the server's files on install, and the ones that clean up on uninstall."
+          "description": "The steps that prepare the server's files on install, and the ones that clean up on uninstall.",
+          "countLabelOne": "1 step",
+          "countLabelMany": "{{count}} steps"
         },
         "run": {
           "label": "Run",
@@ -4070,6 +4072,144 @@
             "label": "Internal",
             "description": "Not shown when creating the server or in its settings: the default value is always used."
           }
+        }
+      },
+      "install": {
+        "title": "Install steps",
+        "empty": {
+          "title": "No install steps yet",
+          "description": "Add the steps that set up the server's files: download the game, extract it, write its configuration…"
+        },
+        "uninstall": {
+          "title": "Uninstall",
+          "optional": "(optional)",
+          "description": "Steps that run when a server is deleted, right before its files are removed. Rarely needed.",
+          "empty": {
+            "title": "No uninstall steps",
+            "description": "Deleting the server only removes its files. Add a step if something else has to happen first."
+          }
+        }
+      },
+      "steps": {
+        "add": "Add step",
+        "countOne": "1 step",
+        "countMany": "{{count}} steps",
+        "expandAll": "Expand all",
+        "collapseAll": "Collapse all",
+        "numbered": "Step {{n}}: {{name}}",
+        "stepNumber": "Step {{n}}:",
+        "menu": "Actions for “{{step}}”",
+        "editJson": "Edit this step's JSON",
+        "useForm": "Back to the form",
+        "insertAfter": "Insert step after",
+        "duplicate": "Duplicate",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "invalidStep": "Invalid step",
+        "unknownType": "A type the panel doesn't know",
+        "notFilled": "Not filled in",
+        "noFields": "This step needs no settings.",
+        "taskOnly": "This operation is meant for scheduled tasks: the panel can't run it during an install or a start.",
+        "extraKeys": "It also has {{keys}}, which the form doesn't show. They're kept; you can change them in the step's JSON.",
+        "required": "required",
+        "pick": "Pick a value",
+        "unset": "Not set",
+        "otherValue": "Other: {{value}}",
+        "defaultValue": "Default: {{value}}",
+        "suggestions": "Common values for “{{field}}”",
+        "suggestionsShort": "Common values",
+        "notEditableHere": "This value isn't in the shape the form expects. It's kept as it is; change it in the step's JSON.",
+        "advanced": "Advanced options",
+        "list": {
+          "item": "{{field}}, line {{n}}",
+          "add": "Add line",
+          "remove": "Remove “{{item}}”"
+        },
+        "keyValue": {
+          "keyLabel": "Name {{n}}",
+          "valueLabel": "Value of “{{key}}”",
+          "add": "Add",
+          "none": "None yet.",
+          "keyRequired": "Enter a name.",
+          "keyTaken": "Another one already has this name."
+        },
+        "condition": {
+          "label": "When it runs",
+          "help": "The step is skipped when its condition isn't met.",
+          "presets": {
+            "none": "Always",
+            "host": "Host only",
+            "docker": "Docker only",
+            "custom": "Custom"
+          },
+          "tag": {
+            "host": "Host only",
+            "docker": "Docker only",
+            "custom": "Conditional"
+          },
+          "hintNone": "Runs in every environment.",
+          "hintPreset": "Saved as {{expression}}.",
+          "hintCustom": "A CEL expression: read variables by their name, without ${}. Compare with == and !=, combine with && (and), || (or) and ! (not); text goes in single quotes.",
+          "examples": "Examples:",
+          "insert": "Insert variable or function",
+          "asText": "as text (its key has a hyphen)",
+          "functions": "Functions",
+          "builtin": {
+            "env": "Environment: host or docker",
+            "os": "System: linux or windows",
+            "arch": "Architecture: amd64 or arm64"
+          },
+          "function": {
+            "file_exists": "Whether a file exists in the server folder",
+            "in_path": "Whether a program is installed on the system"
+          }
+        },
+        "json": {
+          "label": "Step JSON",
+          "syntax": "The JSON isn't valid ({{detail}}); the step keeps its last valid version.",
+          "notObject": "A step must be an object in braces; the step keeps its last valid version.",
+          "unknownHint": "The panel has no form for “{{type}}”: it may come from a newer version or be a typo. Edit it here or change its type.",
+          "invalidHint": "This step isn't an object, so it can't run. Write it as {\"type\": …}."
+        },
+        "palette": {
+          "title": "Add step",
+          "titleAfter": "Insert step after step {{n}}",
+          "description": "Choose what the step does. Search by name or by what it does.",
+          "search": "Search operations…",
+          "empty": "No operation matches.",
+          "keyMove": "move",
+          "keyPick": "add",
+          "keyClose": "close",
+          "results": "Results"
+        },
+        "deleteConfirm": {
+          "title": "Delete “{{step}}”?",
+          "description": "Everything it has set up is lost. If it was a mistake, don't save the changes."
+        }
+      },
+      "stdin": {
+        "types": {
+          "unset": "Not set (standard input)",
+          "stdin": "Standard input",
+          "rcon": "RCON",
+          "rconws": "RCON over WebSocket",
+          "telnet": "Telnet"
+        },
+        "ip": {
+          "label": "Address",
+          "help": "Empty connects to the server itself."
+        },
+        "port": {
+          "label": "Port",
+          "help": "The port of the game's remote console."
+        },
+        "password": {
+          "label": "Password",
+          "help": "Better as a variable than typed here."
+        },
+        "secure": {
+          "label": "Secure connection (wss://)",
+          "help": "Turn it off if the game only accepts unencrypted ws://."
         }
       }
     }

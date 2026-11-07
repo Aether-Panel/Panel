@@ -87,6 +87,25 @@ export function useTemplateEditor(): TemplateEditorValue {
   return value;
 }
 
+/** The editor's functions that never change, apart from the state they act on. */
+export type TemplateEditorActions = Pick<
+  TemplateEditorValue,
+  'update' | 'remove' | 'change' | 'setView' | 'goTo' | 'setInsertTarget' | 'releaseInsertTarget' | 'insertIntoField' | 'registerPendingCommit' | 'flushPendingCommits'
+>;
+
+const TemplateEditorActionsContext = createContext<TemplateEditorActions | null>(null);
+
+/**
+ * The editor's stable functions without its state: a component that only writes (a field in a
+ * memoized step card) reads these and is not re-rendered by every edit of the template, as a
+ * reader of useTemplateEditor() is.
+ */
+export function useTemplateEditorActions(): TemplateEditorActions {
+  const value = useContext(TemplateEditorActionsContext);
+  if (!value) throw new Error('useTemplateEditorActions must be used inside TemplateEditorProvider');
+  return value;
+}
+
 /** The element id of the control editing `path`; goTo() focuses it. */
 export function fieldId(path: Path): string {
   return `tpl-${pathKey(path)}`;
@@ -208,7 +227,16 @@ export function TemplateEditorProvider({ initialTemplate, saved = true, original
     [doc, originalName, takenNames, recheckNames, update, remove, change, setJsonText, markSaved, issues, issuesAt, view, section, goTo, focusRequest, setInsertTarget, releaseInsertTarget, insertIntoField, pendingCount, registerPendingCommit, flushPendingCommits],
   );
 
-  return <TemplateEditorContext.Provider value={value}>{children}</TemplateEditorContext.Provider>;
+  const actions = useMemo<TemplateEditorActions>(
+    () => ({ update, remove, change, setView, goTo, setInsertTarget, releaseInsertTarget, insertIntoField, registerPendingCommit, flushPendingCommits }),
+    [update, remove, change, setView, goTo, setInsertTarget, releaseInsertTarget, insertIntoField, registerPendingCommit, flushPendingCommits],
+  );
+
+  return (
+    <TemplateEditorActionsContext.Provider value={actions}>
+      <TemplateEditorContext.Provider value={value}>{children}</TemplateEditorContext.Provider>
+    </TemplateEditorActionsContext.Provider>
+  );
 }
 
 /** What a form control needs for the value at `path`: its id, value, setter and issues. */
@@ -228,7 +256,8 @@ export function useTemplateField<T = unknown>(path: Path) {
  * use the editor's insertIntoField(), which goes to the field focused last.
  */
 export function useInsertableField(path: Path) {
-  const { update, setInsertTarget, releaseInsertTarget } = useTemplateEditor();
+  // only the stable functions: a field must not re-render for every edit elsewhere
+  const { update, setInsertTarget, releaseInsertTarget } = useTemplateEditorActions();
   const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
   const key = pathKey(path);
   const pathRef = useRef(path);

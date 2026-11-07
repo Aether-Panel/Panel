@@ -103,10 +103,13 @@ export function useListIds(count: number) {
         ids.splice(to, 0, id);
         state.current.ids = ids;
       },
-      insert(at: number) {
+      /** Gives the item inserted at `at` a new id, and returns it (the `ids` of this render predate it). */
+      insert(at: number): string {
         const ids = state.current.ids.slice();
-        ids.splice(at, 0, `item-${state.current.next++}`);
+        const id = `item-${state.current.next++}`;
+        ids.splice(at, 0, id);
         state.current.ids = ids;
+        return id;
       },
       remove(at: number) {
         state.current.ids = state.current.ids.filter((_, i) => i !== at);

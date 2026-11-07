@@ -3,6 +3,8 @@ import { Download, Info, ListChecks, Package, Play, Settings2, SlidersHorizontal
 import { InfoSection } from './info-section';
 import type { JsonObject } from './paths';
 import { PlaceholderSection } from './placeholder-section';
+import { InstallSection } from './steps/install-section';
+import { stepsAt } from './steps/model';
 import { countIssues, isUnderPath, type EditorIssue, type IssueCounts } from './validation';
 import { templateVariables } from './variables/usage';
 import { VariablesSection } from './variables/variables-section';
@@ -53,7 +55,7 @@ export const EDITOR_SECTIONS: readonly EditorSection[] = [
   // an issue about the template as a whole ("") is shown with its identity
   section('info', Info, InfoSection, (issues) => countIssues(issues.filter((i) => i.path === '' || ['name', 'display', 'type', 'icon'].some((key) => isUnderPath(i.path, key))))),
   section('variables', SlidersHorizontal, VariablesSection, countUnder('data'), (template) => Object.keys(templateVariables(template)).length),
-  section('install', Download, PlaceholderSection, countUnder('install', 'uninstall')),
+  section('install', Download, InstallSection, countUnder('install', 'uninstall'), (template) => stepsAt(template, ['install']).length + stepsAt(template, ['uninstall']).length),
   section('run', Play, PlaceholderSection, countUnder('run')),
   section('environment', Package, PlaceholderSection, countUnder('environment', 'supportedEnvironments')),
   section('requirements', ListChecks, PlaceholderSection, countUnder('requirements')),
