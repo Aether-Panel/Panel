@@ -21,7 +21,7 @@
     "brace-expansion": "^5.0.9",
     "cookie": "2.0.1",
     "adm-zip": "^0.6.0",
-    "@hono/node-server": "^2.0.5",
+    "@hono/node-server": "^2.1.6",
     "dompurify": "^3.4.17",
     "undici": "^8.12.2",
     "zod": "^4.6.6",
@@ -31,7 +31,7 @@
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
   "dependencies": {
-    "@hono/node-server": "^2.0.5",
+    "@hono/node-server": "^2.1.6",
     "@opentelemetry/auto-instrumentations-node": "^0.81.1",
     "@opentelemetry/sdk-node": "^0.300.0",
     "adm-zip": "^0.6.0",

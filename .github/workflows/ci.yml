@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GO_VERSION: "1.26.0"
+  GO_VERSION: "1.26.10"
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
@@ -115,12 +115,12 @@ jobs:
           install-go: false
 
       - name: Run gosec (Go Security)
-        uses: securego/gosec@a7abd50b2947e53b26a7e200223e635ce36fac9b # master
+        uses: securego/gosec@14c713478ed40c9bdfa56d35d9c2142b91608106 # master
         with:
           args: -exclude=G104,G107,G115,G122,G204,G301,G302,G304,G306,G702,G703,G706 ./...
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # master
+        uses: aquasecurity/trivy-action@38b337fff0a2f984d5be173c99e3f633438167ec # master
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -131,7 +131,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Run Trivy Secret Scan
-        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # master
+        uses: aquasecurity/trivy-action@38b337fff0a2f984d5be173c99e3f633438167ec # master
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -140,7 +140,7 @@ jobs:
           scanners: 'secret'
 
       - name: Run Trivy Config Scan
-        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # master
+        uses: aquasecurity/trivy-action@38b337fff0a2f984d5be173c99e3f633438167ec # master
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -277,7 +277,7 @@ jobs:
 
       - name: Log in to GitHub Container Registry
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -376,7 +376,7 @@ jobs:
 
       - name: Log in to GitHub Container Registry
         if: steps.changed.outputs.build == 'true' && github.event_name != 'pull_request'
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
