@@ -1,6 +1,6 @@
 // The project's rule for Docker images in templates: only its own images (ghcr.io/aether-panel/*)
 // or official ones: Docker Hub's official images (ubuntu, eclipse-temurin, mariadb…) and the
-// images a vendor publishes for its own software (Microsoft's .NET, Valve's SteamCMD, Bun). Any
+// images a vendor publishes for its own software (Microsoft's .NET, Valve's SteamCMD, Bun, n8n). Any
 // other image can change or disappear without notice; a package a template needs goes into our
 // images instead.
 
@@ -17,7 +17,7 @@ const DOCKER_HUB = new Set(['docker.io', 'index.docker.io', 'registry-1.docker.i
 const VENDOR_REGISTRIES = new Set(['mcr.microsoft.com']);
 
 /** Docker Hub repositories a vendor publishes its own software in (namespace/name). */
-const VENDOR_REPOSITORIES = new Set(['steamcmd/steamcmd', 'oven/bun']);
+const VENDOR_REPOSITORIES = new Set(['steamcmd/steamcmd', 'oven/bun', 'n8nio/n8n']);
 
 export type ImageSource = 'project' | 'official' | 'thirdParty' | 'unknown';
 
