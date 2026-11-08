@@ -1,0 +1,209 @@
+{
+  "common": {
+    "greeting": "Hola:",
+    "stamp": "CORREO",
+    "ref": "Ref.",
+    "fallback": "Si el botón no funciona, copia este enlace en tu navegador:",
+    "signoff": "Un saludo,",
+    "signature": "el equipo de {{ .COMPANY_NAME }}",
+    "footer": "Recibes este correo porque tienes una cuenta en {{ .HOST_NAME }}.",
+    "openPanel": "Abrir el panel"
+  },
+  "emails": {
+    "accountCreation": {
+      "subject": "Tu cuenta en {{ .COMPANY_NAME }} está lista",
+      "preheader": "Ya puedes entrar en {{ .HOST_NAME }}.",
+      "title": "Tu cuenta está lista",
+      "paragraphs": [
+        "Se ha creado una cuenta para ti en {{ .HOST_NAME }}.",
+        "Entra con este correo electrónico y tu contraseña para ver tus servidores."
+      ],
+      "details": [
+        { "label": "Cuenta", "value": "{{ .TO }}" },
+        { "label": "Panel", "value": "{{ .HOST_NAME }}" }
+      ],
+      "action": { "label": "Entrar en el panel", "url": "{{ if .BASE_URL }}{{ .BASE_URL }}/login/{{ end }}" }
+    },
+    "passwordReset": {
+      "subject": "Restablecer tu contraseña",
+      "preheader": "El enlace caduca en 30 minutos.",
+      "title": "Restablecer tu contraseña",
+      "paragraphs": [
+        "Hemos recibido una solicitud para restablecer la contraseña de tu cuenta. Si fuiste tú, pulsa el botón y elige una nueva.",
+        "El enlace caduca en 30 minutos. Si no lo pediste tú, ignora este correo: tu contraseña no cambia."
+      ],
+      "details": [
+        { "label": "Cuenta", "value": "{{ .TO }}" },
+        { "label": "Caduca en", "value": "30 minutos" }
+      ],
+      "action": { "label": "Restablecer contraseña", "url": "{{ .RESET_LINK }}" }
+    },
+    "login": {
+      "subject": "Nuevo inicio de sesión en tu cuenta",
+      "preheader": "Alguien ha entrado en tu cuenta de {{ .HOST_NAME }}.",
+      "title": "Nuevo inicio de sesión",
+      "paragraphs": [
+        "Se ha iniciado sesión en tu cuenta de {{ .HOST_NAME }}.",
+        "Si fuiste tú, no tienes que hacer nada. Si no, cambia tu contraseña cuanto antes."
+      ],
+      "details": [
+        { "label": "Cuenta", "value": "{{ .TO }}" },
+        { "label": "Fecha", "value": "{{ .DATE }}, {{ .TIME }}" }
+      ],
+      "action": { "label": "Cambiar la contraseña", "url": "{{ if .BASE_URL }}{{ .BASE_URL }}/forgot-password/{{ end }}" }
+    },
+    "passwordChanged": {
+      "subject": "Tu contraseña ha cambiado",
+      "preheader": "La contraseña de tu cuenta se cambió el {{ .DATE }}.",
+      "title": "Tu contraseña ha cambiado",
+      "paragraphs": [
+        "La contraseña de tu cuenta de {{ .HOST_NAME }} se ha cambiado.",
+        "Si fuiste tú, no tienes que hacer nada. Si no, restablécela ahora: quien la cambió puede entrar en tu cuenta."
+      ],
+      "details": [
+        { "label": "Cuenta", "value": "{{ .TO }}" },
+        { "label": "Fecha", "value": "{{ .DATE }}, {{ .TIME }}" }
+      ],
+      "action": { "label": "Restablecer contraseña", "url": "{{ if .BASE_URL }}{{ .BASE_URL }}/forgot-password/{{ end }}" }
+    },
+    "emailChanged": {
+      "subject": "El correo de tu cuenta ha cambiado",
+      "preheader": "Los avisos llegarán ahora a {{ .NEW_EMAIL }}.",
+      "title": "Tu correo electrónico ha cambiado",
+      "paragraphs": [
+        "El correo electrónico de tu cuenta de {{ .HOST_NAME }} ha cambiado. A partir de ahora, los avisos y los enlaces para restablecer la contraseña llegarán a la dirección nueva.",
+        "Si no fuiste tú, escribe al soporte de {{ .COMPANY_NAME }} cuanto antes desde esta dirección."
+      ],
+      "details": [
+        { "label": "Correo anterior", "value": "{{ .TO }}" },
+        { "label": "Correo nuevo", "value": "{{ .NEW_EMAIL }}" }
+      ]
+    },
+    "otpEnabled": {
+      "subject": "Verificación en dos pasos activada",
+      "preheader": "Al entrar te pediremos también un código.",
+      "title": "Verificación en dos pasos activada",
+      "paragraphs": [
+        "Has activado la verificación en dos pasos. Desde ahora, al entrar en {{ .HOST_NAME }} te pediremos también el código de tu aplicación de autenticación.",
+        "Guarda los códigos de recuperación en un sitio seguro: son la forma de entrar si pierdes el móvil.",
+        "Si no fuiste tú, cambia tu contraseña y revisa tu cuenta."
+      ],
+      "details": [
+        { "label": "Cuenta", "value": "{{ .TO }}" },
+        { "label": "Fecha", "value": "{{ .DATE }}, {{ .TIME }}" }
+      ]
+    },
+    "otpDisabled": {
+      "subject": "Verificación en dos pasos desactivada",
+      "preheader": "Para entrar ya solo hace falta la contraseña.",
+      "title": "Verificación en dos pasos desactivada",
+      "paragraphs": [
+        "Se ha desactivado la verificación en dos pasos de tu cuenta. Para entrar en {{ .HOST_NAME }} ya solo hace falta la contraseña.",
+        "Si no fuiste tú, cambia tu contraseña y vuelve a activarla en tu perfil."
+      ],
+      "details": [
+        { "label": "Cuenta", "value": "{{ .TO }}" },
+        { "label": "Fecha", "value": "{{ .DATE }}, {{ .TIME }}" }
+      ],
+      "action": { "label": "Ir a mi perfil", "url": "{{ if .BASE_URL }}{{ .BASE_URL }}/profile/settings/{{ end }}" }
+    },
+    "recoveryCodesRegenerated": {
+      "subject": "Nuevos códigos de recuperación",
+      "preheader": "Los códigos anteriores ya no sirven.",
+      "title": "Nuevos códigos de recuperación",
+      "paragraphs": [
+        "Se han generado nuevos códigos de recuperación para la verificación en dos pasos de tu cuenta. Los anteriores ya no sirven.",
+        "Si no fuiste tú, cambia tu contraseña y revisa tu cuenta."
+      ],
+      "details": [
+        { "label": "Cuenta", "value": "{{ .TO }}" },
+        { "label": "Fecha", "value": "{{ .DATE }}, {{ .TIME }}" }
+      ]
+    },
+    "oauthCreated": {
+      "subject": "Nuevo cliente OAuth en tu cuenta",
+      "preheader": "Una aplicación puede usar el panel en tu nombre.",
+      "title": "Nuevo cliente OAuth",
+      "paragraphs": [
+        "Se ha creado un cliente OAuth en tu cuenta. Con sus credenciales, una aplicación puede usar el panel en tu nombre.",
+        "Si no lo creaste tú, bórralo desde tu perfil y cambia tu contraseña."
+      ],
+      "details": [
+        { "label": "Cuenta", "value": "{{ .TO }}" },
+        { "label": "Fecha", "value": "{{ .DATE }}, {{ .TIME }}" }
+      ],
+      "action": { "label": "Ir a mi perfil", "url": "{{ if .BASE_URL }}{{ .BASE_URL }}/profile/settings/{{ end }}" }
+    },
+    "oauthDeleted": {
+      "subject": "Cliente OAuth eliminado",
+      "preheader": "Las aplicaciones que lo usaban ya no pueden entrar.",
+      "title": "Cliente OAuth eliminado",
+      "paragraphs": [
+        "Se ha eliminado un cliente OAuth de tu cuenta. Las aplicaciones que usaban sus credenciales ya no pueden acceder al panel.",
+        "Si no fuiste tú, cambia tu contraseña y revisa tu cuenta."
+      ],
+      "details": [
+        { "label": "Cuenta", "value": "{{ .TO }}" },
+        { "label": "Fecha", "value": "{{ .DATE }}, {{ .TIME }}" }
+      ]
+    },
+    "addedToServer": {
+      "subject": "Tienes acceso al servidor {{ .Server.Name }}",
+      "preheader": "{{ .Server.Name }} ya aparece en tu panel.",
+      "title": "Tienes un servidor nuevo",
+      "paragraphs": [
+        "Ya tienes acceso al servidor {{ .Server.Name }} en {{ .HOST_NAME }}.",
+        "{{ if .RegisterToken }}Hemos creado una cuenta para ti con este correo. Para elegir tu contraseña, pulsa el botón, escribe {{ .TO }} y te llegará un enlace para ponerla.{{ else }}Entra con tu cuenta para verlo y gestionarlo.{{ end }}"
+      ],
+      "details": [
+        { "label": "Servidor", "value": "{{ .Server.Name }}" },
+        { "label": "Identificador", "value": "{{ .Server.Identifier }}" }
+      ],
+      "action": {
+        "label": "{{ if .RegisterToken }}Elegir mi contraseña{{ else }}Abrir el servidor{{ end }}",
+        "url": "{{ if .BASE_URL }}{{ if .RegisterToken }}{{ .BASE_URL }}/forgot-password/{{ else }}{{ .BASE_URL }}/servers/view/?id={{ .Server.Identifier }}{{ end }}{{ end }}"
+      }
+    },
+    "deletedServer": {
+      "subject": "Se ha eliminado el servidor {{ .Server.Name }}",
+      "preheader": "Ya no aparece en tu lista de servidores.",
+      "title": "Servidor eliminado",
+      "paragraphs": [
+        "El servidor {{ .Server.Name }}, al que tenías acceso, se ha eliminado. Ya no aparece en tu lista de servidores.",
+        "Si crees que es un error, escribe al soporte de {{ .COMPANY_NAME }}."
+      ],
+      "details": [
+        { "label": "Servidor", "value": "{{ .Server.Name }}" },
+        { "label": "Identificador", "value": "{{ .Server.Identifier }}" }
+      ]
+    },
+    "removedFromServer": {
+      "subject": "Ya no tienes acceso a {{ .Server.Name }}",
+      "preheader": "El servidor sigue existiendo, pero ya no está en tu lista.",
+      "title": "Ya no tienes acceso a un servidor",
+      "paragraphs": [
+        "Te han quitado el acceso al servidor {{ .Server.Name }}. El servidor sigue existiendo, pero ya no aparece en tu lista.",
+        "Si crees que es un error, habla con quien gestiona el servidor."
+      ],
+      "details": [
+        { "label": "Servidor", "value": "{{ .Server.Name }}" },
+        { "label": "Identificador", "value": "{{ .Server.Identifier }}" }
+      ]
+    },
+    "test": {
+      "subject": "Correo de prueba de {{ .COMPANY_NAME }}",
+      "preheader": "El envío de correo funciona.",
+      "title": "Correo de prueba",
+      "paragraphs": [
+        "Si lees esto, el envío de correo de {{ .HOST_NAME }} funciona.",
+        "No tienes que hacer nada más."
+      ],
+      "details": [
+        { "label": "Panel", "value": "{{ .HOST_NAME }}" },
+        { "label": "Proveedor", "value": "{{ .PROVIDER }}" },
+        { "label": "Enviado", "value": "{{ .DATE }}, {{ .TIME }}" }
+      ],
+      "action": { "label": "Abrir el panel", "url": "{{ .BASE_URL }}" }
+    }
+  }
+}

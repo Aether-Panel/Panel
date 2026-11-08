@@ -74,58 +74,80 @@ Escribe `DEBUG EMAIL TO <destino>`, el asunto y el cuerpo en el log de depuraci�
 
 ## Plantillas
 
-### Carga
+### Cómo se ven
 
-`LoadEmailService()` se ejecuta una vez al arrancar el panel (`cmd/panel/run.go`):
+Todos los correos son una **carta por avión**: papel claro envejecido con franjas rojas, blancas y azules arriba y abajo, el nombre de la empresa (`panel.settings.companyName`) con la fecha, un sello azul con la **referencia** del correo, el título, el texto a máquina, un recuadro con los datos (cuenta, servidor, fechas), un botón cuando hay algo que hacer (con el enlace escrito debajo por si el botón no funciona), la firma «el equipo de <empresa>» y un pie con el enlace al panel.
 
-1. Si `panel.email.templateFolder` tiene valor, crea un sistema de archivos combinado: primero la carpeta propia y, como respaldo, las plantillas integradas (`assets/email/`).
-2. Lee `emails.json`, que asigna a cada nombre de plantilla un asunto y un archivo de cuerpo:
+- Está hecho con tablas y estilos en línea, y solo usa letras que tienen todos los equipos (Courier New y Georgia), para que se vea igual en Gmail, Outlook y Apple Mail. En el móvil ocupa todo el ancho.
+- **Idioma**: el de **Configuración → General → Idioma de las notificaciones** (`panel.settings.notificationLanguage`, `es` o `en`, español por defecto), el mismo de los avisos de Discord, Telegram y webhooks. Se lee en cada envío.
+- **Referencia**: cada correo lleva una propia de 8 caracteres (`Q7M2-K9XD`, sin letras que se confundan como 0/O o 1/I/L). El log del panel la anota al enviar: `Sending email passwordReset (ref Q7M2-K9XD) to laura@example.com using smtp`. Si alguien cita la referencia, se encuentra el correo en el log.
+- El asunto se escribe siempre en una sola línea, aunque el nombre de un servidor tenga saltos de línea.
 
-   ```json
-   {
-     "passwordReset": {
-       "subject": "Your password has been reset",
-       "body": "password-reset.html"
-     }
-   }
-   ```
+### Archivos
 
-3. Analiza el asunto y el cuerpo con `html/template` de Go. Un archivo que falta o un error de sintaxis **detiene el panel al arrancar** (panic).
+En `assets/email/`:
 
-Como el `emails.json` completo se toma del primer sitio que lo tenga, un `emails.json` propio sustituye a la lista integrada: debe declarar todas las plantillas que usa el panel. Los archivos de cuerpo que falten en la carpeta propia se siguen leyendo de las integradas. Los cambios en las plantillas requieren reiniciar el panel.
+| Archivo | Qué es |
+|---------|--------|
+| `layout.html` | La carta, común a todos los correos (`html/template`) |
+| `messages.es.json`, `messages.en.json` | Los textos de cada correo en ese idioma |
+
+Cada correo de `messages.<idioma>.json` tiene `subject`, `preheader` (la línea que el buzón muestra junto al asunto), `title`, `paragraphs`, `details` (pares `label`/`value`) y, si lo necesita, `action` (`label` y `url` del botón). `common` tiene los textos de todos (saludo, firma, pie…). Cada texto es una plantilla `text/template` de Go con las variables de abajo, por ejemplo `"Tienes acceso al servidor {{ .Server.Name }}"`; la carta escapa lo que sale. Un párrafo, dato o botón que queda vacío no se muestra: así un texto puede depender de una condición (`{{ if .RegisterToken }}…{{ end }}`) y un botón que necesita `BASE_URL` desaparece si no hay URL del panel.
+
+### Plantillas propias
+
+`LoadEmailService()` lee las plantillas una vez al arrancar el panel (`cmd/panel/run.go`); un cambio necesita reiniciar. Un archivo que falta o un error de sintaxis **detiene el panel al arrancar** (panic).
+
+- **Carpeta con `layout.html` o `messages.<idioma>.json`** (`panel.email.templateFolder`): esos archivos sustituyen a los integrados y el resto se sigue leyendo de `assets/email/`. Por ejemplo, un `messages.es.json` propio cambia los textos en español y deja el diseño y el inglés como están. Un `messages.<idioma>.json` propio debe tener todos los correos: uno que le falte no se envía y el log lo anota.
+- **Carpeta con `emails.json`** (el formato anterior): el panel usa esas plantillas tal cual, como antes, sin la carta ni el idioma. `emails.json` asigna a cada correo un asunto y un archivo HTML completo:
+
+  ```json
+  {
+    "passwordReset": {
+      "subject": "Reset your password",
+      "body": "password-reset.html"
+    }
+  }
+  ```
+
+  Debe declarar todos los correos que envía el panel. Desde que existe la carta, `assets/email/` ya no trae los HTML del formato anterior: los archivos de cuerpo tienen que estar en la carpeta propia.
 
 ### Variables
 
-Cada envío añade tres variables:
+Cada envío añade estas variables a las del correo:
 
 | Variable | Origen |
 |----------|--------|
 | `COMPANY_NAME` | `panel.settings.companyName` (por defecto `SkyPanel`) |
-| `MASTER_URL` | `panel.settings.masterUrl` (por defecto `http://localhost:8080`) |
-| `HOST_NAME` | El nombre de host de `panel.settings.masterUrl` (por ejemplo `panel.example.com`); si no se puede extraer, `panel.settings.companyName`. Lo usa la plantilla `accountCreation` |
+| `MASTER_URL` | `panel.settings.masterUrl` tal cual (por defecto `http://localhost:8080`) |
+| `BASE_URL` | `panel.settings.masterUrl` sin la barra final; la usan los enlaces de los botones |
+| `HOST_NAME` | El nombre de host de `panel.settings.masterUrl` (por ejemplo `panel.example.com`); si no se puede extraer, `panel.settings.companyName` |
+| `TO` | La dirección a la que va el correo |
+| `DATE`, `TIME` | Fecha («8 de noviembre de 2026» / «8 November 2026») y hora con zona («17:30 CET») del envío |
+| `REF` | La referencia del correo |
+| `LANG` | `es` o `en` |
+| `PROVIDER` | El proveedor de correo (`smtp`, `mailgun`…) |
 
-### Plantillas integradas
+### Correos
 
-Los asuntos integrados están en inglés; se pueden cambiar con una carpeta de plantillas propia.
+| Correo | Asunto (es) | Se envía cuando | Variables adicionales |
+|--------|-------------|-----------------|-----------------------|
+| `accountCreation` | Tu cuenta en <empresa> está lista | Un usuario se registra (`/auth/register`) o un administrador aprueba su cuenta | — |
+| `passwordReset` | Restablecer tu contraseña | Se solicita un restablecimiento de contraseña (el enlace caduca en 30 minutos) | `RESET_LINK` (`<panel>/reset-password/?token=…`) |
+| `passwordChanged` | Tu contraseña ha cambiado | Se cambia la contraseña (perfil o restablecimiento) | — |
+| `emailChanged` | El correo de tu cuenta ha cambiado | Se cambia el correo; se envía a la dirección **anterior** | `NEW_EMAIL` |
+| `otpEnabled` | Verificación en dos pasos activada | Se activa la verificación en dos pasos | — |
+| `otpDisabled` | Verificación en dos pasos desactivada | Se desactiva la verificación en dos pasos | — |
+| `recoveryCodesRegenerated` | Nuevos códigos de recuperación | Se regeneran los códigos de recuperación | — |
+| `oauthCreated` | Nuevo cliente OAuth en tu cuenta | El usuario crea un cliente OAuth | — |
+| `oauthDeleted` | Cliente OAuth eliminado | El usuario borra un cliente OAuth | — |
+| `addedToServer` | Tienes acceso al servidor <nombre> | Se añade un usuario a un servidor, se crea un servidor para él o se aprovisiona | `Server` (`.Server.Name`, `.Server.Identifier`), `RegisterToken`, `Email` |
+| `removedFromServer` | Ya no tienes acceso a <nombre> | Se quita a un usuario de un servidor | `Server` |
+| `deletedServer` | Se ha eliminado el servidor <nombre> | Se borra un servidor; se envía a los usuarios que tenían acceso a él | `Server` |
+| `login` | Nuevo inicio de sesión en tu cuenta | Ningún código la envía | — |
+| `test` | Correo de prueba de <empresa> | Botón de prueba / endpoint de prueba | — |
 
-| Plantilla | Asunto | Se envía cuando | Variables adicionales |
-|-----------|--------|-----------------|-----------------------|
-| `accountCreation` | Your account has been created | Un usuario se registra (`/auth/register`) | — |
-| `passwordReset` | Your password has been reset | Se solicita un restablecimiento de contraseña | `RESET_LINK` (`<panel>/reset-password/?token=…`) |
-| `passwordChanged` | Your password has been changed | Se cambia la contraseña (perfil o restablecimiento) | — |
-| `emailChanged` | Your email has been changed | Se cambia el correo; se envía a la dirección **anterior** | `NEW_EMAIL` |
-| `otpEnabled` | OTP has been enabled for your account | Se activa la verificación en dos pasos | — |
-| `otpDisabled` | OTP has been disabled for your account | Se desactiva la verificación en dos pasos | — |
-| `recoveryCodesRegenerated` | OTP Recovery Codes have been regenerated for your account | Se regeneran los códigos de recuperación | — |
-| `oauthCreated` | OAuth client created | El usuario crea un cliente OAuth | — |
-| `oauthDeleted` | OAuth client deleted | El usuario borra un cliente OAuth | — |
-| `addedToServer` | You have been added to a server | Se añade un usuario a un servidor, se crea un servidor para él o se aprovisiona | `Server` (`.Server.Name`, `.Server.Identifier`), `RegisterToken`, `Email` |
-| `removedFromServer` | You have been removed from a server | Se quita a un usuario de un servidor | `Server` |
-| `deletedServer` | A server you have access to has been deleted | Se borra un servidor; se envía a los usuarios que tenían acceso a él | `Server` |
-| `login` | Someone has logged into your account | Ningún código la envía | — |
-| `test` | Email Test | Botón de prueba / endpoint de prueba | — |
-
-`addedToServer`: si el usuario no existía y el panel le creó la cuenta (`RegisterToken` no vacío), el correo le pide que elija contraseña en `<MASTER_URL>/forgot-password/` con su dirección; si no, muestra el enlace de inicio de sesión.
+`addedToServer`: si el usuario no existía y el panel le creó la cuenta (`RegisterToken` no vacío), el botón lleva a `<panel>/forgot-password/` para que elija su contraseña con su dirección; si no, abre el servidor (`<panel>/servers/view/?id=<identificador>`).
 
 Todos los correos se envían de forma **asíncrona** (los errores solo van al log), salvo el de prueba, que se envía de forma síncrona para poder mostrar el error.
 
@@ -161,7 +183,7 @@ curl -X POST https://panel.example.com/api/settings/test/email \
 | `email does not support <nombre>` | `panel.email.provider` no es ninguno de los cinco nombres |
 | Tiempo de espera agotado o error TLS con SMTP | El servidor no ofrece TLS implícito en el puerto 465 |
 | `401` en Mailjet | `domain`/`key` no son el par de claves de API pública/secreta de Mailjet |
-| El panel no arranca tras editar plantillas | Falta un archivo de cuerpo listado en `emails.json` o una plantilla tiene un error de sintaxis |
+| El panel no arranca tras editar plantillas | Falta un archivo (un cuerpo listado en `emails.json`) o una plantilla tiene un error de sintaxis |
 | No llega nada y la interfaz no muestra error | Los correos asíncronos solo registran los fallos; revise el log del panel |
 
 En producción, verifique la dirección o el dominio `from` con el proveedor y configure SPF/DKIM/DMARC para él.
