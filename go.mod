@@ -1,6 +1,6 @@
 module github.com/SkyPanel/SkyPanel/v3
 
-go 1.26.0
+go 1.26.10
 
 require (
 	github.com/MicahParks/jwkset v0.11.4
@@ -10,7 +10,7 @@ require (
 	github.com/creack/pty v1.1.24
 	github.com/dreamscached/minequery/v2 v2.5.0
 	github.com/gin-contrib/cors v1.7.9
-	github.com/gin-contrib/sessions v1.1.2
+	github.com/gin-contrib/sessions v1.1.3
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-co-op/gocron/v2 v2.23.0
 	github.com/go-git/go-git/v5 v5.19.3
