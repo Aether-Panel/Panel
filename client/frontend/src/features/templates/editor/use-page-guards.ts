@@ -1,23 +1,33 @@
 import { useEffect, useRef, useState } from 'react';
+import { createLeaveGuard, type LeaveGuard, type LeaveRequest } from './leave-guard';
 
 /**
- * Asks before leaving while there are unsaved changes. Astro's client router swaps pages without
- * unloading this one, so its navigation is cancelled: the router then loads the page for real,
- * and that unload brings up the browser's own "leave this page?" question, as closing the tab or
- * reloading does.
+ * While there are unsaved changes, leaving through a link or the browser's back and forward waits
+ * for the panel's own dialog (leave-guard.ts); reloading and closing the tab keep the browser's.
+ * `asking` opens the dialog, `stay` closes it, `leave` goes where the person was going.
  */
 export function useLeaveGuard(active: boolean) {
+  const [request, setRequest] = useState<LeaveRequest | null>(null);
+  const guardRef = useRef<LeaveGuard | null>(null);
   useEffect(() => {
     if (!active) return;
-    const beforeUnload = (e: BeforeUnloadEvent) => e.preventDefault();
-    const beforePreparation = (e: Event) => e.preventDefault();
-    window.addEventListener('beforeunload', beforeUnload);
-    document.addEventListener('astro:before-preparation', beforePreparation);
+    const guard = createLeaveGuard({ window, document }, setRequest);
+    guardRef.current = guard;
     return () => {
-      window.removeEventListener('beforeunload', beforeUnload);
-      document.removeEventListener('astro:before-preparation', beforePreparation);
+      guard.dispose();
+      guardRef.current = null;
+      setRequest(null);
     };
   }, [active]);
+  return {
+    asking: request !== null,
+    stay: () => setRequest(null),
+    leave: () => {
+      if (!request) return;
+      setRequest(null);
+      guardRef.current?.leave(request);
+    },
+  };
 }
 
 /** Ctrl+S / ⌘S saves, in the form and inside Monaco alike, instead of saving the web page. */

@@ -21,6 +21,7 @@ const ALIASES: Record<string, string[]> = {
   mariadb: ['mysql', 'sql', 'database', 'base de datos'],
   mongodb: ['mongo', 'nosql', 'database', 'base de datos'],
   redis: ['cache', 'database', 'base de datos'],
+  n8n: ['automation', 'automatizacion', 'workflow', 'workflows', 'flujos', 'zapier', 'make', 'webhook'],
   'minecraft-java': ['mc', 'paper', 'spigot', 'forge', 'fabric', 'neoforge'],
   'minecraft-bedrock': ['mc', 'bedrock', 'pe'],
   csgo: ['cs2', 'counter-strike', 'counter strike'],

@@ -20,6 +20,7 @@ const LOGOS: Record<string, { file: string; plate?: boolean }> = {
     postgresql: { file: 'postgresql.svg', plate: true },
     redis: { file: 'redis.svg', plate: true },
     lavalink: { file: 'lavalink.svg' },
+    n8n: { file: 'n8n.svg' },
     teamspeak3: { file: 'teamspeak3.svg', plate: true },
     discord: { file: 'discord.svg', plate: true },
     // games

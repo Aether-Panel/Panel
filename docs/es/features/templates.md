@@ -69,7 +69,7 @@ En la lista, el menú **⋯** de cada plantilla tiene **Duplicar** y, en las loc
 - **Secciones**, en un menú lateral (en un móvil, un selector arriba): **Información**, **Variables**, **Instalación**, **Ejecución**, **Entorno**, **Requisitos** y **Avanzado**. Cada una muestra cuántos elementos tiene (variables, pasos) y cuántos errores y avisos.
 - **Formulario | JSON | Dividido**: el formulario y el JSON son dos vistas del mismo objeto; lo que se cambia en una aparece en la otra al momento. **Dividido** (formulario y JSON lado a lado) solo está en pantallas de 1280 px o más; en una más estrecha se ve como **Formulario**.
 - **Vista previa**, **Descargar .json** y **Guardar**. Por debajo de 1280 px, **Vista previa** y **Descargar .json** son solo iconos, y por debajo de 420 px también **Guardar**. **Ctrl+S** (**⌘S** en macOS) guarda desde cualquier campo, también dentro del JSON.
-- Al salir con cambios sin guardar, el navegador pregunta antes.
+- Al salir con cambios sin guardar (un enlace del panel, o **Atrás** y **Adelante** del navegador), el editor pregunta **¿Salir sin guardar?**: **Seguir editando** (o Esc) se queda, **Salir sin guardar** va a donde se iba. Al recargar o cerrar la pestaña pregunta el propio navegador, porque ahí una página no puede mostrar su diálogo. Si el editor se abrió escribiendo la dirección o recargando, **Atrás** sale de esa carga de página y también pregunta el navegador.
 
 | Sección | Qué se edita |
 |---|---|

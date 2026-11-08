@@ -28,6 +28,8 @@ describe('where a Docker image comes from', () => {
     ['steamcmd/steamcmd:ubuntu-20', 'official'],
     ['oven/bun:${bunversion}', 'official'],
     ['docker.io/oven/bun', 'official'],
+    ['n8nio/n8n:${version}', 'official'],
+    ['n8nio/other', 'thirdParty'],
     ['mcr.microsoft.com/dotnet/runtime:${dotnetversion}', 'official'],
     ['mcr.microsoft.com/dotnet/sdk:8.0', 'official'],
     ['someone/steamcmd', 'thirdParty'],
