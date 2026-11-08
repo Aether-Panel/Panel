@@ -3332,6 +3332,12 @@
         "warningsOne": "1 warning",
         "warningsMany": "{{count}} warnings"
       },
+      "leave": {
+        "title": "Leave without saving?",
+        "description": "The changes to this template will be lost.",
+        "stay": "Keep editing",
+        "confirm": "Leave without saving"
+      },
       "confirmErrors": {
         "title": "Save with errors?",
         "descriptionOne": "The template has 1 error. The panel may reject it or the installation may fail. Save it anyway?",

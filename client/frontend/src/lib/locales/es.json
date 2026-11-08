@@ -3332,6 +3332,12 @@
         "warningsOne": "1 aviso",
         "warningsMany": "{{count}} avisos"
       },
+      "leave": {
+        "title": "¿Salir sin guardar?",
+        "description": "Los cambios de esta plantilla se perderán.",
+        "stay": "Seguir editando",
+        "confirm": "Salir sin guardar"
+      },
       "confirmErrors": {
         "title": "¿Guardar con errores?",
         "descriptionOne": "La plantilla tiene 1 error. Puede que el panel la rechace o que la instalación falle. ¿Quieres guardarla igualmente?",

@@ -69,7 +69,7 @@ In the list, each template's **⋯** menu has **Duplicate** and, on local ones, 
 - **Sections**, in a side menu (on a phone, a selector at the top): **Information**, **Variables**, **Installation**, **Run**, **Environment**, **Requirements** and **Advanced**. Each shows how many items it has (variables, steps) and how many errors and warnings.
 - **Form | JSON | Split**: the form and the JSON are two views of the same object; a change in one shows in the other at once. **Split** (form and JSON side by side) is only offered on screens 1280 px wide or more; on a narrower one it shows as **Form**.
 - **Preview**, **Download .json** and **Save**. Below 1280 px, **Preview** and **Download .json** are icon-only, and below 420 px **Save** is too. **Ctrl+S** (**⌘S** on macOS) saves from any field, inside the JSON too.
-- Leaving with unsaved changes makes the browser ask first.
+- Leaving with unsaved changes (a link in the panel, or the browser's **Back** and **Forward**) makes the editor ask **Leave without saving?**: **Keep editing** (or Esc) stays, **Leave without saving** goes where you were going. Reloading or closing the tab is asked by the browser itself, since a page cannot show its own dialog there. When the editor was opened by typing its address or reloading, **Back** leaves that page load and the browser asks too.
 
 | Section | What it edits |
 |---|---|

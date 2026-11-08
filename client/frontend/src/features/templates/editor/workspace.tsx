@@ -150,7 +150,7 @@ export function EditorWorkspace() {
   // an existing template saved as it is would change nothing; a new one can always be saved
   const canSave = !blocked && !saving && (dirty || originalName === undefined);
 
-  useLeaveGuard(dirty && !saving);
+  const leaveGuard = useLeaveGuard(dirty && !saving);
 
   const save = async () => {
     // a change of case or accents alone is not a rename: the row keeps its name (template-name.ts)
@@ -269,6 +269,20 @@ export function EditorWorkspace() {
         </Suspense>
       )}
 
+      <AlertDialog open={leaveGuard.asking} onOpenChange={(open) => { if (!open) leaveGuard.stay(); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('templates.editor.leave.title')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('templates.editor.leave.description')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('templates.editor.leave.stay')}</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={leaveGuard.leave}>
+              {t('templates.editor.leave.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
