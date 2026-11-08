@@ -3,8 +3,8 @@ module github.com/SkyPanel/SkyPanel/v3
 go 1.26.10
 
 require (
-	github.com/MicahParks/jwkset v0.11.3
-	github.com/MicahParks/keyfunc/v3 v3.8.2
+	github.com/MicahParks/jwkset v0.11.4
+	github.com/MicahParks/keyfunc/v3 v3.9.1
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/creack/pty v1.1.24
@@ -26,7 +26,7 @@ require (
 	github.com/hashicorp/go-version v1.9.0
 	github.com/klauspost/compress v1.20.3
 	github.com/mailgun/mailgun-go/v4 v4.23.0
-	github.com/mailjet/mailjet-apiv3-go/v4 v4.0.9
+	github.com/mailjet/mailjet-apiv3-go/v4 v4.1.0
 	github.com/mholt/archives v0.1.5
 	github.com/minio/minio-go/v7 v7.4.1
 	github.com/moby/moby/api v1.56.1
@@ -48,7 +48,7 @@ require (
 	github.com/wneessen/go-mail v0.8.1
 	golang.org/x/crypto v0.58.0
 	golang.org/x/sys v0.49.0
-	golang.org/x/time v0.15.0
+	golang.org/x/time v0.16.0
 	google.golang.org/genai v1.76.0
 	gopkg.in/go-playground/validator.v9 v9.31.0
 	gorm.io/driver/mysql v1.6.0
