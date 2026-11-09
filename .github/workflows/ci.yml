@@ -119,9 +119,31 @@ jobs:
         with:
           args: -exclude=G104,G107,G115,G122,G204,G301,G302,G304,G306,G702,G703,G706 ./...
 
+      # trivy-action installs Trivy through get.trivy.dev, which stopped resolving on 2026-11-04
+      # (aquasecurity/trivy#11537), so every run failed before scanning anything. The same file
+      # comes from the release on GitHub, checked against the checksums of that release, and the
+      # three scans below use it instead of installing their own.
+      - name: Install Trivy
+        env:
+          TRIVY_VERSION: 0.76.1
+        run: |
+          set -euo pipefail
+          base="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"
+          tarball="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          sums="trivy_${TRIVY_VERSION}_checksums.txt"
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 3 -o "$tarball" "$base/$tarball"
+          curl -fsSL --retry 3 -o "$sums" "$base/$sums"
+          grep " ${tarball}\$" "$sums" | sha256sum -c -
+          mkdir -p "$HOME/.local/bin"
+          tar -xzf "$tarball" -C "$HOME/.local/bin" trivy
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/trivy" --version
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # master
         with:
+          skip-setup-trivy: true
           scan-type: 'fs'
           scan-ref: '.'
           format: 'table'
@@ -133,6 +155,7 @@ jobs:
       - name: Run Trivy Secret Scan
         uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # master
         with:
+          skip-setup-trivy: true
           scan-type: 'fs'
           scan-ref: '.'
           format: 'table'
@@ -142,6 +165,7 @@ jobs:
       - name: Run Trivy Config Scan
         uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # master
         with:
+          skip-setup-trivy: true
           scan-type: 'fs'
           scan-ref: '.'
           format: 'table'
