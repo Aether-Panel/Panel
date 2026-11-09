@@ -119,24 +119,20 @@ jobs:
         with:
           args: -exclude=G104,G107,G115,G122,G204,G301,G302,G304,G306,G702,G703,G706 ./...
 
-      # trivy-action installs Trivy through get.trivy.dev, which stopped resolving on 2026-11-04
-      # (aquasecurity/trivy#11537), so every run failed before scanning anything. The same file
-      # comes from the release on GitHub, checked against the checksums of that release, and the
-      # three scans below use it instead of installing their own.
+      # trivy-action's own setup, and a plain download of the release file, both fail on the
+      # runners: GitHub answers 504 for Trivy's 52 MB release asset (2026-11-09), so Code Quality
+      # failed before it scanned anything. Trivy comes from its official image instead, pinned by
+      # digest so what it holds cannot change, and the three scans below use that binary.
       - name: Install Trivy
         env:
-          TRIVY_VERSION: 0.76.1
+          TRIVY_IMAGE: ghcr.io/aquasecurity/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
         run: |
           set -euo pipefail
-          base="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"
-          tarball="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
-          sums="trivy_${TRIVY_VERSION}_checksums.txt"
-          cd "$RUNNER_TEMP"
-          curl -fsSL --retry 3 -o "$tarball" "$base/$tarball"
-          curl -fsSL --retry 3 -o "$sums" "$base/$sums"
-          grep " ${tarball}\$" "$sums" | sha256sum -c -
+          docker pull --quiet "$TRIVY_IMAGE"
+          id=$(docker create "$TRIVY_IMAGE")
           mkdir -p "$HOME/.local/bin"
-          tar -xzf "$tarball" -C "$HOME/.local/bin" trivy
+          docker cp "$id:/usr/local/bin/trivy" "$HOME/.local/bin/trivy"
+          docker rm "$id" > /dev/null
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/trivy" --version
 
