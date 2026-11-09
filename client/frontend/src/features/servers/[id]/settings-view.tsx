@@ -19,6 +19,7 @@ import NotificationsCard from './notifications-card';
 import AddressCard from './address-card';
 import VersionCard from './version-card';
 import { useExperimental } from '@/contexts/config-context';
+import { MibEquivalent } from '../mib';
 
 type SettingsViewProps = {
   serverId: string;
@@ -343,8 +344,8 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
 
   const resourceFields = [
     { key: 'cpu', label: t('servers.settings.cpuLabel'), unit: '%', defaultVal: 100, hint: t('servers.settings.cpuHint') },
-    { key: 'memory', label: t('servers.settings.memoryLabel'), unit: 'MB', defaultVal: 1024, hint: t('servers.settings.memoryHint') },
-    { key: 'disk', label: t('servers.settings.diskLabel'), unit: 'MB', defaultVal: 10240, hint: t('servers.settings.diskHint') },
+    { key: 'memory', label: t('servers.settings.memoryLabel'), unit: 'MiB', defaultVal: 1024, hint: t('servers.settings.memoryHint') },
+    { key: 'disk', label: t('servers.settings.diskLabel'), unit: 'MiB', defaultVal: 10240, hint: t('servers.settings.diskHint') },
     { key: 'io', label: t('servers.settings.ioLabel'), unit: '', defaultVal: 500, hint: t('servers.settings.ioHint') },
   ];
 
@@ -414,6 +415,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
                       />
                       {unit && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{unit}</span>}
                     </div>
+                    {unit === 'MiB' && <MibEquivalent mib={val} className="-mt-1 font-medium text-foreground/80" />}
                     <p className="text-xs text-muted-foreground">{hint}</p>
                   </div>
                 );

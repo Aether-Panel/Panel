@@ -4,6 +4,7 @@ import { forwardRef } from 'react';
 import type { Icon, IconProps } from '@phosphor-icons/react';
 import {
     ArchiveIcon,
+    ArrowBendDownRightIcon,
     ArrowCircleUpIcon,
     ArrowClockwiseIcon,
     ArrowCounterClockwiseIcon,
@@ -199,6 +200,8 @@ export const Coffee = panelIcon(CoffeeIcon);
 export const Copy = panelIcon(CopyIcon);
 export const CopyPlus = panelIcon(CopySimpleIcon);
 export const CornerDownLeft = panelIcon(ArrowElbowDownLeftIcon);
+// moving files to another folder
+export const MoveTo = panelIcon(ArrowBendDownRightIcon);
 export const Cpu = panelIcon(CpuIcon);
 export const Crown = panelIcon(CrownIcon);
 export const Database = panelIcon(DatabaseIcon);

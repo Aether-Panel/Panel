@@ -40,6 +40,7 @@ import {
   Download,
   Check,
   History,
+  MoveTo,
   type AppIcon,
   type IconWeight,
 } from '@/components/icons';
@@ -57,6 +58,19 @@ import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/empty-state';
 import { FileHistorySheet, formatRelative, isHistoryTracked, localeFor, useFileHistory, type FileVersion } from './file-history-sheet';
 import FileDiffView from './file-diff-view';
+import {
+  createRateMeter,
+  dragHasFiles,
+  itemsFromDrop,
+  itemsFromFiles,
+  putWithProgress,
+  uploadAll,
+  type UploadItem,
+  type UploadProgress,
+} from './file-upload';
+import { ROW_DRAG_TYPE, parentOf, planMove, runMoves, type MoveEntry, type MoveStep } from './file-move';
+import { MoveDialog } from './move-dialog';
+import { UploadProgressPanel } from './upload-progress';
 
 const CodeEditor = lazy(() => import('./code-editor'));
 
@@ -68,11 +82,11 @@ type FileItemResource = {
   extension?: string;
 };
 
-type ClipboardItem = {
-  name: string;
-  path: string;
-  isFile: boolean;
+type ClipboardState = {
   mode: 'copy' | 'cut';
+  /** the folder the entries were taken from */
+  dir: string;
+  entries: MoveEntry[];
 };
 
 type FileMeta = {
@@ -143,7 +157,20 @@ async function assertOk(res: Response, fallback: string) {
   throw new Error(typeof error === 'string' ? error : error?.msg || fallback);
 }
 
-function Breadcrumbs({ path, onNavigate, label }: Readonly<{ path: string; onNavigate: (p: string) => void; label: string }>) {
+type DropHandlers = {
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: (e: React.DragEvent) => void;
+  onDrop: (e: React.DragEvent) => void;
+};
+
+function Breadcrumbs({ path, onNavigate, label, dropInto, dropTarget }: Readonly<{
+  path: string;
+  onNavigate: (p: string) => void;
+  label: string;
+  /** each part of the path takes rows dragged onto it, to move them up there */
+  dropInto: (folder: string) => DropHandlers;
+  dropTarget: string | null;
+}>) {
   const parts = path.split('/').filter(Boolean);
   const crumbs = [{ label: '~', path: '' }, ...parts.map((p, i) => ({ label: p, path: parts.slice(0, i + 1).join('/') }))];
 
@@ -158,9 +185,11 @@ function Breadcrumbs({ path, onNavigate, label }: Readonly<{ path: string; onNav
               type="button"
               onClick={() => onNavigate(crumb.path)}
               aria-current={isLast ? 'page' : undefined}
+              {...dropInto(crumb.path)}
               className={cn(
                 'focus-ring shrink-0 rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-accent/50 hover:text-foreground',
-                isLast ? 'font-medium text-foreground' : 'text-muted-foreground'
+                isLast ? 'font-medium text-foreground' : 'text-muted-foreground',
+                dropTarget === crumb.path && 'bg-primary/15 text-primary-bright ring-1 ring-primary/50'
               )}
             >
               {crumb.label}
@@ -226,7 +255,12 @@ function editorFileInfo(file: FileItemResource | null) {
   return { meta: getFileMeta(file.name), language: getLanguageFromFilename(file.name) };
 }
 
-export default function FileManagerView({ serverId }: Readonly<{ serverId: string }>) {
+/**
+ * The server's files. canEdit is the server.files.edit permission: without it the files can be
+ * browsed, read and downloaded, and nothing that changes them is offered (the daemon would
+ * refuse it anyway, and a button that only ever fails is worse than none).
+ */
+export default function FileManagerView({ serverId, canEdit }: Readonly<{ serverId: string; canEdit: boolean }>) {
   const [currentPath, setCurrentPath] = useState('');
   const [files, setFiles] = useState<FileItemResource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -268,8 +302,24 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
-  const [clipboard, setClipboard] = useState<ClipboardItem | null>(null);
+  const [clipboard, setClipboard] = useState<ClipboardState | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+  // an upload in progress: how many items went up of how many, and the one going now
+  const [upload, setUpload] = useState<UploadProgress | null>(null);
+  const [uploadRate, setUploadRate] = useState<number | null>(null);
+  const [cancellingUpload, setCancellingUpload] = useState(false);
+  const uploadingRef = useRef(false);
+  const uploadAbortRef = useRef<AbortController | null>(null);
+  // names being moved with the move dialog; null while it is closed
+  const [moveNames, setMoveNames] = useState<string[] | null>(null);
+  const [isMoving, setIsMoving] = useState(false);
+  // the rows being dragged (a drag over a target cannot read its data, only its types)
+  const draggedRef = useRef<string[] | null>(null);
+  // the folder a dragged row is over, to light it up
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragDepthRef = useRef(0);
   const editorCloseTimeoutRef = useRef<number | null>(null);
   const savingRef = useRef(false);
 
@@ -278,13 +328,17 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
   const fileUrl = (path: string) => `/api/servers/${serverId}/file/${encodePath(path)}`;
 
   const editingPath = editingFile ? joinPath(currentPath, editingFile.name) : null;
-  const historyTracked = !!editingFile && isHistoryTracked(editingFile.name);
+  // the history is for undoing edits: someone who cannot edit has nothing to undo or restore
+  const historyTracked = canEdit && !!editingFile && isHistoryTracked(editingFile.name);
   const fileHistory = useFileHistory(serverId, historyTracked ? editingPath : null);
   const historyCount = fileHistory.status === 'ready' ? fileHistory.versions.length : 0;
 
   // only the newest listing may land: a slow answer for a folder the user already left would
   // otherwise replace the list, and actions would then build paths from the wrong folder
   const listRequestRef = useRef(0);
+  // the folder on screen now, for work that finishes after the user may have moved on
+  const currentPathRef = useRef(currentPath);
+  currentPathRef.current = currentPath;
 
   const fetchFiles = async (path: string) => {
     const request = ++listRequestRef.current;
@@ -418,48 +472,167 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
   };
 
   const handleUploadClick = () => {
-    fileInputRef.current?.click();
+    if (!uploadingRef.current) fileInputRef.current?.click();
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFolderUploadClick = () => {
+    if (!uploadingRef.current) folderInputRef.current?.click();
+  };
 
-    setIsLoading(true);
+  // the folder picker has no React prop: webkitdirectory is set on the element itself
+  useEffect(() => {
+    folderInputRef.current?.setAttribute('webkitdirectory', '');
+  }, []);
+
+  /** One item to the folder the upload started in: a file is written, an empty folder made. */
+  const uploadItem = (dir: string) => (item: UploadItem, onBytes: (loaded: number) => void, signal: AbortSignal) => {
+    const target = fileUrl(joinPath(dir, item.path));
+    const fallback = t('servers.fileManager.toast.uploadError');
+    if (!item.file) return putWithProgress(`${target}?folder`, null, onBytes, signal, fallback);
+    const formData = new FormData();
+    formData.append('file', item.file);
+    return putWithProgress(target, formData, onBytes, signal, fallback);
+  };
+
+  const uploadItems = async (items: UploadItem[]) => {
+    if (items.length === 0 || uploadingRef.current) return;
+    uploadingRef.current = true;
+    // the folder the upload started in: browsing elsewhere meanwhile must not move it
+    const dir = currentPath;
+    const total = items.length;
+    const controller = new AbortController();
+    uploadAbortRef.current = controller;
+    const meter = createRateMeter();
+    let rateShownAt = 0;
+    setUploadRate(null);
+    setCancellingUpload(false);
     try {
-      const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const res = await fetch(fileUrl(filePath), {
-        method: 'PUT',
-        body: formData,
-        credentials: 'include'
-      });
-      await assertOk(res, t('servers.fileManager.toast.uploadError'));
-
-      sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.uploaded') });
-      void fetchFiles(currentPath);
-    } catch (e: any) {
-      sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.uploadError') });
+      const { done, error, cancelled } = await uploadAll(items, uploadItem(dir), (progress) => {
+        const now = performance.now();
+        meter.sample(progress.sentBytes, now);
+        setUpload(progress);
+        // the speed and time left change twice a second at most, or they flicker
+        if (now - rateShownAt > 500) {
+          rateShownAt = now;
+          setUploadRate(meter.rate());
+        }
+      }, controller.signal);
+      if (cancelled) {
+        sileo.info({ title: t('servers.fileManager.toast.uploadCancelled', { count: done, total }) });
+      } else if (error) {
+        const reason = error instanceof Error && error.message ? error.message : t('servers.fileManager.toast.uploadError');
+        sileo.error({
+          title: t('common.error'),
+          description: total === 1 ? reason : t('servers.fileManager.toast.uploadedPartly', { count: done, total, reason }),
+        });
+      } else {
+        sileo.success({
+          title: t('common.success'),
+          description: total === 1 ? t('servers.fileManager.toast.uploaded') : t('servers.fileManager.toast.uploadedMany', { count: total }),
+        });
+      }
     } finally {
-      setIsLoading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      uploadingRef.current = false;
+      uploadAbortRef.current = null;
+      setUpload(null);
+      setUploadRate(null);
+      setCancellingUpload(false);
+      if (dir === currentPathRef.current) void fetchFiles(dir);
     }
   };
 
-  const handleCopy = (file: FileItemResource, mode: 'copy' | 'cut') => {
-    const path = currentPath ? `${currentPath}/${file.name}` : file.name;
-    setClipboard({ name: file.name, path, isFile: file.isFile, mode });
-    sileo.success({
-      title: t('common.success'),
-      description: mode === 'copy' ? t('servers.fileManager.toast.copied', { name: file.name }) : t('servers.fileManager.toast.cut', { name: file.name })
-    });
+  const cancelUpload = () => {
+    setCancellingUpload(true);
+    uploadAbortRef.current?.abort();
+  };
+
+  // leaving the page stops an upload still going
+  useEffect(() => () => uploadAbortRef.current?.abort(), []);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const items = itemsFromFiles(e.target.files ?? []);
+    // cleared now, so picking the same file again fires a change
+    e.target.value = '';
+    void uploadItems(items);
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    if (!dragHasFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    dragDepthRef.current++;
+    setIsDragging(true);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!dragHasFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = uploadingRef.current ? 'none' : 'copy';
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (!dragHasFiles(e.dataTransfer)) return;
+    // enter and leave fire for every child crossed: only the last leave ends the drag
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    if (!dragHasFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDragging(false);
+    if (uploadingRef.current) return;
+    itemsFromDrop(e.dataTransfer)
+      .then(uploadItems)
+      .catch(() => sileo.error({ title: t('common.error'), description: t('servers.fileManager.toast.dropReadError') }));
+  };
+
+  // a file dropped just outside the drop area would make the browser open it and leave the panel
+  useEffect(() => {
+    const stop = (e: DragEvent) => {
+      if (dragHasFiles(e.dataTransfer)) e.preventDefault();
+    };
+    window.addEventListener('dragover', stop);
+    window.addEventListener('drop', stop);
+    return () => {
+      window.removeEventListener('dragover', stop);
+      window.removeEventListener('drop', stop);
+    };
+  }, []);
+
+  const entriesNamed = (names: string[]): MoveEntry[] =>
+    files.filter((f) => names.includes(f.name)).map((f) => ({ name: f.name, isFile: f.isFile }));
+
+  const toClipboard = (entries: MoveEntry[], mode: 'copy' | 'cut') => {
+    if (entries.length === 0) return;
+    setClipboard({ mode, dir: currentPath, entries });
+    const [first] = entries;
+    let description: string;
+    if (entries.length > 1) {
+      description = mode === 'copy'
+        ? t('servers.fileManager.toast.copiedMany', { count: entries.length })
+        : t('servers.fileManager.toast.cutMany', { count: entries.length });
+    } else {
+      description = mode === 'copy'
+        ? t('servers.fileManager.toast.copied', { name: first.name })
+        : t('servers.fileManager.toast.cut', { name: first.name });
+    }
+    sileo.success({ title: t('common.success'), description });
+  };
+
+  const handleCopy = (file: FileItemResource, mode: 'copy' | 'cut') =>
+    toClipboard([{ name: file.name, isFile: file.isFile }], mode);
+
+  const selectedNames = () => selectableNames.filter((name) => selected.has(name));
+
+  const clipSelection = (mode: 'copy' | 'cut') => {
+    toClipboard(entriesNamed(selectedNames()), mode);
+    clearSelection();
   };
 
   const readFileBlob = async (path: string): Promise<Blob> => {
     const res = await fetch(fileUrl(path), { credentials: 'include' });
-    if (!res.ok) throw new Error(`Error al leer: ${path}`);
+    await assertOk(res, t('servers.fileManager.toast.readError', { path }));
     return res.blob();
   };
 
@@ -468,7 +641,7 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
       method: 'PUT',
       credentials: 'include'
     });
-    if (!res.ok) throw new Error(`Error al crear carpeta: ${path}`);
+    await assertOk(res, t('servers.fileManager.toast.makeFolderError', { path }));
   };
 
   const parentPath = (path: string) => {
@@ -487,7 +660,7 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
       body: blob,
       credentials: 'include'
     });
-    if (!res.ok) throw new Error(`Error al escribir: ${path}`);
+    await assertOk(res, t('servers.fileManager.toast.writeError', { path }));
   };
 
   const listFolderForCopy = async (path: string): Promise<FileItemResource[]> => {
@@ -516,45 +689,155 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
       .reduce<Promise<void>>((previous, item) => previous.then(() => copyEntry(item, src, dest)), Promise.resolve());
   };
 
-  const handlePaste = async () => {
-    if (!clipboard) return;
+  /** Moves on the node itself: instant even for big files, and nothing goes through the browser. */
+  const moveOnServer = async (step: MoveStep) => {
+    const res = await fetch(`${fileUrl(step.from)}?destination=${encodeURIComponent(step.to)}`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    await assertOk(res, t('servers.fileManager.toast.moveError'));
+  };
 
-    const sourcePath = clipboard.path;
-    const destPath = currentPath ? `${currentPath}/${clipboard.name}` : clipboard.name;
-
-    // Reject pasting onto itself or a folder into its own subtree
-    if (sourcePath === destPath || (!clipboard.isFile && destPath.startsWith(`${sourcePath}/`))) {
-      sileo.error({ title: t('common.error'), description: t('servers.fileManager.toast.pasteInvalid') });
-      return;
+  /** Moves entries of fromDir into toDir (made when missing); true when all of them went. */
+  const moveEntries = async (fromDir: string, entries: MoveEntry[], toDir: string): Promise<boolean> => {
+    const { steps, problem } = planMove(fromDir, entries, toDir);
+    if (problem) {
+      sileo.error({
+        title: t('common.error'),
+        description: problem === 'same' ? t('servers.fileManager.toast.moveSame') : t('servers.fileManager.toast.moveInside'),
+      });
+      return false;
     }
-
-    setIsLoading(true);
+    if (steps.length === 0) return false;
+    let result: { done: number; error?: unknown };
     try {
-      if (clipboard.isFile) {
-        const blob = await readFileBlob(sourcePath);
-        await writeFileBlob(destPath, blob);
-      } else {
-        await copyFolderRecursive(sourcePath, destPath);
-      }
-
-      if (clipboard.mode === 'cut') {
-        await api.delete(fileUrl(sourcePath));
-        setClipboard(null);
-      }
-
+      if (toDir) await makeFolder(toDir);
+      result = await runMoves(steps, moveOnServer);
+    } catch (error) {
+      result = { done: 0, error };
+    }
+    const { done, error } = result;
+    if (error) {
+      const reason = error instanceof Error && error.message ? error.message : t('servers.fileManager.toast.moveError');
+      sileo.error({
+        title: t('common.error'),
+        description: done > 0 ? t('servers.fileManager.toast.movedPartly', { count: done, total: steps.length, reason }) : reason,
+      });
+    } else {
       sileo.success({
         title: t('common.success'),
-        description: clipboard.mode === 'cut'
-          ? t('servers.fileManager.toast.moved')
-          : t('servers.fileManager.toast.pasted')
+        description: steps.length === 1
+          ? t('servers.fileManager.toast.movedTo', { name: steps[0].name, folder: `~/${toDir}` })
+          : t('servers.fileManager.toast.movedMany', { count: steps.length, folder: `~/${toDir}` }),
       });
+    }
+    clearSelection();
+    void fetchFiles(currentPathRef.current);
+    return !error;
+  };
+
+  const handlePaste = async () => {
+    if (!clipboard || isLoading) return;
+    const { mode, dir, entries } = clipboard;
+    setIsLoading(true);
+    try {
+      if (mode === 'cut') {
+        if (await moveEntries(dir, entries, currentPath)) setClipboard(null);
+        return;
+      }
+      const { steps, problem } = planMove(dir, entries, currentPath);
+      if (problem) {
+        sileo.error({ title: t('common.error'), description: t('servers.fileManager.toast.pasteInvalid') });
+        return;
+      }
+      const { done, error } = await runMoves(steps, async (step) => {
+        const isFile = entries.find((e) => e.name === step.name)?.isFile;
+        if (isFile) await writeFileBlob(step.to, await readFileBlob(step.from));
+        else await copyFolderRecursive(step.from, step.to);
+      });
+      if (error) {
+        const reason = error instanceof Error && error.message ? error.message : t('servers.fileManager.toast.pasteError');
+        sileo.error({
+          title: t('common.error'),
+          description: done > 0 ? t('servers.fileManager.toast.pastedPartly', { count: done, total: steps.length, reason }) : reason,
+        });
+      } else {
+        sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.pasted') });
+      }
       void fetchFiles(currentPath);
-    } catch (e: any) {
-      sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.pasteError') });
     } finally {
       setIsLoading(false);
     }
   };
+
+  const openMove = (names: string[]) => {
+    if (names.length > 0) setMoveNames(names);
+  };
+
+  const closeMove = () => {
+    setMoveNames(null);
+    setIsMoving(false);
+  };
+
+  const handleMove = async (destination: string) => {
+    if (!moveNames || isMoving) return;
+    setIsMoving(true);
+    const moved = await moveEntries(currentPath, entriesNamed(moveNames), destination);
+    setIsMoving(false);
+    if (moved) {
+      setMoveNames(null);
+      // Ensure Radix Dialog cleanup finished so the UI is not left blocked
+      setTimeout(() => {
+        document.body.style.pointerEvents = 'auto';
+        document.body.style.overflow = 'auto';
+      }, 100);
+    }
+  };
+
+  /** The rows a drag starting on file carries: the whole selection when file is in it. */
+  const startRowDrag = (e: React.DragEvent, file: FileItemResource) => {
+    const names = selected.has(file.name) ? selectableNames.filter((name) => selected.has(name)) : [file.name];
+    draggedRef.current = names;
+    e.dataTransfer.setData(ROW_DRAG_TYPE, names.join('\n'));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const endRowDrag = () => {
+    draggedRef.current = null;
+    setDropTarget(null);
+  };
+
+  /** Whether the dragged rows may land in folder: not where they are, nor inside themselves. */
+  const canDropIn = (folder: string) => {
+    const names = draggedRef.current;
+    if (!names || folder === currentPath) return false;
+    return names.every((name) => {
+      const from = joinPath(currentPath, name);
+      return folder !== from && !folder.startsWith(`${from}/`);
+    });
+  };
+
+  /** What makes folder (a row, "..", or a part of the path) take dragged rows. */
+  const dropInto = (folder: string) => ({
+    onDragOver: (e: React.DragEvent) => {
+      if (!e.dataTransfer.types.includes(ROW_DRAG_TYPE) || !canDropIn(folder)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      setDropTarget(folder);
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+      setDropTarget((current) => (current === folder ? null : current));
+    },
+    onDrop: (e: React.DragEvent) => {
+      const names = draggedRef.current;
+      if (!names || !canDropIn(folder)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      endRowDrag();
+      void moveEntries(currentPath, entriesNamed(names), folder);
+    },
+  });
 
   const handleDelete = async () => {
     if (!pendingFile) return;
@@ -658,8 +941,9 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
     setIsLoading(true);
     try {
       const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
-      // the daemon reads the destination from the server root: unpack next to the archive
-      await api.post(`/api/servers/${serverId}/extract/${encodePath(filePath)}?destination=${encodeURIComponent(currentPath || '.')}&skipRoot`, {});
+      // the daemon reads the destination from the server root: unpack next to the archive,
+      // exactly as it was packed (a folder inside stays a folder, a lone file comes out)
+      await api.post(`/api/servers/${serverId}/extract/${encodePath(filePath)}?destination=${encodeURIComponent(currentPath || '.')}`, {});
       sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.extracted') });
       void fetchFiles(currentPath);
     } catch (e: any) {
@@ -711,7 +995,7 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
   };
 
   const handleSaveChanges = async () => {
-    if (!editingFile || savingRef.current) return;
+    if (!canEdit || !editingFile || savingRef.current) return;
     savingRef.current = true;
     setIsSaving(true);
     const text = editedContent;
@@ -809,7 +1093,7 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
   const { meta: editingMeta, language: editingLanguage } = editorFileInfo(editingFile);
   const EditingIcon = editingMeta.icon;
 
-  const renderRowMenu = (file: FileItemResource) => (
+  const renderRowMenu = (file: FileItemResource) => (!canEdit && !file.isFile) ? null : (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
@@ -825,15 +1109,27 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
         {file.isFile ? (
           <DropdownMenuItem onClick={() => setTimeout(() => handleFileClick(file), 50)}>
             <Edit2 className="mr-2 h-4 w-4" aria-hidden="true" />
-            {t('servers.fileManager.actions.edit')}
+            {canEdit ? t('servers.fileManager.actions.edit') : t('servers.fileManager.actions.view')}
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem asChild>
-          <a href={fileUrl(currentPath ? `${currentPath}/${file.name}` : file.name)} download>
-            <Download className="mr-2 h-4 w-4" aria-hidden="true" />
-            {t('servers.fileManager.actions.download')}
-          </a>
-        </DropdownMenuItem>
+        {/* a folder has nothing to download as such (its address lists it as JSON): it is
+            compressed first, and the archive downloaded */}
+        {file.isFile ? (
+          <DropdownMenuItem asChild>
+            <a href={fileUrl(currentPath ? `${currentPath}/${file.name}` : file.name)} download>
+              <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t('servers.fileManager.actions.download')}
+            </a>
+          </DropdownMenuItem>
+        ) : null}
+        {canEdit && renderEditActions(file)}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  /** What changes a file or folder, for someone allowed to change them. */
+  const renderEditActions = (file: FileItemResource) => (
+    <>
         {file.isFile && /\.(zip|tar(\.gz)?|tgz|gz|bz2|rar|7z|xz)$/i.test(file.name) ? (
           <DropdownMenuItem onClick={() => handleExtract(file)}>
             <FileArchive className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -847,6 +1143,10 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
         <DropdownMenuItem onClick={() => setTimeout(() => openRename(file), 50)}>
           <PencilLine className="mr-2 h-4 w-4" aria-hidden="true" />
           {t('servers.fileManager.actions.rename')}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTimeout(() => openMove([file.name]), 50)}>
+          <MoveTo className="mr-2 h-4 w-4" aria-hidden="true" />
+          {t('servers.fileManager.actions.move')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => handleCopy(file, 'copy')}>
@@ -883,194 +1183,259 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    </>
   );
 
-  let body: ReactNode;
-  if (isLoading) {
-    body = (
-      <div className="flex justify-center rounded-xl border border-border/60 bg-background/30 py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
-      </div>
-    );
-  } else if (files.length === 0) {
-    body = (
-      <EmptyState
-        icon={FolderOpen}
-        title={t('servers.fileManager.empty')}
-        description={t('servers.fileManager.emptyHint')}
-        action={
-          <Button variant="outline" onClick={handleUploadClick}>
-            <Upload aria-hidden="true" />
-            {t('servers.fileManager.upload')}
-          </Button>
-        }
-      />
-    );
-  } else {
-    body = (
-      <div className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
-        <Table>
-          <TableHeader className="bg-transparent">
-            <TableRow className="border-border/50 hover:bg-transparent">
-              <TableHead className="w-10 pl-3 sm:pl-4">
-                <Checkbox
-                  checked={selectAllState}
-                  onCheckedChange={toggleSelectAll}
-                  disabled={selectableNames.length === 0}
-                  aria-label={t('servers.fileManager.selection.selectAll')}
-                  className={CHECKBOX_HIT_AREA}
-                />
-              </TableHead>
-              <TableHead>{t('servers.fileManager.table.name')}</TableHead>
-              <TableHead className="hidden w-28 sm:table-cell">{t('servers.fileManager.table.size')}</TableHead>
-              <TableHead className="hidden w-48 lg:table-cell">{t('servers.fileManager.table.modified')}</TableHead>
-              <TableHead className="w-14 pr-2 text-right">
-                <span className="sr-only">{t('servers.fileManager.table.actions')}</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {files.map((file) => {
-              const isParent = !file.isFile && file.name === '..';
-              const meta = rowMeta(file, isParent);
-              const MetaIcon = meta.icon;
-              const isSelected = selected.has(file.name);
-              return (
-                <TableRow
-                  key={file.name}
-                  data-state={isSelected ? 'selected' : undefined}
-                  className="group border-border/50 hover:bg-accent/30 data-[state=selected]:bg-primary/[0.06]"
-                >
-                  <TableCell className="w-10 py-2.5 pl-3 sm:pl-4">
-                    {!isParent && (
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={(checked) => toggleSelected(file.name, checked === true)}
-                        aria-label={t('servers.fileManager.selection.select', { name: file.name })}
-                        className={CHECKBOX_HIT_AREA}
-                      />
-                    )}
-                  </TableCell>
-                  {/* w-full + max-w-0 lets the name column absorb the free width and truncate */}
-                  <TableCell className="w-full max-w-0 py-2.5">
-                    <button
-                      type="button"
-                      onClick={() => handleFileClick(file)}
-                      className="focus-ring flex w-full min-w-0 items-center gap-3 rounded-md text-left"
-                    >
-                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border/60 bg-card">
-                        <MetaIcon className={cn('h-4 w-4', meta.className)} weight={meta.weight} aria-hidden="true" />
-                      </span>
-                      <span className="min-w-0">
-                        <span
-                          className={cn(
-                            'block truncate font-medium transition-colors duration-150',
-                            isParent ? 'text-muted-foreground' : 'group-hover:text-primary-bright'
-                          )}
-                        >
-                          {file.name}
-                        </span>
-                        {!isParent && (
-                          <span className="mt-0.5 block truncate text-xs tabular-nums text-muted-foreground lg:hidden">
-                            {file.isFile && <span className="sm:hidden">{formatSize(file.size)} · </span>}
-                            {formatDate(file.modifyTime)}
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                  </TableCell>
-                  <TableCell className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground sm:table-cell">
-                    {file.isFile ? formatSize(file.size) : '—'}
-                  </TableCell>
-                  <TableCell className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground lg:table-cell">
-                    {formatDate(file.modifyTime)}
-                  </TableCell>
-                  <TableCell className="py-2.5 pr-2 text-right">
-                    {renderRowMenu(file)}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <Card className="mt-6">
-        <CardHeader className="flex flex-col gap-4 space-y-0 border-b border-border/50 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
-          <div className="min-w-0 space-y-1">
-            <CardTitle className="text-lg font-semibold tracking-[-0.02em]">{t('servers.fileManager.title')}</CardTitle>
-            <CardDescription>{t('servers.fileManager.description')}</CardDescription>
-          </div>
-          <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">
-            <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
+  /** What the file listing shows: a spinner, the empty folder, or the table. */
+  const renderBody = (): ReactNode => {
+    let body: ReactNode;
+    if (isLoading) {
+      body = (
+        <div className="flex justify-center rounded-xl border border-border/60 bg-background/30 py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
+        </div>
+      );
+    } else if (files.length === 0) {
+      body = (
+        <EmptyState
+          icon={FolderOpen}
+          title={t('servers.fileManager.empty')}
+          description={canEdit ? t('servers.fileManager.emptyHint') : undefined}
+          action={canEdit ? (
             <Button variant="outline" onClick={handleUploadClick}>
               <Upload aria-hidden="true" />
               {t('servers.fileManager.upload')}
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button>
-                  <Plus aria-hidden="true" />
-                  {t('servers.fileManager.new')}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setNewItemDialog({ open: true, type: 'file' })}>
-                  <FilePlus className="mr-2 h-4 w-4" aria-hidden="true" />
-                  {t('servers.fileManager.newFile')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setNewItemDialog({ open: true, type: 'folder' })}>
-                  <FolderPlus className="mr-2 h-4 w-4" aria-hidden="true" />
-                  {t('servers.fileManager.newFolder')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </CardHeader>
+          ) : undefined}
+        />
+      );
+    } else {
+      body = (
+        <div className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
+          <Table>
+            <TableHeader className="bg-transparent">
+              <TableRow className="border-border/50 hover:bg-transparent">
+                {canEdit && (
+                  <TableHead className="w-10 pl-3 sm:pl-4">
+                    <Checkbox
+                      checked={selectAllState}
+                      onCheckedChange={toggleSelectAll}
+                      disabled={selectableNames.length === 0}
+                      aria-label={t('servers.fileManager.selection.selectAll')}
+                      className={CHECKBOX_HIT_AREA}
+                    />
+                  </TableHead>
+                )}
+                <TableHead className={cn(!canEdit && 'pl-3 sm:pl-4')}>{t('servers.fileManager.table.name')}</TableHead>
+                <TableHead className="hidden w-28 sm:table-cell">{t('servers.fileManager.table.size')}</TableHead>
+                <TableHead className="hidden w-48 lg:table-cell">{t('servers.fileManager.table.modified')}</TableHead>
+                <TableHead className="w-14 pr-2 text-right">
+                  <span className="sr-only">{t('servers.fileManager.table.actions')}</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {files.map((file) => {
+                const isParent = !file.isFile && file.name === '..';
+                const meta = rowMeta(file, isParent);
+                const MetaIcon = meta.icon;
+                const isSelected = selected.has(file.name);
+                // a folder row ("..", the one above, included) takes rows dragged onto it
+                const folderPath = isParent ? parentOf(currentPath) : joinPath(currentPath, file.name);
+                const isDropTarget = !file.isFile && dropTarget === folderPath;
+                return (
+                  <TableRow
+                    key={file.name}
+                    data-state={isSelected ? 'selected' : undefined}
+                    draggable={canEdit && !isParent && !upload}
+                    onDragStart={!canEdit || isParent ? undefined : (e) => startRowDrag(e, file)}
+                    onDragEnd={endRowDrag}
+                    {...(!canEdit || file.isFile ? {} : dropInto(folderPath))}
+                    className={cn(
+                      'group border-border/50 hover:bg-accent/30 data-[state=selected]:bg-primary/[0.06]',
+                      isDropTarget && 'bg-primary/[0.10] ring-1 ring-inset ring-primary/50 hover:bg-primary/[0.10]'
+                    )}
+                  >
+                    {canEdit && (
+                      <TableCell className="w-10 py-2.5 pl-3 sm:pl-4">
+                        {!isParent && (
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => toggleSelected(file.name, checked === true)}
+                            aria-label={t('servers.fileManager.selection.select', { name: file.name })}
+                            className={CHECKBOX_HIT_AREA}
+                          />
+                        )}
+                      </TableCell>
+                    )}
+                    {/* w-full + max-w-0 lets the name column absorb the free width and truncate */}
+                    <TableCell className={cn('w-full max-w-0 py-2.5', !canEdit && 'pl-3 sm:pl-4')}>
+                      <button
+                        type="button"
+                        onClick={() => handleFileClick(file)}
+                        className="focus-ring flex w-full min-w-0 items-center gap-3 rounded-md text-left"
+                      >
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border/60 bg-card">
+                          <MetaIcon className={cn('h-4 w-4', meta.className)} weight={meta.weight} aria-hidden="true" />
+                        </span>
+                        <span className="min-w-0">
+                          <span
+                            className={cn(
+                              'block truncate font-medium transition-colors duration-150',
+                              isParent ? 'text-muted-foreground' : 'group-hover:text-primary-bright'
+                            )}
+                          >
+                            {file.name}
+                          </span>
+                          {!isParent && (
+                            <span className="mt-0.5 block truncate text-xs tabular-nums text-muted-foreground lg:hidden">
+                              {file.isFile && <span className="sm:hidden">{formatSize(file.size)} · </span>}
+                              {formatDate(file.modifyTime)}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    </TableCell>
+                    <TableCell className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground sm:table-cell">
+                      {file.isFile ? formatSize(file.size) : '—'}
+                    </TableCell>
+                    <TableCell className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground lg:table-cell">
+                      {formatDate(file.modifyTime)}
+                    </TableCell>
+                    <TableCell className="py-2.5 pr-2 text-right">
+                      {renderRowMenu(file)}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      );
+    }
+    return body;
+  };
 
-        <CardContent className="space-y-4 p-5 md:p-6">
-          {/* Path bar, plus the pending copy/cut item when there is one */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="flex min-w-0 flex-1 items-center gap-1 rounded-lg border border-border/60 bg-background/30 py-1 pl-1 pr-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-                onClick={() => setCurrentPath('')}
-                disabled={!currentPath}
-                aria-label={t('servers.fileManager.goRoot')}
-                title={t('servers.fileManager.goRoot')}
-              >
-                <Home aria-hidden="true" />
-              </Button>
-              <Breadcrumbs path={currentPath} onNavigate={setCurrentPath} label={t('servers.fileManager.pathLabel')} />
-            </div>
+  /** Files dropped from the computer land on the whole card, for someone who may edit. */
+  const dropZoneProps = () =>
+    canEdit ? { onDragEnter: handleDragEnter, onDragOver: handleDragOver, onDragLeave: handleDragLeave, onDrop: handleDrop } : {};
 
-            {clipboard && (
-              <ClipboardBar clipboard={clipboard} disabled={isLoading} onPaste={handlePaste} onClear={() => setClipboard(null)} />
-            )}
-          </div>
+  const renderDropOverlay = () => {
+    if (!isDragging) return null;
+    return (
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-2 z-10 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/60 bg-background/85 px-4 text-center backdrop-blur-sm animate-in fade-in-0 duration-150"
+      >
+        <Upload className="h-7 w-7 text-primary-bright" aria-hidden="true" />
+        <p className="text-sm font-medium">
+          {t('servers.fileManager.drop.title', { path: currentPath ? `~/${currentPath}` : '~' })}
+        </p>
+        <p className="text-xs text-muted-foreground">{t('servers.fileManager.drop.hint')}</p>
+      </div>
+    );
+  };
 
-          {selectedCount > 0 && !isLoading && (
-            <SelectionBar
-              count={selectedCount}
-              onCompress={() => openCompress(selectableNames.filter((name) => selected.has(name)))}
-              onDelete={() => setBulkDeleteOpen(true)}
-              onClear={clearSelection}
-            />
+  /** Upload and New, for someone who may edit. */
+  const renderHeaderActions = () => {
+    if (!canEdit) return null;
+    return (
+      <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">
+        <input type="file" multiple ref={fileInputRef} className="hidden" onChange={handleFileChange} />
+        <input type="file" multiple ref={folderInputRef} className="hidden" onChange={handleFileChange} />
+        <Button variant="outline" onClick={handleUploadClick} disabled={!!upload}>
+          <Upload aria-hidden="true" />
+          {t('servers.fileManager.upload')}
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button>
+              <Plus aria-hidden="true" />
+              {t('servers.fileManager.new')}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setNewItemDialog({ open: true, type: 'file' })}>
+              <FilePlus className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t('servers.fileManager.newFile')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setNewItemDialog({ open: true, type: 'folder' })}>
+              <FolderPlus className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t('servers.fileManager.newFolder')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleFolderUploadClick} disabled={!!upload}>
+              <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t('servers.fileManager.uploadFolder')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
+  };
+
+  /** The editor's top right: saved mark, language and the history button. */
+  const renderEditorTools = () => (
+    <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+      {savedFlash && (
+        <output className="flex items-center gap-1.5 text-xs font-medium text-success">
+          <Check className="h-3.5 w-3.5" aria-hidden="true" />
+          <span className="hidden sm:inline">{t('common.saved')}</span>
+          <span className="sr-only sm:hidden">{t('common.saved')}</span>
+        </output>
+      )}
+      <span className="hidden rounded-md border border-border/60 px-1.5 py-0.5 font-mono text-xs text-muted-foreground sm:inline">
+        {editingLanguage}
+      </span>
+      {historyTracked && (
+        <Button
+          ref={historyButtonRef}
+          variant="outline"
+          size="sm"
+          onClick={() => setHistoryOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={historyOpen}
+          aria-label={historyCount > 0 ? t('servers.fileHistory.openWithCount', { count: historyCount }) : t('servers.fileHistory.open')}
+          title={t('servers.fileHistory.open')}
+          className={cn('h-8 gap-1.5 px-2 sm:px-2.5', compareVersion && 'border-primary/40 bg-primary/[0.07] text-primary-bright')}
+        >
+          <History aria-hidden="true" />
+          <span className="hidden sm:inline">{t('servers.fileHistory.button')}</span>
+          {historyCount > 0 && (
+            <span
+              aria-hidden="true"
+              className="min-w-[1.25rem] rounded-full bg-secondary px-1.5 text-center text-[11px] font-semibold leading-5 tabular-nums text-muted-foreground animate-in fade-in-0 zoom-in-95 duration-200 ease-panel"
+            >
+              {historyCount}
+            </span>
           )}
+        </Button>
+      )}
+    </div>
+  );
 
-          {body}
-        </CardContent>
-      </Card>
+  /** The editor's bottom bar: the save hint and the close and save buttons. */
+  const renderEditorFooter = () => (
+    <div className="flex items-center justify-between gap-3 border-t border-border/50 bg-card px-4 py-3 sm:px-5">
+      <p className="hidden text-xs text-muted-foreground sm:block">
+        {canEdit ? t('servers.fileManager.editor.saveHint') : t('servers.fileManager.editor.readOnly')}
+      </p>
+      <div className="flex flex-1 items-center justify-end gap-2 sm:flex-none">
+        <Button variant="outline" onClick={closeEditor}>
+          {canEdit ? t('servers.fileManager.editor.cancel') : t('common.close')}
+        </Button>
+        {canEdit && (
+          <Button onClick={handleSaveChanges} disabled={isSaving}>
+            {isSaving ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Check aria-hidden="true" />}
+            {t('servers.fileManager.editor.save')}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
 
-      {/* Editor Dialog */}
+  const renderEditor = () => (
+    <>
       <Dialog open={isEditorOpen} onOpenChange={(open) => !open && closeEditor()}>
         <DialogContent className="flex h-[90dvh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col gap-0 overflow-hidden p-0 sm:w-[95vw] sm:max-w-[95vw]">
           <div className="flex items-center justify-between gap-3 border-b border-border/50 bg-card py-3 pl-4 pr-12 sm:pl-5">
@@ -1085,42 +1450,7 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
                 </DialogDescription>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-              {savedFlash && (
-                <output className="flex items-center gap-1.5 text-xs font-medium text-success">
-                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span className="hidden sm:inline">{t('common.saved')}</span>
-                  <span className="sr-only sm:hidden">{t('common.saved')}</span>
-                </output>
-              )}
-              <span className="hidden rounded-md border border-border/60 px-1.5 py-0.5 font-mono text-xs text-muted-foreground sm:inline">
-                {editingLanguage}
-              </span>
-              {historyTracked && (
-                <Button
-                  ref={historyButtonRef}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setHistoryOpen(true)}
-                  aria-haspopup="dialog"
-                  aria-expanded={historyOpen}
-                  aria-label={historyCount > 0 ? t('servers.fileHistory.openWithCount', { count: historyCount }) : t('servers.fileHistory.open')}
-                  title={t('servers.fileHistory.open')}
-                  className={cn('h-8 gap-1.5 px-2 sm:px-2.5', compareVersion && 'border-primary/40 bg-primary/[0.07] text-primary-bright')}
-                >
-                  <History aria-hidden="true" />
-                  <span className="hidden sm:inline">{t('servers.fileHistory.button')}</span>
-                  {historyCount > 0 && (
-                    <span
-                      aria-hidden="true"
-                      className="min-w-[1.25rem] rounded-full bg-secondary px-1.5 text-center text-[11px] font-semibold leading-5 tabular-nums text-muted-foreground animate-in fade-in-0 zoom-in-95 duration-200 ease-panel"
-                    >
-                      {historyCount}
-                    </span>
-                  )}
-                </Button>
-              )}
-            </div>
+            {renderEditorTools()}
           </div>
 
           <div className="min-h-0 flex-1 [&_.monaco-editor-host]:rounded-none [&_.monaco-editor-host]:border-0">
@@ -1133,7 +1463,8 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
                     language={editingLanguage}
                     value={editedContent}
                     onChange={(value) => setEditedContent(value || '')}
-                    onSave={handleSaveChanges}
+                    onSave={canEdit ? handleSaveChanges : undefined}
+                    readOnly={!canEdit}
                     onEditorReady={handleEditorReady}
                   />
                 </Suspense>
@@ -1154,20 +1485,7 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
             )}
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t border-border/50 bg-card px-4 py-3 sm:px-5">
-            <p className="hidden text-xs text-muted-foreground sm:block">
-              {t('servers.fileManager.editor.saveHint')}
-            </p>
-            <div className="flex flex-1 items-center justify-end gap-2 sm:flex-none">
-              <Button variant="outline" onClick={closeEditor}>
-                {t('servers.fileManager.editor.cancel')}
-              </Button>
-              <Button onClick={handleSaveChanges} disabled={isSaving}>
-                {isSaving ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Check aria-hidden="true" />}
-                {t('servers.fileManager.editor.save')}
-              </Button>
-            </div>
-          </div>
+          {renderEditorFooter()}
         </DialogContent>
       </Dialog>
 
@@ -1187,6 +1505,21 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
       )}
 
       {/* New Item Dialog */}
+    </>
+  );
+
+  /** Move, new item, rename, compress and bulk delete. */
+  const renderDialogs = () => (
+    <>
+      <MoveDialog
+        names={moveNames}
+        currentPath={currentPath}
+        subfolders={files.filter((f) => !f.isFile && f.name !== '..' && !moveNames?.includes(f.name)).map((f) => joinPath(currentPath, f.name))}
+        moving={isMoving}
+        onMove={handleMove}
+        onClose={closeMove}
+      />
+
       <NewItemDialog
         open={newItemDialog.open}
         type={newItemDialog.type}
@@ -1291,13 +1624,91 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
       </AlertDialog>
     </>
   );
+
+  return (
+    <>
+      <Card
+        className="relative mt-6"
+        {...dropZoneProps()}
+      >
+        {renderDropOverlay()}
+        <CardHeader className="flex flex-col gap-4 space-y-0 border-b border-border/50 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
+          <div className="min-w-0 space-y-1">
+            <CardTitle className="text-lg font-semibold tracking-[-0.02em]">{t('servers.fileManager.title')}</CardTitle>
+            <CardDescription>{canEdit ? t('servers.fileManager.description') : t('servers.fileManager.descriptionReadOnly')}</CardDescription>
+          </div>
+          {renderHeaderActions()}
+        </CardHeader>
+
+        <CardContent className="space-y-4 p-5 md:p-6">
+          {/* Path bar, plus the pending copy/cut item when there is one */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 flex-1 items-center gap-1 rounded-lg border border-border/60 bg-background/30 py-1 pl-1 pr-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                onClick={() => setCurrentPath('')}
+                disabled={!currentPath}
+                aria-label={t('servers.fileManager.goRoot')}
+                title={t('servers.fileManager.goRoot')}
+              >
+                <Home aria-hidden="true" />
+              </Button>
+              <Breadcrumbs
+                path={currentPath}
+                onNavigate={setCurrentPath}
+                label={t('servers.fileManager.pathLabel')}
+                dropInto={dropInto}
+                dropTarget={dropTarget}
+              />
+            </div>
+
+            {canEdit && clipboard && (
+              <ClipboardBar clipboard={clipboard} disabled={isLoading} onPaste={handlePaste} onClear={() => setClipboard(null)} />
+            )}
+          </div>
+
+          {upload && (
+            <UploadProgressPanel progress={upload} rate={uploadRate} cancelling={cancellingUpload} onCancel={cancelUpload} />
+          )}
+
+          {canEdit && selectedCount > 0 && !isLoading && (
+            <SelectionBar
+              count={selectedCount}
+              onMove={() => openMove(selectedNames())}
+              onCut={() => clipSelection('cut')}
+              onCopy={() => clipSelection('copy')}
+              onCompress={() => openCompress(selectableNames.filter((name) => selected.has(name)))}
+              onDelete={() => setBulkDeleteOpen(true)}
+              onClear={clearSelection}
+            />
+          )}
+
+          {renderBody()}
+        </CardContent>
+      </Card>
+
+      {renderEditor()}
+
+      {renderDialogs()}
+    </>
+  );
 }
 
 // The checkbox is drawn at 16px but answers taps on a larger square around it, so it stays
 // easy to hit on a phone without making the row taller
 const CHECKBOX_HIT_AREA = "relative align-middle after:absolute after:-inset-3 after:content-['']";
 
-function SelectionBar({ count, onCompress, onDelete, onClear }: Readonly<{ count: number; onCompress: () => void; onDelete: () => void; onClear: () => void }>) {
+function SelectionBar({ count, onMove, onCut, onCopy, onCompress, onDelete, onClear }: Readonly<{
+  count: number;
+  onMove: () => void;
+  onCut: () => void;
+  onCopy: () => void;
+  onCompress: () => void;
+  onDelete: () => void;
+  onClear: () => void;
+}>) {
   const { t } = useTranslations();
   return (
     <div
@@ -1310,7 +1721,19 @@ function SelectionBar({ count, onCompress, onDelete, onClear }: Readonly<{ count
       <output className="order-1 min-w-0 flex-1 truncate px-2 text-xs font-medium tabular-nums" aria-live="polite">
         {count === 1 ? t('servers.fileManager.selection.countOne') : t('servers.fileManager.selection.countMany', { count })}
       </output>
-      <div className="order-3 flex w-full gap-1 sm:w-auto">
+      <div className="order-3 flex w-full flex-wrap gap-1 sm:w-auto">
+        <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={onMove}>
+          <MoveTo aria-hidden="true" />
+          {t('servers.fileManager.selection.move')}
+        </Button>
+        <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={onCut}>
+          <Scissors aria-hidden="true" />
+          {t('servers.fileManager.actions.cut')}
+        </Button>
+        <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={onCopy}>
+          <Copy aria-hidden="true" />
+          {t('servers.fileManager.actions.copy')}
+        </Button>
         <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={onCompress}>
           <Archive aria-hidden="true" />
           {t('servers.fileManager.selection.compress')}
@@ -1339,8 +1762,11 @@ function SelectionBar({ count, onCompress, onDelete, onClear }: Readonly<{ count
   );
 }
 
-function ClipboardBar({ clipboard, disabled, onPaste, onClear }: Readonly<{ clipboard: ClipboardItem; disabled: boolean; onPaste: () => void; onClear: () => void }>) {
+function ClipboardBar({ clipboard, disabled, onPaste, onClear }: Readonly<{ clipboard: ClipboardState; disabled: boolean; onPaste: () => void; onClear: () => void }>) {
   const { t } = useTranslations();
+  const what = clipboard.entries.length === 1
+    ? clipboard.entries[0].name
+    : t('servers.fileManager.clipboardMany', { count: clipboard.entries.length });
   return (
     <div className="flex min-w-0 items-center gap-1 rounded-lg border border-border/60 bg-background/30 p-1">
       <Button
@@ -1355,7 +1781,7 @@ function ClipboardBar({ clipboard, disabled, onPaste, onClear }: Readonly<{ clip
           ? <Scissors className="text-muted-foreground" aria-hidden="true" />
           : <Copy className="text-muted-foreground" aria-hidden="true" />}
         <span className="shrink-0">{t('servers.fileManager.paste')}</span>
-        <span className="min-w-0 max-w-[160px] truncate font-mono text-muted-foreground">{clipboard.name}</span>
+        <span className="min-w-0 max-w-[160px] truncate font-mono text-muted-foreground">{what}</span>
       </Button>
       <Button
         variant="ghost"

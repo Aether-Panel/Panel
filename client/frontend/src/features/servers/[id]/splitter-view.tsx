@@ -82,8 +82,8 @@ function SubServerCard({ sub }: Readonly<{ sub: any }>) {
 
   const rows = [
     { id: 'cpu', icon: Cpu, label: t('servers.splitter.cpu'), pct: pctCpu, amount: `${sub.totalCpu}%` },
-    { id: 'ram', icon: MemoryStick, label: t('servers.splitter.ram'), pct: pctMem, amount: `${sub.totalMemory} MB` },
-    { id: 'disk', icon: HardDrive, label: t('servers.splitter.disk'), pct: pctDisk, amount: `${sub.totalDisk} MB` },
+    { id: 'ram', icon: MemoryStick, label: t('servers.splitter.ram'), pct: pctMem, amount: `${sub.totalMemory} MiB` },
+    { id: 'disk', icon: HardDrive, label: t('servers.splitter.disk'), pct: pctDisk, amount: `${sub.totalDisk} MiB` },
   ];
 
   return (
@@ -208,7 +208,7 @@ export default function SplitterView({ serverId }: Readonly<SplitterViewProps>) 
               icon={MemoryStick}
               label={t('servers.splitter.totalMemory')}
               value={totalMemory}
-              unit="MB"
+              unit="MiB"
               used={usedMemoryBySubservers}
               total={totalMemory}
             />
@@ -216,7 +216,7 @@ export default function SplitterView({ serverId }: Readonly<SplitterViewProps>) 
               icon={HardDrive}
               label={t('servers.splitter.totalDisk')}
               value={totalDisk}
-              unit="MB"
+              unit="MiB"
               used={usedDiskBySubservers}
               total={totalDisk}
             />

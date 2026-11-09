@@ -781,7 +781,7 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
         </TabsContent>
         <TabsContent value="files">
           <ErrorBoundary name="FileManagerView">
-            <FileManagerView serverId={server.id} />
+            <FileManagerView serverId={server.id} canEdit={can('server.files.edit')} />
           </ErrorBoundary>
         </TabsContent>
         <TabsContent value="settings">

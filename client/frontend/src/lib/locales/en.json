@@ -652,14 +652,14 @@
     },
     "fileManager": {
       "title": "File Manager",
-      "description": "Browse and manage files on this server. Click on a file name to edit it.",
+      "description": "Browse and manage the files on this server. Click a file to edit it, and drag items onto a folder to move them.",
       "upload": "Upload",
       "new": "New",
       "newFile": "File",
       "newFolder": "Folder",
       "paste": "Paste",
       "empty": "This folder is empty.",
-      "emptyHint": "Upload a file or create a folder to get started.",
+      "emptyHint": "Drag files or folders here, upload them, or create a folder to get started.",
       "nameLabel": "Name",
       "createFileTitle": "Create File",
       "createFolderTitle": "Create Folder",
@@ -681,7 +681,9 @@
         "copy": "Copy",
         "cut": "Cut",
         "unarchive": "Unarchive",
-        "compress": "Compress"
+        "compress": "Compress",
+        "move": "Move to…",
+        "view": "View"
       },
       "deleteDialog": {
         "title": "Delete",
@@ -708,7 +710,8 @@
         "save": "Save Changes",
         "saveSuccess": "File saved successfully.",
         "saveHint": "Ctrl + S to save",
-        "loading": "Loading editor…"
+        "loading": "Loading editor…",
+        "readOnly": "Read only: you are not allowed to edit files."
       },
       "toast": {
         "createdFile": "File created successfully.",
@@ -734,7 +737,23 @@
         "compressError": "Could not compress.",
         "deletedMany": "Deleted {{count}} items.",
         "deletedPartly": "Deleted {{count}} of {{total}} items, then it stopped: {{reason}}",
-        "saveError": "Could not save."
+        "saveError": "Could not save.",
+        "uploadedMany": "Uploaded {{count}} items.",
+        "uploadedPartly": "Uploaded {{count}} of {{total}} items, then it stopped: {{reason}}",
+        "dropReadError": "Could not read what you dropped.",
+        "uploadCancelled": "Upload cancelled: {{count}} of {{total}} items went up.",
+        "copiedMany": "{{count}} items copied. Go to another folder and press Paste.",
+        "cutMany": "{{count}} items cut. Go to another folder and press Paste.",
+        "moveError": "Could not move.",
+        "moveSame": "It is already in that folder.",
+        "moveInside": "A folder cannot be moved into itself.",
+        "movedTo": "Moved {{name}} to {{folder}}.",
+        "movedMany": "Moved {{count}} items to {{folder}}.",
+        "movedPartly": "Moved {{count}} of {{total}} items, then it stopped: {{reason}}",
+        "pastedPartly": "Pasted {{count}} of {{total}} items, then it stopped: {{reason}}",
+        "readError": "Could not read {{path}}.",
+        "makeFolderError": "Could not create the folder {{path}}.",
+        "writeError": "Could not write {{path}}."
       },
       "goRoot": "Go to root folder",
       "pathLabel": "Current path",
@@ -748,8 +767,35 @@
         "countMany": "{{count}} items selected",
         "compress": "Compress selected",
         "delete": "Delete selected",
-        "clear": "Clear selection"
-      }
+        "clear": "Clear selection",
+        "move": "Move"
+      },
+      "uploadFolder": "Upload folder",
+      "drop": {
+        "title": "Drop to upload to {{path}}",
+        "hint": "Files, folders or archives (.zip, .tar.gz…)"
+      },
+      "clipboardMany": "{{count}} items",
+      "moveDialog": {
+        "titleOne": "Move {{name}}",
+        "titleMany": "Move {{count}} items",
+        "description": "Choose the destination folder. It counts from the server root (~) and is created if missing.",
+        "parent": "Parent folder",
+        "root": "Root",
+        "label": "Destination folder",
+        "hint": "For example ~/plugins, or ~/ for the root.",
+        "invalid": "The folder cannot leave the server (..).",
+        "move": "Move"
+      },
+      "uploadPanel": {
+        "label": "Upload progress",
+        "title": "Uploading {{step}} of {{total}}",
+        "cancelling": "Cancelling…",
+        "bytes": "{{sent}} of {{total}}",
+        "speed": "{{speed}}/s",
+        "left": "{{time}} left"
+      },
+      "descriptionReadOnly": "Browse the files on this server. You can open and download them, but not change them: you are not allowed to edit files."
     },
     "settings": {
       "title": "Configuration",
