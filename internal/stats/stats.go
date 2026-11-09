@@ -6,12 +6,13 @@ package stats
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand/v2"
+	"math/big"
 	"net/http"
 	"time"
 
@@ -39,7 +40,7 @@ func Run() {
 	if !config.StatsEnabled.Value() {
 		return
 	}
-	time.Sleep(5*time.Minute + rand.N(55*time.Minute))
+	time.Sleep(5*time.Minute + jitter(55*time.Minute))
 	ticker := time.NewTicker(every)
 	defer ticker.Stop()
 	for {
@@ -50,6 +51,15 @@ func Run() {
 		}
 		<-ticker.C
 	}
+}
+
+// jitter is a random wait below limit; without randomness it is no wait at all
+func jitter(limit time.Duration) time.Duration {
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(limit)))
+	if err != nil {
+		return 0
+	}
+	return time.Duration(n.Int64())
 }
 
 // instanceID stays the same for as long as the session key does, and the key cannot be

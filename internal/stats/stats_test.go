@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,6 +20,14 @@ func TestInstanceIDIsStableAndHidesTheKey(t *testing.T) {
 	assert.Equal(t, id, instanceID(key), "the same key gives the same id")
 	assert.NotEqual(t, id, instanceID(key+"0"), "another key gives another id")
 	assert.NotContains(t, key, id)
+}
+
+func TestJitterStaysBelowItsLimit(t *testing.T) {
+	for range 100 {
+		d := jitter(time.Minute)
+		assert.GreaterOrEqual(t, d, time.Duration(0))
+		assert.Less(t, d, time.Minute)
+	}
 }
 
 func TestSendPostsTheReport(t *testing.T) {
