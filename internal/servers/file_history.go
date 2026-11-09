@@ -477,6 +477,100 @@ func (p *Server) RestoreFileVersion(name, versionID string) error {
 	return nil
 }
 
+// ForgetFileHistory removes the stored versions of a deleted file, or of every file that was
+// inside a deleted folder. Left behind, they would come back as the history of a new file
+// given the same name, and keep taking space the owner can no longer see or free.
+func (p *Server) ForgetFileHistory(name string) error {
+	relPath, err := NormalizeHistoryPath(name)
+	if err != nil {
+		return err
+	}
+	root, err := fileHistoryRoot(p.ID())
+	if err != nil {
+		return err
+	}
+	lock := fileHistoryLock(p.ID())
+	lock.Lock()
+	defer lock.Unlock()
+
+	entries, err := os.ReadDir(root)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var errs []error
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		folder := filepath.Join(root, e.Name())
+		index, err := loadFileHistoryIndex(folder)
+		if err != nil {
+			continue
+		}
+		if index.Path == relPath || strings.HasPrefix(index.Path, relPath+"/") {
+			errs = append(errs, os.RemoveAll(folder))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// MoveFileHistory carries the stored versions of a moved or renamed file along with it (of every
+// file inside, for a folder): left at the old name, the history would vanish for the file and
+// come back for whatever is given that name next.
+func (p *Server) MoveFileHistory(from, to string) error {
+	fromRel, err := NormalizeHistoryPath(from)
+	if err != nil {
+		return err
+	}
+	toRel, err := NormalizeHistoryPath(to)
+	if err != nil {
+		return err
+	}
+	root, err := fileHistoryRoot(p.ID())
+	if err != nil {
+		return err
+	}
+	lock := fileHistoryLock(p.ID())
+	lock.Lock()
+	defer lock.Unlock()
+
+	entries, err := os.ReadDir(root)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var errs []error
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		folder := filepath.Join(root, e.Name())
+		index, err := loadFileHistoryIndex(folder)
+		if err != nil || (index.Path != fromRel && !strings.HasPrefix(index.Path, fromRel+"/")) {
+			continue
+		}
+		newPath := toRel + strings.TrimPrefix(index.Path, fromRel)
+		newFolder := fileHistoryFolder(root, newPath)
+		// a history an earlier file of that name left behind is not this file's
+		if err := os.RemoveAll(newFolder); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if err := os.Rename(folder, newFolder); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		index.Path = newPath
+		errs = append(errs, saveFileHistoryIndex(newFolder, index))
+	}
+	return errors.Join(errs...)
+}
+
 // DeleteFileHistory removes every stored version of a server; call it when the server is deleted
 func DeleteFileHistory(serverID string) error {
 	root, err := fileHistoryRoot(serverID)

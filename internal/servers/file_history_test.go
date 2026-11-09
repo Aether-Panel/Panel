@@ -279,3 +279,72 @@ func TestDeleteFileHistory(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 	assert.Error(t, DeleteFileHistory("../escape"))
 }
+
+func TestForgetFileHistory_FileAndFolder(t *testing.T) {
+	p, dir := newFileHistoryTestServer(t)
+	for _, name := range []string{"a.yml", "config/b.yml", "config/sub/c.yml", "configs/d.yml"} {
+		writeServerFile(t, dir, name, "v0")
+		save(t, p, dir, name, "v1")
+	}
+
+	// one file: only its own versions go
+	require.NoError(t, p.ForgetFileHistory("/a.yml"))
+	assert.Empty(t, versionTexts(t, p, "a.yml"))
+	assert.Equal(t, []string{"v0"}, versionTexts(t, p, "config/b.yml"))
+
+	// a folder: every file under it, at any depth, but not a sibling that only shares the prefix
+	require.NoError(t, p.ForgetFileHistory("config"))
+	assert.Empty(t, versionTexts(t, p, "config/b.yml"))
+	assert.Empty(t, versionTexts(t, p, "config/sub/c.yml"))
+	assert.Equal(t, []string{"v0"}, versionTexts(t, p, "configs/d.yml"))
+
+	// a new file with a deleted one's name starts with no history
+	writeServerFile(t, dir, "a.yml", "new")
+	assert.Empty(t, versionTexts(t, p, "a.yml"))
+
+	assert.ErrorIs(t, p.ForgetFileHistory("../outside"), ErrFileHistoryPath)
+}
+
+func TestForgetFileHistory_NoHistoryYet(t *testing.T) {
+	p, _ := newFileHistoryTestServer(t)
+	assert.NoError(t, p.ForgetFileHistory("never-saved.yml"))
+}
+
+func TestMoveFileHistory_FollowsFileAndFolder(t *testing.T) {
+	p, dir := newFileHistoryTestServer(t)
+	for _, name := range []string{"bot/config.yml", "bot/cfg/db.yml", "bots/other.yml", "server.properties"} {
+		writeServerFile(t, dir, name, "v0")
+		save(t, p, dir, name, "v1")
+	}
+
+	// a file renamed: its versions answer to the new name only
+	require.NoError(t, p.MoveFileHistory("server.properties", "/old.properties"))
+	assert.Empty(t, versionTexts(t, p, "server.properties"))
+	assert.Equal(t, []string{"v0"}, versionTexts(t, p, "old.properties"))
+
+	// a folder moved out to the root: what was inside follows, a look-alike sibling does not
+	require.NoError(t, p.MoveFileHistory("bot", "app"))
+	assert.Equal(t, []string{"v0"}, versionTexts(t, p, "app/config.yml"))
+	assert.Equal(t, []string{"v0"}, versionTexts(t, p, "app/cfg/db.yml"))
+	assert.Empty(t, versionTexts(t, p, "bot/config.yml"))
+	assert.Equal(t, []string{"v0"}, versionTexts(t, p, "bots/other.yml"))
+
+	// saving at the new name keeps adding to the same history
+	writeServerFile(t, dir, "app/config.yml", "v1")
+	save(t, p, dir, "app/config.yml", "v2")
+	assert.Equal(t, []string{"v1", "v0"}, versionTexts(t, p, "app/config.yml"))
+}
+
+func TestMoveFileHistory_ReplacesAStaleHistoryAtTheDestination(t *testing.T) {
+	p, dir := newFileHistoryTestServer(t)
+	writeServerFile(t, dir, "a.yml", "a0")
+	save(t, p, dir, "a.yml", "a1")
+	writeServerFile(t, dir, "b.yml", "b0")
+	save(t, p, dir, "b.yml", "b1")
+
+	require.NoError(t, p.MoveFileHistory("a.yml", "b.yml"))
+	assert.Equal(t, []string{"a0"}, versionTexts(t, p, "b.yml"))
+	assert.Empty(t, versionTexts(t, p, "a.yml"))
+	assert.ErrorIs(t, p.MoveFileHistory("a.yml", "../x.yml"), ErrFileHistoryPath)
+	assert.NoError(t, p.MoveFileHistory("never.yml", "other.yml"))
+}

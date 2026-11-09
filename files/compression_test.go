@@ -114,9 +114,10 @@ func TestDetermineIfSingleRoot(t *testing.T) {
 	multiArchive := filepath.Join(multiRoot, "multi.tar.gz")
 	assert.NoError(t, Compress(nil, multiArchive, []string{filepath.Join(multiRoot, "alpha"), filepath.Join(multiRoot, "beta")}))
 
+	// several things at the top are an answer, not an error: the extraction goes on with it
 	ok, err = DetermineIfSingleRoot(ctx, multiArchive, mustOpen(t, multiArchive))
+	assert.NoError(t, err)
 	assert.False(t, ok)
-	_ = err
 }
 
 func writeFile(t *testing.T, fs FileServer, path string, data []byte) error {

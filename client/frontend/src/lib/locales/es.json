@@ -652,14 +652,14 @@
     },
     "fileManager": {
       "title": "Administrador de archivos",
-      "description": "Explora y gestiona los archivos en este servidor. Haz clic en el nombre de un archivo para editarlo.",
+      "description": "Explora y gestiona los archivos de este servidor. Haz clic en un archivo para editarlo y arrastra elementos sobre una carpeta para moverlos.",
       "upload": "Subir",
       "new": "Nuevo",
       "newFile": "Archivo",
       "newFolder": "Carpeta",
       "paste": "Pegar",
       "empty": "Esta carpeta está vacía.",
-      "emptyHint": "Sube un archivo o crea una carpeta para empezar.",
+      "emptyHint": "Arrastra archivos o carpetas aquí, súbelos o crea una carpeta para empezar.",
       "nameLabel": "Nombre",
       "createFileTitle": "Crear archivo",
       "createFolderTitle": "Crear carpeta",
@@ -681,7 +681,9 @@
         "copy": "Copiar",
         "cut": "Cortar",
         "unarchive": "Descomprimir",
-        "compress": "Comprimir"
+        "compress": "Comprimir",
+        "move": "Mover a…",
+        "view": "Ver"
       },
       "deleteDialog": {
         "title": "Eliminar",
@@ -708,7 +710,8 @@
         "save": "Guardar cambios",
         "saveSuccess": "Archivo guardado correctamente.",
         "saveHint": "Ctrl + S para guardar",
-        "loading": "Cargando editor…"
+        "loading": "Cargando editor…",
+        "readOnly": "Solo lectura: no tienes permiso para editar archivos."
       },
       "toast": {
         "createdFile": "Archivo creado correctamente.",
@@ -734,7 +737,23 @@
         "compressError": "No se pudo comprimir.",
         "deletedMany": "Se han eliminado {{count}} elementos.",
         "deletedPartly": "Se eliminaron {{count}} de {{total}} elementos y luego se detuvo: {{reason}}",
-        "saveError": "No se pudo guardar."
+        "saveError": "No se pudo guardar.",
+        "uploadedMany": "Se han subido {{count}} elementos.",
+        "uploadedPartly": "Se subieron {{count}} de {{total}} elementos y luego se detuvo: {{reason}}",
+        "dropReadError": "No se pudo leer lo que has soltado.",
+        "uploadCancelled": "Subida cancelada: se subieron {{count}} de {{total}} elementos.",
+        "copiedMany": "{{count}} elementos copiados. Ve a otra carpeta y pulsa Pegar.",
+        "cutMany": "{{count}} elementos cortados. Ve a otra carpeta y pulsa Pegar.",
+        "moveError": "No se pudo mover.",
+        "moveSame": "Ya está en esa carpeta.",
+        "moveInside": "Una carpeta no puede moverse dentro de sí misma.",
+        "movedTo": "{{name}} se ha movido a {{folder}}.",
+        "movedMany": "{{count}} elementos movidos a {{folder}}.",
+        "movedPartly": "Se movieron {{count}} de {{total}} elementos y luego se detuvo: {{reason}}",
+        "pastedPartly": "Se pegaron {{count}} de {{total}} elementos y luego se detuvo: {{reason}}",
+        "readError": "No se pudo leer {{path}}.",
+        "makeFolderError": "No se pudo crear la carpeta {{path}}.",
+        "writeError": "No se pudo escribir {{path}}."
       },
       "goRoot": "Ir a la carpeta raíz",
       "pathLabel": "Ruta actual",
@@ -748,8 +767,35 @@
         "countMany": "{{count}} elementos seleccionados",
         "compress": "Comprimir selección",
         "delete": "Eliminar selección",
-        "clear": "Quitar selección"
-      }
+        "clear": "Quitar selección",
+        "move": "Mover"
+      },
+      "uploadFolder": "Subir carpeta",
+      "drop": {
+        "title": "Suelta para subir a {{path}}",
+        "hint": "Archivos, carpetas o comprimidos (.zip, .tar.gz…)"
+      },
+      "clipboardMany": "{{count}} elementos",
+      "moveDialog": {
+        "titleOne": "Mover {{name}}",
+        "titleMany": "Mover {{count}} elementos",
+        "description": "Elige la carpeta de destino. Se cuenta desde la raíz del servidor (~) y se crea si no existe.",
+        "parent": "Carpeta superior",
+        "root": "Raíz",
+        "label": "Carpeta de destino",
+        "hint": "Por ejemplo ~/plugins o ~/ para la raíz.",
+        "invalid": "La carpeta no puede salir del servidor (..).",
+        "move": "Mover"
+      },
+      "uploadPanel": {
+        "label": "Progreso de la subida",
+        "title": "Subiendo {{step}} de {{total}}",
+        "cancelling": "Cancelando…",
+        "bytes": "{{sent}} de {{total}}",
+        "speed": "{{speed}}/s",
+        "left": "quedan {{time}}"
+      },
+      "descriptionReadOnly": "Explora los archivos de este servidor. Puedes abrirlos y descargarlos, pero no cambiarlos: no tienes permiso para editar archivos."
     },
     "settings": {
       "title": "Configuración",

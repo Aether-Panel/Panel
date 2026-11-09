@@ -982,9 +982,15 @@ func deleteFile(c *gin.Context) {
 	// freed space counts at once, so a server stopped for a full disk can start again
 	server.ForgetDiskUsage()
 
-	if !response.HandleError(c, err, http.StatusInternalServerError) {
-		c.Status(http.StatusNoContent)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
 	}
+	// nothing of a deleted file is left: its saved versions go too (of every file inside, for
+	// a folder). Only a link's own path is forgotten, never what it points at.
+	if err := server.ForgetFileHistory(targetPath); err != nil {
+		logging.Error.Printf("Error removing the file history of %s for server %s: %s", targetPath, server.ID(), err)
+	}
+	c.Status(http.StatusNoContent)
 }
 
 // lstatFile describes name without following it when it is a symlink. The way there is still
@@ -1051,9 +1057,14 @@ func moveFile(c *gin.Context) {
 		return
 	}
 
-	if err := fs.Rename(source, destination); !response.HandleError(c, err, http.StatusInternalServerError) {
-		c.Status(http.StatusNoContent)
+	if err := fs.Rename(source, destination); response.HandleError(c, err, http.StatusInternalServerError) {
+		return
 	}
+	// the saved versions go with the file, or a folder with what is inside it
+	if err := server.MoveFileHistory(source, destination); err != nil {
+		logging.Error.Printf("Error moving the file history of %s for server %s: %s", source, server.ID(), err)
+	}
+	c.Status(http.StatusNoContent)
 }
 
 // @Summary Send command

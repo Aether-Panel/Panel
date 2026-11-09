@@ -136,9 +136,11 @@ interface CodeEditorProps {
   onBeforeMount?: (monaco: any) => void;
   /** What screen readers call the editor. */
   ariaLabel?: string;
+  /** Shows the text without letting it change, for someone who may only view the files. */
+  readOnly?: boolean;
 }
 
-export default function CodeEditor({ language, value, onChange, onSave, onEditorReady, path, onBeforeMount, ariaLabel }: Readonly<CodeEditorProps>) {
+export default function CodeEditor({ language, value, onChange, onSave, onEditorReady, path, onBeforeMount, ariaLabel, readOnly = false }: Readonly<CodeEditorProps>) {
   const editorRef = useRef<any>(null);
   // Monaco keeps the command it was given at mount, so it reads the latest save handler from here
   const onSaveRef = useRef(onSave);
@@ -242,7 +244,7 @@ export default function CodeEditor({ language, value, onChange, onSave, onEditor
             },
             renderLineHighlight: 'gutter',
             unusualLineTerminators: 'off',
-            readOnly: false,
+            readOnly,
             overviewRulerBorder: false,
             hideCursorInOverviewRuler: true,
             scrollbar: {

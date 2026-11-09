@@ -19,6 +19,7 @@ import { booleanValue } from '@/lib/template-boolean';
 import { templateLogo, type TemplateLogo as Logo } from '@/lib/template-logos';
 import { TemplateLogo } from '@/components/template-logo';
 import { keyedByContent } from '@/lib/keyed';
+import { MibEquivalent } from './mib';
 
 type TFn = (key: string, options?: { [key: string]: string | number }) => string;
 
@@ -926,12 +927,14 @@ export function Step3Configuration({
                         <Input id="limit-cpu" type="number" inputMode="numeric" value={cpuLimit} onChange={(e) => setCpuLimit(e.target.value === '' ? '' : Number(e.target.value))} className="font-mono tabular-nums" />
                     </div>
                     <div className="grid min-w-0 gap-2">
-                        <Label htmlFor="limit-memory">{t('servers.create.memoryLabel')} <span className="font-normal text-muted-foreground">(MB)</span></Label>
-                        <Input id="limit-memory" type="number" inputMode="numeric" value={memoryLimit} onChange={(e) => setMemoryLimit(e.target.value === '' ? '' : Number(e.target.value))} className="font-mono tabular-nums" />
+                        <Label htmlFor="limit-memory">{t('servers.create.memoryLabel')} <span className="font-normal text-muted-foreground">(MiB)</span></Label>
+                        <Input id="limit-memory" type="number" inputMode="numeric" min={0} value={memoryLimit} onChange={(e) => setMemoryLimit(e.target.value === '' ? '' : Number(e.target.value))} aria-describedby="limit-memory-gib" className="font-mono tabular-nums" />
+                        <MibEquivalent id="limit-memory-gib" mib={memoryLimit} className="-mt-1" />
                     </div>
                     <div className="grid min-w-0 gap-2">
-                        <Label htmlFor="limit-disk">{t('servers.create.diskLabel')} <span className="font-normal text-muted-foreground">(MB)</span></Label>
-                        <Input id="limit-disk" type="number" inputMode="numeric" value={diskLimit} onChange={(e) => setDiskLimit(e.target.value === '' ? '' : Number(e.target.value))} className="font-mono tabular-nums" />
+                        <Label htmlFor="limit-disk">{t('servers.create.diskLabel')} <span className="font-normal text-muted-foreground">(MiB)</span></Label>
+                        <Input id="limit-disk" type="number" inputMode="numeric" min={0} value={diskLimit} onChange={(e) => setDiskLimit(e.target.value === '' ? '' : Number(e.target.value))} aria-describedby="limit-disk-gib" className="font-mono tabular-nums" />
+                        <MibEquivalent id="limit-disk-gib" mib={diskLimit} className="-mt-1" />
                     </div>
                     <div className="grid min-w-0 gap-2">
                         <Label htmlFor="limit-io">{t('servers.create.ioLabel')} <span className="font-normal text-muted-foreground">(10–1000)</span></Label>

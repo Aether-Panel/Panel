@@ -71,6 +71,11 @@ func DetermineIfSingleRoot(ctx context.Context, sourceFile string, file io.ReadS
 		if name == "" || name == PathSeparator {
 			return nil
 		}
+		// a file at the top is not a folder to strip: dropping the first element of its own
+		// name would leave nothing, and an archive of one file would unpack to nothing
+		if !f.IsDir() && !strings.Contains(strings.TrimPrefix(name, "./"), PathSeparator) {
+			return desired
+		}
 		root := strings.Split(name, PathSeparator)[0]
 		if rootName == "" {
 			rootName = root
@@ -82,11 +87,14 @@ func DetermineIfSingleRoot(ctx context.Context, sourceFile string, file io.ReadS
 		return nil
 	})
 
-	if err != nil && err != desired {
-		isSingleRoot = false
-	} else if err == desired {
+	// the archive library wraps what the handler returns ("handling file 1: x: not single
+	// root"), so the stop has to be recognised with errors.Is: compared with == it read as a
+	// failure, and every archive with more than one thing at its top failed to extract
+	if errors.Is(err, desired) {
 		isSingleRoot = false
 		err = nil
+	} else if err != nil {
+		isSingleRoot = false
 	}
 
 	return isSingleRoot, err
