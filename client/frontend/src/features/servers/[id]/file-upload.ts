@@ -31,15 +31,18 @@ type Entry = {
 const readFile = (entry: Entry) => new Promise<File>((resolve, reject) => entry.file!(resolve, reject));
 
 /** Every entry of a folder: readEntries hands them out in batches until one comes back empty. */
-async function readFolder(entry: Entry): Promise<Entry[]> {
+function readFolder(entry: Entry): Promise<Entry[]> {
   const reader = entry.createReader!();
-  const all: Entry[] = [];
-  for (;;) {
-    const batch = await new Promise<Entry[]>((resolve, reject) => reader.readEntries(resolve, reject));
-    if (batch.length === 0) return all;
-    all.push(...batch);
-  }
+  const next = (found: Entry[]): Promise<Entry[]> =>
+    new Promise<Entry[]>((resolve, reject) => reader.readEntries(resolve, reject)).then((batch) =>
+      batch.length === 0 ? found : next([...found, ...batch]),
+    );
+  return next([]);
 }
+
+/** Runs fn on each item, one after another (a chain, not a loop of awaits). */
+const inTurn = <T>(items: T[], fn: (item: T) => Promise<void>) =>
+  items.reduce<Promise<void>>((previous, item) => previous.then(() => fn(item)), Promise.resolve());
 
 async function walk(entry: Entry, prefix: string, out: UploadItem[]): Promise<void> {
   const path = prefix ? `${prefix}/${entry.name}` : entry.name;
@@ -53,7 +56,7 @@ async function walk(entry: Entry, prefix: string, out: UploadItem[]): Promise<vo
     out.push({ path });
     return;
   }
-  for (const child of children) await walk(child, path, out);
+  await inTurn(children, (child) => walk(child, path, out));
 }
 
 /**
@@ -70,11 +73,8 @@ export function itemsFromDrop(dataTransfer: DataTransfer): Promise<UploadItem[]>
   // a browser without the entry API still gives the files (not folders)
   if (entries.length === 0) return Promise.resolve(itemsFromFiles(dataTransfer.files));
 
-  return (async () => {
-    const out: UploadItem[] = [];
-    for (const entry of entries) await walk(entry, '', out);
-    return out;
-  })();
+  const out: UploadItem[] = [];
+  return inTurn(entries, (entry) => walk(entry, '', out)).then(() => out);
 }
 
 /** Where an upload is: items and bytes sent so far, and the item going up now. */
@@ -104,26 +104,34 @@ export async function uploadAll(
   const ordered = [...items.filter((i) => !i.file), ...items.filter((i) => i.file)];
   const total = ordered.length;
   const totalBytes = ordered.reduce((sum, i) => sum + (i.file?.size ?? 0), 0);
-  let done = 0;
+  const result: { done: number; error?: unknown; cancelled?: boolean } = { done: 0 };
+  // once it stops early (a failure or a cancel), the items after it are skipped
+  const stopped = () => result.cancelled === true || 'error' in result;
   let finishedBytes = 0;
-  for (const item of ordered) {
-    if (signal.aborted) return { done, cancelled: true };
-    const size = item.file?.size ?? 0;
-    onProgress({ done, total, sentBytes: finishedBytes, totalBytes, current: item });
-    try {
-      await upload(
-        item,
-        (loaded) => onProgress({ done, total, sentBytes: finishedBytes + Math.min(loaded, size), totalBytes, current: item }),
-        signal,
-      );
-    } catch (error) {
-      return isAbort(error) || signal.aborted ? { done, cancelled: true } : { done, error };
+
+  const send = async (item: UploadItem) => {
+    if (stopped()) return;
+    if (signal.aborted) {
+      result.cancelled = true;
+      return;
     }
-    done++;
+    const size = item.file?.size ?? 0;
+    const report = (sentBytes: number) => onProgress({ done: result.done, total, sentBytes, totalBytes, current: item });
+    report(finishedBytes);
+    try {
+      await upload(item, (loaded) => report(finishedBytes + Math.min(loaded, size)), signal);
+    } catch (error) {
+      if (isAbort(error) || signal.aborted) result.cancelled = true;
+      else result.error = error;
+      return;
+    }
+    result.done++;
     finishedBytes += size;
-  }
-  onProgress({ done, total, sentBytes: finishedBytes, totalBytes, current: null });
-  return { done };
+  };
+
+  await inTurn(ordered, send);
+  if (!stopped()) onProgress({ done: result.done, total, sentBytes: finishedBytes, totalBytes, current: null });
+  return result;
 }
 
 /**

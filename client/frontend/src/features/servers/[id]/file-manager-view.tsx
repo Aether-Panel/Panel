@@ -1186,238 +1186,256 @@ export default function FileManagerView({ serverId, canEdit }: Readonly<{ server
     </>
   );
 
-  let body: ReactNode;
-  if (isLoading) {
-    body = (
-      <div className="flex justify-center rounded-xl border border-border/60 bg-background/30 py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
-      </div>
-    );
-  } else if (files.length === 0) {
-    body = (
-      <EmptyState
-        icon={FolderOpen}
-        title={t('servers.fileManager.empty')}
-        description={canEdit ? t('servers.fileManager.emptyHint') : undefined}
-        action={canEdit ? (
-          <Button variant="outline" onClick={handleUploadClick}>
-            <Upload aria-hidden="true" />
-            {t('servers.fileManager.upload')}
-          </Button>
-        ) : undefined}
-      />
-    );
-  } else {
-    body = (
-      <div className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
-        <Table>
-          <TableHeader className="bg-transparent">
-            <TableRow className="border-border/50 hover:bg-transparent">
-              {canEdit && (
-                <TableHead className="w-10 pl-3 sm:pl-4">
-                  <Checkbox
-                    checked={selectAllState}
-                    onCheckedChange={toggleSelectAll}
-                    disabled={selectableNames.length === 0}
-                    aria-label={t('servers.fileManager.selection.selectAll')}
-                    className={CHECKBOX_HIT_AREA}
-                  />
-                </TableHead>
-              )}
-              <TableHead className={cn(!canEdit && 'pl-3 sm:pl-4')}>{t('servers.fileManager.table.name')}</TableHead>
-              <TableHead className="hidden w-28 sm:table-cell">{t('servers.fileManager.table.size')}</TableHead>
-              <TableHead className="hidden w-48 lg:table-cell">{t('servers.fileManager.table.modified')}</TableHead>
-              <TableHead className="w-14 pr-2 text-right">
-                <span className="sr-only">{t('servers.fileManager.table.actions')}</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {files.map((file) => {
-              const isParent = !file.isFile && file.name === '..';
-              const meta = rowMeta(file, isParent);
-              const MetaIcon = meta.icon;
-              const isSelected = selected.has(file.name);
-              // a folder row ("..", the one above, included) takes rows dragged onto it
-              const folderPath = isParent ? parentOf(currentPath) : joinPath(currentPath, file.name);
-              const isDropTarget = !file.isFile && dropTarget === folderPath;
-              return (
-                <TableRow
-                  key={file.name}
-                  data-state={isSelected ? 'selected' : undefined}
-                  draggable={canEdit && !isParent && !upload}
-                  onDragStart={!canEdit || isParent ? undefined : (e) => startRowDrag(e, file)}
-                  onDragEnd={endRowDrag}
-                  {...(!canEdit || file.isFile ? {} : dropInto(folderPath))}
-                  className={cn(
-                    'group border-border/50 hover:bg-accent/30 data-[state=selected]:bg-primary/[0.06]',
-                    isDropTarget && 'bg-primary/[0.10] ring-1 ring-inset ring-primary/50 hover:bg-primary/[0.10]'
-                  )}
-                >
-                  {canEdit && (
-                    <TableCell className="w-10 py-2.5 pl-3 sm:pl-4">
-                      {!isParent && (
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={(checked) => toggleSelected(file.name, checked === true)}
-                          aria-label={t('servers.fileManager.selection.select', { name: file.name })}
-                          className={CHECKBOX_HIT_AREA}
-                        />
-                      )}
-                    </TableCell>
-                  )}
-                  {/* w-full + max-w-0 lets the name column absorb the free width and truncate */}
-                  <TableCell className={cn('w-full max-w-0 py-2.5', !canEdit && 'pl-3 sm:pl-4')}>
-                    <button
-                      type="button"
-                      onClick={() => handleFileClick(file)}
-                      className="focus-ring flex w-full min-w-0 items-center gap-3 rounded-md text-left"
-                    >
-                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border/60 bg-card">
-                        <MetaIcon className={cn('h-4 w-4', meta.className)} weight={meta.weight} aria-hidden="true" />
-                      </span>
-                      <span className="min-w-0">
-                        <span
-                          className={cn(
-                            'block truncate font-medium transition-colors duration-150',
-                            isParent ? 'text-muted-foreground' : 'group-hover:text-primary-bright'
-                          )}
-                        >
-                          {file.name}
-                        </span>
-                        {!isParent && (
-                          <span className="mt-0.5 block truncate text-xs tabular-nums text-muted-foreground lg:hidden">
-                            {file.isFile && <span className="sm:hidden">{formatSize(file.size)} · </span>}
-                            {formatDate(file.modifyTime)}
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                  </TableCell>
-                  <TableCell className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground sm:table-cell">
-                    {file.isFile ? formatSize(file.size) : '—'}
-                  </TableCell>
-                  <TableCell className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground lg:table-cell">
-                    {formatDate(file.modifyTime)}
-                  </TableCell>
-                  <TableCell className="py-2.5 pr-2 text-right">
-                    {renderRowMenu(file)}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <Card
-        className="relative mt-6"
-        {...(canEdit ? { onDragEnter: handleDragEnter, onDragOver: handleDragOver, onDragLeave: handleDragLeave, onDrop: handleDrop } : {})}
-      >
-        {isDragging && (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-2 z-10 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/60 bg-background/85 px-4 text-center backdrop-blur-sm animate-in fade-in-0 duration-150"
-          >
-            <Upload className="h-7 w-7 text-primary-bright" aria-hidden="true" />
-            <p className="text-sm font-medium">
-              {t('servers.fileManager.drop.title', { path: currentPath ? `~/${currentPath}` : '~' })}
-            </p>
-            <p className="text-xs text-muted-foreground">{t('servers.fileManager.drop.hint')}</p>
-          </div>
-        )}
-        <CardHeader className="flex flex-col gap-4 space-y-0 border-b border-border/50 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
-          <div className="min-w-0 space-y-1">
-            <CardTitle className="text-lg font-semibold tracking-[-0.02em]">{t('servers.fileManager.title')}</CardTitle>
-            <CardDescription>{canEdit ? t('servers.fileManager.description') : t('servers.fileManager.descriptionReadOnly')}</CardDescription>
-          </div>
-          {canEdit && <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">
-            <input type="file" multiple ref={fileInputRef} className="hidden" onChange={handleFileChange} />
-            <input type="file" multiple ref={folderInputRef} className="hidden" onChange={handleFileChange} />
-            <Button variant="outline" onClick={handleUploadClick} disabled={!!upload}>
+  /** What the file listing shows: a spinner, the empty folder, or the table. */
+  const renderBody = (): ReactNode => {
+    let body: ReactNode;
+    if (isLoading) {
+      body = (
+        <div className="flex justify-center rounded-xl border border-border/60 bg-background/30 py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
+        </div>
+      );
+    } else if (files.length === 0) {
+      body = (
+        <EmptyState
+          icon={FolderOpen}
+          title={t('servers.fileManager.empty')}
+          description={canEdit ? t('servers.fileManager.emptyHint') : undefined}
+          action={canEdit ? (
+            <Button variant="outline" onClick={handleUploadClick}>
               <Upload aria-hidden="true" />
               {t('servers.fileManager.upload')}
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button>
-                  <Plus aria-hidden="true" />
-                  {t('servers.fileManager.new')}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setNewItemDialog({ open: true, type: 'file' })}>
-                  <FilePlus className="mr-2 h-4 w-4" aria-hidden="true" />
-                  {t('servers.fileManager.newFile')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setNewItemDialog({ open: true, type: 'folder' })}>
-                  <FolderPlus className="mr-2 h-4 w-4" aria-hidden="true" />
-                  {t('servers.fileManager.newFolder')}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleFolderUploadClick} disabled={!!upload}>
-                  <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
-                  {t('servers.fileManager.uploadFolder')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>}
-        </CardHeader>
+          ) : undefined}
+        />
+      );
+    } else {
+      body = (
+        <div className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
+          <Table>
+            <TableHeader className="bg-transparent">
+              <TableRow className="border-border/50 hover:bg-transparent">
+                {canEdit && (
+                  <TableHead className="w-10 pl-3 sm:pl-4">
+                    <Checkbox
+                      checked={selectAllState}
+                      onCheckedChange={toggleSelectAll}
+                      disabled={selectableNames.length === 0}
+                      aria-label={t('servers.fileManager.selection.selectAll')}
+                      className={CHECKBOX_HIT_AREA}
+                    />
+                  </TableHead>
+                )}
+                <TableHead className={cn(!canEdit && 'pl-3 sm:pl-4')}>{t('servers.fileManager.table.name')}</TableHead>
+                <TableHead className="hidden w-28 sm:table-cell">{t('servers.fileManager.table.size')}</TableHead>
+                <TableHead className="hidden w-48 lg:table-cell">{t('servers.fileManager.table.modified')}</TableHead>
+                <TableHead className="w-14 pr-2 text-right">
+                  <span className="sr-only">{t('servers.fileManager.table.actions')}</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {files.map((file) => {
+                const isParent = !file.isFile && file.name === '..';
+                const meta = rowMeta(file, isParent);
+                const MetaIcon = meta.icon;
+                const isSelected = selected.has(file.name);
+                // a folder row ("..", the one above, included) takes rows dragged onto it
+                const folderPath = isParent ? parentOf(currentPath) : joinPath(currentPath, file.name);
+                const isDropTarget = !file.isFile && dropTarget === folderPath;
+                return (
+                  <TableRow
+                    key={file.name}
+                    data-state={isSelected ? 'selected' : undefined}
+                    draggable={canEdit && !isParent && !upload}
+                    onDragStart={!canEdit || isParent ? undefined : (e) => startRowDrag(e, file)}
+                    onDragEnd={endRowDrag}
+                    {...(!canEdit || file.isFile ? {} : dropInto(folderPath))}
+                    className={cn(
+                      'group border-border/50 hover:bg-accent/30 data-[state=selected]:bg-primary/[0.06]',
+                      isDropTarget && 'bg-primary/[0.10] ring-1 ring-inset ring-primary/50 hover:bg-primary/[0.10]'
+                    )}
+                  >
+                    {canEdit && (
+                      <TableCell className="w-10 py-2.5 pl-3 sm:pl-4">
+                        {!isParent && (
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => toggleSelected(file.name, checked === true)}
+                            aria-label={t('servers.fileManager.selection.select', { name: file.name })}
+                            className={CHECKBOX_HIT_AREA}
+                          />
+                        )}
+                      </TableCell>
+                    )}
+                    {/* w-full + max-w-0 lets the name column absorb the free width and truncate */}
+                    <TableCell className={cn('w-full max-w-0 py-2.5', !canEdit && 'pl-3 sm:pl-4')}>
+                      <button
+                        type="button"
+                        onClick={() => handleFileClick(file)}
+                        className="focus-ring flex w-full min-w-0 items-center gap-3 rounded-md text-left"
+                      >
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border/60 bg-card">
+                          <MetaIcon className={cn('h-4 w-4', meta.className)} weight={meta.weight} aria-hidden="true" />
+                        </span>
+                        <span className="min-w-0">
+                          <span
+                            className={cn(
+                              'block truncate font-medium transition-colors duration-150',
+                              isParent ? 'text-muted-foreground' : 'group-hover:text-primary-bright'
+                            )}
+                          >
+                            {file.name}
+                          </span>
+                          {!isParent && (
+                            <span className="mt-0.5 block truncate text-xs tabular-nums text-muted-foreground lg:hidden">
+                              {file.isFile && <span className="sm:hidden">{formatSize(file.size)} · </span>}
+                              {formatDate(file.modifyTime)}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    </TableCell>
+                    <TableCell className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground sm:table-cell">
+                      {file.isFile ? formatSize(file.size) : '—'}
+                    </TableCell>
+                    <TableCell className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground lg:table-cell">
+                      {formatDate(file.modifyTime)}
+                    </TableCell>
+                    <TableCell className="py-2.5 pr-2 text-right">
+                      {renderRowMenu(file)}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      );
+    }
+    return body;
+  };
 
-        <CardContent className="space-y-4 p-5 md:p-6">
-          {/* Path bar, plus the pending copy/cut item when there is one */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="flex min-w-0 flex-1 items-center gap-1 rounded-lg border border-border/60 bg-background/30 py-1 pl-1 pr-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-                onClick={() => setCurrentPath('')}
-                disabled={!currentPath}
-                aria-label={t('servers.fileManager.goRoot')}
-                title={t('servers.fileManager.goRoot')}
-              >
-                <Home aria-hidden="true" />
-              </Button>
-              <Breadcrumbs
-                path={currentPath}
-                onNavigate={setCurrentPath}
-                label={t('servers.fileManager.pathLabel')}
-                dropInto={dropInto}
-                dropTarget={dropTarget}
-              />
-            </div>
+  /** Files dropped from the computer land on the whole card, for someone who may edit. */
+  const dropZoneProps = () =>
+    canEdit ? { onDragEnter: handleDragEnter, onDragOver: handleDragOver, onDragLeave: handleDragLeave, onDrop: handleDrop } : {};
 
-            {canEdit && clipboard && (
-              <ClipboardBar clipboard={clipboard} disabled={isLoading} onPaste={handlePaste} onClear={() => setClipboard(null)} />
-            )}
-          </div>
+  const renderDropOverlay = () => {
+    if (!isDragging) return null;
+    return (
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-2 z-10 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/60 bg-background/85 px-4 text-center backdrop-blur-sm animate-in fade-in-0 duration-150"
+      >
+        <Upload className="h-7 w-7 text-primary-bright" aria-hidden="true" />
+        <p className="text-sm font-medium">
+          {t('servers.fileManager.drop.title', { path: currentPath ? `~/${currentPath}` : '~' })}
+        </p>
+        <p className="text-xs text-muted-foreground">{t('servers.fileManager.drop.hint')}</p>
+      </div>
+    );
+  };
 
-          {upload && (
-            <UploadProgressPanel progress={upload} rate={uploadRate} cancelling={cancellingUpload} onCancel={cancelUpload} />
+  /** Upload and New, for someone who may edit. */
+  const renderHeaderActions = () => {
+    if (!canEdit) return null;
+    return (
+      <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">
+        <input type="file" multiple ref={fileInputRef} className="hidden" onChange={handleFileChange} />
+        <input type="file" multiple ref={folderInputRef} className="hidden" onChange={handleFileChange} />
+        <Button variant="outline" onClick={handleUploadClick} disabled={!!upload}>
+          <Upload aria-hidden="true" />
+          {t('servers.fileManager.upload')}
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button>
+              <Plus aria-hidden="true" />
+              {t('servers.fileManager.new')}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setNewItemDialog({ open: true, type: 'file' })}>
+              <FilePlus className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t('servers.fileManager.newFile')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setNewItemDialog({ open: true, type: 'folder' })}>
+              <FolderPlus className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t('servers.fileManager.newFolder')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleFolderUploadClick} disabled={!!upload}>
+              <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t('servers.fileManager.uploadFolder')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
+  };
+
+  /** The editor's top right: saved mark, language and the history button. */
+  const renderEditorTools = () => (
+    <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+      {savedFlash && (
+        <output className="flex items-center gap-1.5 text-xs font-medium text-success">
+          <Check className="h-3.5 w-3.5" aria-hidden="true" />
+          <span className="hidden sm:inline">{t('common.saved')}</span>
+          <span className="sr-only sm:hidden">{t('common.saved')}</span>
+        </output>
+      )}
+      <span className="hidden rounded-md border border-border/60 px-1.5 py-0.5 font-mono text-xs text-muted-foreground sm:inline">
+        {editingLanguage}
+      </span>
+      {historyTracked && (
+        <Button
+          ref={historyButtonRef}
+          variant="outline"
+          size="sm"
+          onClick={() => setHistoryOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={historyOpen}
+          aria-label={historyCount > 0 ? t('servers.fileHistory.openWithCount', { count: historyCount }) : t('servers.fileHistory.open')}
+          title={t('servers.fileHistory.open')}
+          className={cn('h-8 gap-1.5 px-2 sm:px-2.5', compareVersion && 'border-primary/40 bg-primary/[0.07] text-primary-bright')}
+        >
+          <History aria-hidden="true" />
+          <span className="hidden sm:inline">{t('servers.fileHistory.button')}</span>
+          {historyCount > 0 && (
+            <span
+              aria-hidden="true"
+              className="min-w-[1.25rem] rounded-full bg-secondary px-1.5 text-center text-[11px] font-semibold leading-5 tabular-nums text-muted-foreground animate-in fade-in-0 zoom-in-95 duration-200 ease-panel"
+            >
+              {historyCount}
+            </span>
           )}
+        </Button>
+      )}
+    </div>
+  );
 
-          {canEdit && selectedCount > 0 && !isLoading && (
-            <SelectionBar
-              count={selectedCount}
-              onMove={() => openMove(selectedNames())}
-              onCut={() => clipSelection('cut')}
-              onCopy={() => clipSelection('copy')}
-              onCompress={() => openCompress(selectableNames.filter((name) => selected.has(name)))}
-              onDelete={() => setBulkDeleteOpen(true)}
-              onClear={clearSelection}
-            />
-          )}
+  /** The editor's bottom bar: the save hint and the close and save buttons. */
+  const renderEditorFooter = () => (
+    <div className="flex items-center justify-between gap-3 border-t border-border/50 bg-card px-4 py-3 sm:px-5">
+      <p className="hidden text-xs text-muted-foreground sm:block">
+        {canEdit ? t('servers.fileManager.editor.saveHint') : t('servers.fileManager.editor.readOnly')}
+      </p>
+      <div className="flex flex-1 items-center justify-end gap-2 sm:flex-none">
+        <Button variant="outline" onClick={closeEditor}>
+          {canEdit ? t('servers.fileManager.editor.cancel') : t('common.close')}
+        </Button>
+        {canEdit && (
+          <Button onClick={handleSaveChanges} disabled={isSaving}>
+            {isSaving ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Check aria-hidden="true" />}
+            {t('servers.fileManager.editor.save')}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
 
-          {body}
-        </CardContent>
-      </Card>
-
-      {/* Editor Dialog */}
+  const renderEditor = () => (
+    <>
       <Dialog open={isEditorOpen} onOpenChange={(open) => !open && closeEditor()}>
         <DialogContent className="flex h-[90dvh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col gap-0 overflow-hidden p-0 sm:w-[95vw] sm:max-w-[95vw]">
           <div className="flex items-center justify-between gap-3 border-b border-border/50 bg-card py-3 pl-4 pr-12 sm:pl-5">
@@ -1432,42 +1450,7 @@ export default function FileManagerView({ serverId, canEdit }: Readonly<{ server
                 </DialogDescription>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-              {savedFlash && (
-                <output className="flex items-center gap-1.5 text-xs font-medium text-success">
-                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span className="hidden sm:inline">{t('common.saved')}</span>
-                  <span className="sr-only sm:hidden">{t('common.saved')}</span>
-                </output>
-              )}
-              <span className="hidden rounded-md border border-border/60 px-1.5 py-0.5 font-mono text-xs text-muted-foreground sm:inline">
-                {editingLanguage}
-              </span>
-              {historyTracked && (
-                <Button
-                  ref={historyButtonRef}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setHistoryOpen(true)}
-                  aria-haspopup="dialog"
-                  aria-expanded={historyOpen}
-                  aria-label={historyCount > 0 ? t('servers.fileHistory.openWithCount', { count: historyCount }) : t('servers.fileHistory.open')}
-                  title={t('servers.fileHistory.open')}
-                  className={cn('h-8 gap-1.5 px-2 sm:px-2.5', compareVersion && 'border-primary/40 bg-primary/[0.07] text-primary-bright')}
-                >
-                  <History aria-hidden="true" />
-                  <span className="hidden sm:inline">{t('servers.fileHistory.button')}</span>
-                  {historyCount > 0 && (
-                    <span
-                      aria-hidden="true"
-                      className="min-w-[1.25rem] rounded-full bg-secondary px-1.5 text-center text-[11px] font-semibold leading-5 tabular-nums text-muted-foreground animate-in fade-in-0 zoom-in-95 duration-200 ease-panel"
-                    >
-                      {historyCount}
-                    </span>
-                  )}
-                </Button>
-              )}
-            </div>
+            {renderEditorTools()}
           </div>
 
           <div className="min-h-0 flex-1 [&_.monaco-editor-host]:rounded-none [&_.monaco-editor-host]:border-0">
@@ -1502,22 +1485,7 @@ export default function FileManagerView({ serverId, canEdit }: Readonly<{ server
             )}
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t border-border/50 bg-card px-4 py-3 sm:px-5">
-            <p className="hidden text-xs text-muted-foreground sm:block">
-              {canEdit ? t('servers.fileManager.editor.saveHint') : t('servers.fileManager.editor.readOnly')}
-            </p>
-            <div className="flex flex-1 items-center justify-end gap-2 sm:flex-none">
-              <Button variant="outline" onClick={closeEditor}>
-                {canEdit ? t('servers.fileManager.editor.cancel') : t('common.close')}
-              </Button>
-              {canEdit && (
-                <Button onClick={handleSaveChanges} disabled={isSaving}>
-                  {isSaving ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Check aria-hidden="true" />}
-                  {t('servers.fileManager.editor.save')}
-                </Button>
-              )}
-            </div>
-          </div>
+          {renderEditorFooter()}
         </DialogContent>
       </Dialog>
 
@@ -1537,6 +1505,12 @@ export default function FileManagerView({ serverId, canEdit }: Readonly<{ server
       )}
 
       {/* New Item Dialog */}
+    </>
+  );
+
+  /** Move, new item, rename, compress and bulk delete. */
+  const renderDialogs = () => (
+    <>
       <MoveDialog
         names={moveNames}
         currentPath={currentPath}
@@ -1648,6 +1622,76 @@ export default function FileManagerView({ serverId, canEdit }: Readonly<{ server
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+
+  return (
+    <>
+      <Card
+        className="relative mt-6"
+        {...dropZoneProps()}
+      >
+        {renderDropOverlay()}
+        <CardHeader className="flex flex-col gap-4 space-y-0 border-b border-border/50 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
+          <div className="min-w-0 space-y-1">
+            <CardTitle className="text-lg font-semibold tracking-[-0.02em]">{t('servers.fileManager.title')}</CardTitle>
+            <CardDescription>{canEdit ? t('servers.fileManager.description') : t('servers.fileManager.descriptionReadOnly')}</CardDescription>
+          </div>
+          {renderHeaderActions()}
+        </CardHeader>
+
+        <CardContent className="space-y-4 p-5 md:p-6">
+          {/* Path bar, plus the pending copy/cut item when there is one */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 flex-1 items-center gap-1 rounded-lg border border-border/60 bg-background/30 py-1 pl-1 pr-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                onClick={() => setCurrentPath('')}
+                disabled={!currentPath}
+                aria-label={t('servers.fileManager.goRoot')}
+                title={t('servers.fileManager.goRoot')}
+              >
+                <Home aria-hidden="true" />
+              </Button>
+              <Breadcrumbs
+                path={currentPath}
+                onNavigate={setCurrentPath}
+                label={t('servers.fileManager.pathLabel')}
+                dropInto={dropInto}
+                dropTarget={dropTarget}
+              />
+            </div>
+
+            {canEdit && clipboard && (
+              <ClipboardBar clipboard={clipboard} disabled={isLoading} onPaste={handlePaste} onClear={() => setClipboard(null)} />
+            )}
+          </div>
+
+          {upload && (
+            <UploadProgressPanel progress={upload} rate={uploadRate} cancelling={cancellingUpload} onCancel={cancelUpload} />
+          )}
+
+          {canEdit && selectedCount > 0 && !isLoading && (
+            <SelectionBar
+              count={selectedCount}
+              onMove={() => openMove(selectedNames())}
+              onCut={() => clipSelection('cut')}
+              onCopy={() => clipSelection('copy')}
+              onCompress={() => openCompress(selectableNames.filter((name) => selected.has(name)))}
+              onDelete={() => setBulkDeleteOpen(true)}
+              onClear={clearSelection}
+            />
+          )}
+
+          {renderBody()}
+        </CardContent>
+      </Card>
+
+      {renderEditor()}
+
+      {renderDialogs()}
     </>
   );
 }

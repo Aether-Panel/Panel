@@ -62,16 +62,22 @@ export function planMove(fromDir: string, entries: MoveEntry[], toDir: string): 
  * many went (a failure in the middle leaves the rest where they were).
  */
 export async function runMoves(steps: MoveStep[], move: (step: MoveStep) => Promise<void>): Promise<{ done: number; error?: unknown }> {
-  let done = 0;
-  for (const step of steps) {
-    try {
-      await move(step);
-    } catch (error) {
-      return { done, error };
-    }
-    done++;
-  }
-  return { done };
+  const result: { done: number; error?: unknown } = { done: 0 };
+  // one after another (a chain, not a loop of awaits): the first failure skips the rest
+  await steps.reduce<Promise<void>>(
+    (previous, step) =>
+      previous.then(async () => {
+        if ('error' in result) return;
+        try {
+          await move(step);
+          result.done++;
+        } catch (error) {
+          result.error = error;
+        }
+      }),
+    Promise.resolve(),
+  );
+  return result;
 }
 
 /** The MIME type a dragged row carries, so a drop can tell it from files off the computer. */
