@@ -28,6 +28,10 @@ var ServersAutoInstall = asBool("panel.servers.autoInstall", true)
 // customer could fill the node's backup disk.
 var BackupsMaxPerServer = asInt("panel.backups.maxPerServer", 10)
 
+// StatsEnabled sends the anonymous daily usage count (a one-way id, the version and the number
+// of servers) behind the active-panel figure on aetherpanel.es; see internal/stats
+var StatsEnabled = asBool("panel.stats.enabled", true)
+
 var DatabaseDialect = asString("panel.database.dialect", "sqlite3")
 var DatabaseURL = asString("panel.database.url", "")
 var DatabaseLoggingEnabled = asBool("panel.database.log", false)
