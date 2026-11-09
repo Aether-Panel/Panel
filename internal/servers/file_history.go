@@ -477,14 +477,10 @@ func (p *Server) RestoreFileVersion(name, versionID string) error {
 	return nil
 }
 
-// ForgetFileHistory removes the stored versions of a deleted file, or of every file that was
-// inside a deleted folder. Left behind, they would come back as the history of a new file
-// given the same name, and keep taking space the owner can no longer see or free.
-func (p *Server) ForgetFileHistory(name string) error {
-	relPath, err := NormalizeHistoryPath(name)
-	if err != nil {
-		return err
-	}
+// eachHistoryUnder calls fn, holding the server's history lock, with the folder and index of
+// the history of relPath and of every file under it when relPath is a folder. A server with no
+// history at all is fine; the errors fn returns are gathered, so one bad folder stops no other.
+func (p *Server) eachHistoryUnder(relPath string, fn func(root, folder string, index *fileHistoryIndex) error) error {
 	root, err := fileHistoryRoot(p.ID())
 	if err != nil {
 		return err
@@ -507,14 +503,25 @@ func (p *Server) ForgetFileHistory(name string) error {
 		}
 		folder := filepath.Join(root, e.Name())
 		index, err := loadFileHistoryIndex(folder)
-		if err != nil {
+		if err != nil || (index.Path != relPath && !strings.HasPrefix(index.Path, relPath+"/")) {
 			continue
 		}
-		if index.Path == relPath || strings.HasPrefix(index.Path, relPath+"/") {
-			errs = append(errs, os.RemoveAll(folder))
-		}
+		errs = append(errs, fn(root, folder, index))
 	}
 	return errors.Join(errs...)
+}
+
+// ForgetFileHistory removes the stored versions of a deleted file, or of every file that was
+// inside a deleted folder. Left behind, they would come back as the history of a new file
+// given the same name, and keep taking space the owner can no longer see or free.
+func (p *Server) ForgetFileHistory(name string) error {
+	relPath, err := NormalizeHistoryPath(name)
+	if err != nil {
+		return err
+	}
+	return p.eachHistoryUnder(relPath, func(_, folder string, _ *fileHistoryIndex) error {
+		return os.RemoveAll(folder)
+	})
 }
 
 // MoveFileHistory carries the stored versions of a moved or renamed file along with it (of every
@@ -529,46 +536,19 @@ func (p *Server) MoveFileHistory(from, to string) error {
 	if err != nil {
 		return err
 	}
-	root, err := fileHistoryRoot(p.ID())
-	if err != nil {
-		return err
-	}
-	lock := fileHistoryLock(p.ID())
-	lock.Lock()
-	defer lock.Unlock()
-
-	entries, err := os.ReadDir(root)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	var errs []error
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		folder := filepath.Join(root, e.Name())
-		index, err := loadFileHistoryIndex(folder)
-		if err != nil || (index.Path != fromRel && !strings.HasPrefix(index.Path, fromRel+"/")) {
-			continue
-		}
+	return p.eachHistoryUnder(fromRel, func(root, folder string, index *fileHistoryIndex) error {
 		newPath := toRel + strings.TrimPrefix(index.Path, fromRel)
 		newFolder := fileHistoryFolder(root, newPath)
 		// a history an earlier file of that name left behind is not this file's
 		if err := os.RemoveAll(newFolder); err != nil {
-			errs = append(errs, err)
-			continue
+			return err
 		}
 		if err := os.Rename(folder, newFolder); err != nil {
-			errs = append(errs, err)
-			continue
+			return err
 		}
 		index.Path = newPath
-		errs = append(errs, saveFileHistoryIndex(newFolder, index))
-	}
-	return errors.Join(errs...)
+		return saveFileHistoryIndex(newFolder, index)
+	})
 }
 
 // DeleteFileHistory removes every stored version of a server; call it when the server is deleted

@@ -196,7 +196,7 @@ export function createRateMeter(windowMs = 4000) {
     rate(): number | null {
       if (samples.length < 2) return null;
       const first = samples[0];
-      const last = samples[samples.length - 1];
+      const last = samples.at(-1)!;
       const seconds = (last.at - first.at) / 1000;
       if (seconds < 0.5) return null;
       return Math.max(0, (last.bytes - first.bytes) / seconds);

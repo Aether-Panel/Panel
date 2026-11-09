@@ -1,5 +1,6 @@
 import { Loader2, Upload, X } from '@/components/icons';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { useTranslations } from '@/contexts/translations-context';
 import type { UploadProgress } from './file-upload';
 import { localeFor } from './file-history-sheet';
@@ -93,24 +94,22 @@ export function UploadProgressPanel({ progress, rate, cancelling, onCancel }: Pr
         </Button>
       </div>
 
-      <div
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={percent}
+      <progress
+        value={percent}
+        max={100}
         aria-label={t('servers.fileManager.uploadPanel.label')}
-        className="h-1.5 overflow-hidden rounded-full bg-secondary"
-      >
-        <div
-          className="h-full rounded-full bg-primary transition-[width] duration-300 ease-panel"
-          style={{ width: `${percent}%` }}
-        />
-      </div>
+        className={cn(
+          'block h-1.5 w-full appearance-none overflow-hidden rounded-full border-0 bg-secondary',
+          '[&::-webkit-progress-bar]:bg-secondary',
+          '[&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-primary [&::-webkit-progress-value]:transition-[width] [&::-webkit-progress-value]:duration-300',
+          '[&::-moz-progress-bar]:rounded-full [&::-moz-progress-bar]:bg-primary'
+        )}
+      />
 
       {details.length > 0 && (
         <p className="flex flex-wrap gap-x-2 text-xs tabular-nums text-muted-foreground">
           {details.map((text, i) => (
-            <span key={i} className="whitespace-nowrap">
+            <span key={text} className="whitespace-nowrap">
               {i > 0 && <span aria-hidden="true" className="mr-2">·</span>}
               {text}
             </span>

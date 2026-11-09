@@ -26,7 +26,7 @@ export function parentOf(path: string): string {
 export function normalizeFolder(input: string): string | null {
   const parts = input
     .trim()
-    .replace(/\\/g, '/')
+    .replaceAll('\\', '/')
     .replace(/^~(?=\/|$)/, '')
     .split('/')
     .filter((part) => part !== '' && part !== '.');

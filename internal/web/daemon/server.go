@@ -988,7 +988,7 @@ func deleteFile(c *gin.Context) {
 	// nothing of a deleted file is left: its saved versions go too (of every file inside, for
 	// a folder). Only a link's own path is forgotten, never what it points at.
 	if err := server.ForgetFileHistory(targetPath); err != nil {
-		logging.Error.Printf("Error removing the file history of %s for server %s: %s", targetPath, server.ID(), err)
+		logging.Error.Printf("Error removing the file history of %s for server %s: %s", logLine(targetPath), server.ID(), logLine(err.Error()))
 	}
 	c.Status(http.StatusNoContent)
 }
@@ -1062,7 +1062,7 @@ func moveFile(c *gin.Context) {
 	}
 	// the saved versions go with the file, or a folder with what is inside it
 	if err := server.MoveFileHistory(source, destination); err != nil {
-		logging.Error.Printf("Error moving the file history of %s for server %s: %s", source, server.ID(), err)
+		logging.Error.Printf("Error moving the file history of %s for server %s: %s", logLine(source), server.ID(), logLine(err.Error()))
 	}
 	c.Status(http.StatusNoContent)
 }
@@ -2236,4 +2236,10 @@ func changeGameVersion(c *gin.Context) {
 	default:
 		c.Status(http.StatusAccepted)
 	}
+}
+
+// logLine keeps a value that came with the request on one log line, so it cannot forge entries
+func logLine(value string) string {
+	value = strings.ReplaceAll(value, "\n", "")
+	return strings.ReplaceAll(value, "\r", "")
 }

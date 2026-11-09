@@ -1325,7 +1325,7 @@ export default function FileManagerView({ serverId, canEdit }: Readonly<{ server
           >
             <Upload className="h-7 w-7 text-primary-bright" aria-hidden="true" />
             <p className="text-sm font-medium">
-              {t('servers.fileManager.drop.title', { path: `~${currentPath ? `/${currentPath}` : ''}` })}
+              {t('servers.fileManager.drop.title', { path: currentPath ? `~/${currentPath}` : '~' })}
             </p>
             <p className="text-xs text-muted-foreground">{t('servers.fileManager.drop.hint')}</p>
           </div>
