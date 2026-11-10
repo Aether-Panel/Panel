@@ -89,6 +89,7 @@ The panel writes the current day to `skypanel.log` inside `logs`. When the day c
 | `panel.registrationApproval` | bool | `true` | Yes | Accounts from public sign-up cannot sign in until an administrator approves them in **Users**; the welcome email goes out on approval. |
 | `panel.servers.autoInstall` | bool | `true` | | Runs the template's installation right after a server is created (also from billing), so it can be started without pressing Install. |
 | `panel.backups.maxPerServer` | int | `10` | | Backups a server's users can keep on the node (those only in the bucket do not count); creating one more answers `409`. Administrators are not limited. `0` turns the cap off. Backups do not count against the server's disk. |
+| `panel.stats.enabled` | bool | `true` | | Once a day the panel sends `stats.aetherpanel.es` an anonymous count for the active-panel figure on aetherpanel.es: an id derived one way from `panel.sessionKey`, the version and the number of servers. No addresses, names, users or settings are sent. `false` turns it off. |
 | `panel.web.files` | string | `www` | | Folder layered over the web client embedded in the binary: a file found here replaces the embedded one. Themes are read from its `theme/` subfolder (`*.tar`). The shipped configs use `/var/www/SkyPanel`. |
 | `panel.extensions.folder` | data folder | `extensions` | | Where installed extensions keep their files, one folder per extension. See [Extensions](../reference/15-extensions.md). |
 

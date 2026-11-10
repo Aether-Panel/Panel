@@ -25,6 +25,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers/docker"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/sftp"
+	"github.com/SkyPanel/SkyPanel/v3/internal/stats"
 	"github.com/SkyPanel/SkyPanel/v3/internal/update"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web"
@@ -102,6 +103,7 @@ func internalRun() (terminate chan bool, success bool) {
 		go api.RecoverNodeTransfers()
 		// federated transfers that expired unfinished leave a full copy of the server behind
 		go api.SweepExpiredExTransfers()
+		go stats.Run()
 	}
 
 	l, err := net.Listen("tcp", config.WebHost.Value())
