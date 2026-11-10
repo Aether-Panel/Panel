@@ -18,6 +18,7 @@ import (
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
+	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 )
@@ -26,6 +27,10 @@ const (
 	endpoint = "https://stats.aetherpanel.es/v1/ping"
 	every    = 24 * time.Hour
 	timeout  = 10 * time.Second
+
+	startDelay  = 10 * time.Second
+	startJitter = 20 * time.Second
+	retry       = 30 * time.Minute
 )
 
 type report struct {
@@ -34,23 +39,33 @@ type report struct {
 	Servers int64  `json:"servers"`
 }
 
-// Run reports once a day, after a random 5 to 60 minute wait so panels restarted together do
-// not all report at once. Failures are dropped: a missing count must never trouble the panel.
+// Run reports soon after start, after a random 10 to 30 second wait so panels restarted
+// together do not all report at once, and then once a day. A failed report is retried within
+// the hour and written to the log, never more: a missing count must never trouble the panel.
 func Run() {
 	if !config.StatsEnabled.Value() {
+		logging.Info.Println("Anonymous usage count is off (panel.stats.enabled=false)")
 		return
 	}
-	time.Sleep(5*time.Minute + jitter(55*time.Minute))
-	ticker := time.NewTicker(every)
-	defer ticker.Stop()
+	time.Sleep(startDelay + jitter(startJitter))
 	for {
+		wait := every
 		if config.StatsEnabled.Value() {
-			if r, err := collect(); err == nil {
-				_ = send(&http.Client{Timeout: timeout}, endpoint, r)
+			if err := sendReport(); err != nil {
+				logging.Info.Printf("Anonymous usage count not sent, retrying within the hour: %v", err)
+				wait = retry + jitter(retry)
 			}
 		}
-		<-ticker.C
+		time.Sleep(wait)
 	}
+}
+
+func sendReport() error {
+	r, err := collect()
+	if err != nil {
+		return err
+	}
+	return send(&http.Client{Timeout: timeout}, endpoint, r)
 }
 
 // jitter is a random wait below limit; without randomness it is no wait at all
