@@ -501,14 +501,16 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
     };
   }, [server?.id, serverUnavailable]);
 
+  const lastKnownStatus = useRef(server?.status);
   useEffect(() => {
-    if (server?.status === 'offline') {
+    if (lastKnownStatus.current === 'online' && server?.status === 'offline') {
       setLogs([]);
       setShowKill(false);
       setStopRequestedAt(null);
       setConsoleStatus('disconnected');
       addLog(`> ${t('servers.console.system.offline')}`);
     }
+    lastKnownStatus.current = server?.status;
   }, [server?.status]);
 
   useEffect(() => {
@@ -657,7 +659,7 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
   const handleAction = async (action: 'start' | 'stop' | 'restart' | 'kill') => {
     if (!server) return;
     setIsActionPending(true);
-    if (action === 'stop' || action === 'restart') setLogs([]);
+    if (action === 'stop' || action === 'restart' || action === 'kill') setLogs([]);
 
     try {
       const res = await api.post(`/api/servers/${server.id}/${action}`, {});

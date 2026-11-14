@@ -21,7 +21,7 @@ import (
 )
 
 func registerUptime(g *gin.RouterGroup) {
-	g.Handle("GET", "", middleware.RequiresAnyPermission(scopes.ScopeAdmin, scopes.ScopeUptimeView), getAllUptime)
+	g.Handle("GET", "", middleware.RequiresAnyPermission(scopes.ScopeAdmin, scopes.ScopeUptimeView, scopes.ScopeLogin), getAllUptime)
 	g.Handle("GET", "/:serverId", middleware.RequiresPermission(scopes.ScopeServerView), middleware.ResolveServerPanel, getServerUptime)
 	g.Handle("OPTIONS", "", response.CreateOptions("GET"))
 	g.Handle("OPTIONS", "/:serverId", response.CreateOptions("GET"))
