@@ -8,7 +8,7 @@ import { presetHead, presetVariable, runDefaults, type TemplatePreset } from './
 
 const JAVA_OPTIONS = ['8', '11', '17', '21', '25'].map((v) => ({ value: v, display: `Java ${v}` }));
 
-const JVM_FLAGS = '-Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true';
+const JVM_FLAGS = '-Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs}';
 
 export const minecraftPaper: TemplatePreset = {
   id: 'minecraft-paper',
@@ -23,6 +23,7 @@ export const minecraftPaper: TemplatePreset = {
         paperbuild: v('paperbuild', { type: 'string', value: 'latest', required: true, userEdit: true }),
         javaversion: v('javaversion', { type: 'option', value: '25', required: true, userEdit: true, options: JAVA_OPTIONS }),
         motd: v('motd', { type: 'string', value: 'A Minecraft Server', required: true, userEdit: true }),
+        jvmArgs: v('jvmArgs', { type: 'string', value: '', required: false, userEdit: true }),
         memory: v('memory', { type: 'integer', value: 2048, required: true, userEdit: false }),
         port: v('port', { type: 'integer', value: 25565, required: true, userEdit: false }),
       },

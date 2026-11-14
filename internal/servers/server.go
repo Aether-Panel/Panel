@@ -1067,7 +1067,16 @@ func (p *Server) Start() error {
 		p.startKeepAlive()
 	}
 
-	commandLine := utils.ReplaceTokens(command.Command, data)
+	rawCommand := command.Command
+	if p.isMinecraft() && !strings.Contains(rawCommand, "${jvmArgs}") {
+		if strings.Contains(rawCommand, "-jar ") {
+			rawCommand = strings.Replace(rawCommand, "-jar ", "${jvmArgs} -jar ", 1)
+		} else if strings.Contains(rawCommand, "@libraries/") {
+			rawCommand = strings.Replace(rawCommand, "@libraries/", "${jvmArgs} @libraries/", 1)
+		}
+	}
+
+	commandLine := utils.ReplaceTokens(rawCommand, data)
 	err = p.RunningEnvironment.ExecuteAsync(skypanel.ExecutionData{
 		Command:     commandLine,
 		Environment: utils.ReplaceTokensInMap(p.Execution.EnvironmentVariables, data),
@@ -1443,6 +1452,10 @@ func IsAdminOnlyVariable(key string, variable skypanel.Variable) bool {
 	return strings.HasSuffix(lower, "port") && variable.Type.Type == "integer"
 }
 
+func (p *Server) isMinecraft() bool {
+	return p.Type.Type == "minecraft" || p.Type.Type == "minecraft-java" || p.Query.Type == "minecraft"
+}
+
 func (p *Server) EditData(data map[string]interface{}, asAdmin bool) (err error) {
 	for k, v := range data {
 		var elem skypanel.Variable
@@ -1451,10 +1464,17 @@ func (p *Server) EditData(data map[string]interface{}, asAdmin bool) (err error)
 			elem = p.Variables[k]
 		}
 		if !asAdmin && (!elem.UserEditable || IsAdminOnlyVariable(k, elem)) {
-			continue
+			if p.isMinecraft() && (k == "jvmArgs" || k == "aikar") {
+				elem.UserEditable = true
+			} else {
+				continue
+			}
 		}
 
 		elem.Value = v
+		if p.isMinecraft() && (k == "jvmArgs" || k == "aikar") {
+			elem.UserEditable = true
+		}
 
 		p.Variables[k] = elem
 	}

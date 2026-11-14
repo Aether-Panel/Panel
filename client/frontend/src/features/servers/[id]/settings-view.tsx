@@ -1,5 +1,5 @@
-﻿'use client';
-import { useState, useEffect, useRef } from 'react';
+'use client';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -13,7 +13,7 @@ import { api } from '@/lib/api-client';
 import { useAuth } from '@/contexts/providers';
 import { cn } from '@/lib/utils';
 import { keyedByContent } from '@/lib/keyed';
-import { Box, Loader2, Lock, Plus, X } from '@/components/icons';
+import { Box, Loader2, Lock, Plus, Sparkles, Terminal, X } from '@/components/icons';
 import type { ReactNode } from 'react';
 import NotificationsCard from './notifications-card';
 import AddressCard from './address-card';
@@ -27,9 +27,11 @@ type SettingsViewProps = {
   onPortsSaved?: () => void;
 };
 
+const AIKAR_FLAGS = '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true';
+
 const isPort = (n: string) => n === 'port' || /^port\d+$/.test(n);
-const isSkipped = (n: string) => n === 'cpu' || n === 'memory' || n === 'disk' || n === 'io' || isPort(n);
-const isInternalMeta = (n: string) => isSkipped(n) || /^resolved|^forge|^javaVersion|^build|^git/i.test(n);
+const isSkipped = (n: string, isMinecraft = false) => n === 'cpu' || n === 'memory' || n === 'disk' || n === 'io' || isPort(n) || (isMinecraft && n === 'jvmArgs');
+const isInternalMeta = (n: string) => isSkipped(n, false) || /^resolved|^forge|^javaVersion|^build|^git/i.test(n);
 // Values that are real data (versions, addresses, builds, paths) read best in mono.
 const isMonoVar = (n: string) => /version|^ip$|address|build|template|path|repo|^entry$|^branch$/i.test(n);
 // Only plain identifiers can be looked up as translation keys.
@@ -133,7 +135,23 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
   );
 
   const handleVariableChange = (name: string, value: any) => {
-    setLocalSettings(prev => (prev ? { ...prev, variables: { ...prev.variables, [name]: { ...prev.variables[name], value } } } : prev));
+    setLocalSettings(prev => {
+      if (!prev) return prev;
+      const existing = prev.variables[name] || {
+        display: name === 'jvmArgs' ? t('servers.settings.jvmArgsLabel') : name,
+        desc: name === 'jvmArgs' ? t('servers.settings.jvmArgsDescription') : '',
+        type: 'string',
+        required: false,
+        userEdit: true,
+      };
+      return {
+        ...prev,
+        variables: {
+          ...prev.variables,
+          [name]: { ...existing, value }
+        }
+      };
+    });
   };
   const handleFlagChange = (flag: keyof ServerSettings['flags'], value: boolean) => {
     setLocalSettings(prev => (prev ? { ...prev, flags: { ...prev.flags, [flag]: value } } : prev));
@@ -325,7 +343,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
   const groups = localSettings.groups || [];
 
   const grouplessVars = Object.keys(localSettings.variables).filter(name =>
-    !groups.some(g => g.variables.includes(name)) && !isSkipped(name) && !localSettings.variables[name]?.internal
+    !groups.some(g => g.variables.includes(name)) && !isSkipped(name, isMinecraftJava) && !localSettings.variables[name]?.internal
   );
 
   const adminMetaVars = Object.entries(localSettings.variables).filter(([name, v]) =>
@@ -337,10 +355,49 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
     ? grouplessVars.filter(name => !adminMetaVars.some(([metaName]) => metaName === name))
     : grouplessVars;
 
-  const visibleGroups = groups.filter(g => g.variables.some(vn => {
-    const v = localSettings.variables[vn];
-    return v && !v.internal && !isSkipped(vn);
-  }));
+  const visibleGroups = groups
+    .map(g => ({
+      ...g,
+      variables: g.variables.filter(vn => !isSkipped(vn, isMinecraftJava))
+    }))
+    .filter(g => g.variables.some(vn => {
+      const v = localSettings.variables[vn];
+      return v && !v.internal && (v.userEdit !== false || canEditAdminData);
+    }));
+
+  const jvmArgsValue = (localSettings.variables['jvmArgs']?.value as string) ?? '';
+
+  const startupCommandPreview = useMemo(() => {
+    if (!isMinecraftJava) return '';
+    const run = localSettings?.definition?.run;
+    if (!run?.command) return '';
+    let cmd = '';
+    if (typeof run.command === 'string') {
+      cmd = run.command;
+    } else if (Array.isArray(run.command)) {
+      const match = run.command.find((c: any) => typeof c === 'object' && (!c.if || c.if.includes("env != 'host'") || c.if.includes('docker'))) || run.command[0];
+      cmd = typeof match === 'string' ? match : (match?.command || '');
+    }
+    if (!cmd) return '';
+
+    const mem = (localSettings.variables['memory']?.value as number) || 2048;
+    const jvm = jvmArgsValue.trim();
+    const javaVer = (localSettings.variables['javaversion']?.value as string) || '21';
+
+    let preview = cmd
+      .replace(/\$\{memory\}/g, String(mem))
+      .replace(/\$\{javaversion\}/g, javaVer)
+      .replace(/\$\{jvmArgs\}/g, jvm);
+
+    if (jvm && !cmd.includes('${jvmArgs}')) {
+      if (preview.includes('-jar ')) {
+        preview = preview.replace('-jar ', `${jvm} -jar `);
+      } else if (preview.includes('@libraries/')) {
+        preview = preview.replace('@libraries/', `${jvm} @libraries/`);
+      }
+    }
+    return preview;
+  }, [isMinecraftJava, localSettings?.definition, localSettings?.variables, jvmArgsValue]);
 
   const resourceFields = [
     { key: 'cpu', label: t('servers.settings.cpuLabel'), unit: '%', defaultVal: 100, hint: t('servers.settings.cpuHint') },
@@ -499,6 +556,65 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
             ))}
           </div>
         </SettingsSection>
+
+        {isMinecraftJava && (
+          <SettingsSection title={t('servers.settings.startupTitle')} description={t('servers.settings.startupDescription')}>
+            <div className="flex flex-col gap-4 rounded-lg border border-border/60 p-4">
+              {startupCommandPreview && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <Terminal className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium text-foreground">
+                      {t('servers.settings.startupCommandLabel')}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{t('servers.settings.startupCommandHint')}</p>
+                  <div className="rounded-md bg-secondary/50 p-3 font-mono text-xs text-foreground/90 break-all select-all border border-border/40">
+                    {startupCommandPreview}
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <Label htmlFor="minecraft-jvm-args" className="text-sm font-medium text-foreground">
+                    {t('servers.settings.jvmArgsLabel')}
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs font-normal"
+                      onClick={() => handleVariableChange('jvmArgs', AIKAR_FLAGS)}
+                    >
+                      <Sparkles className="h-3.5 w-3.5 mr-1 text-primary" />
+                      {t('servers.settings.aikarPreset')}
+                    </Button>
+                    {jvmArgsValue && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => handleVariableChange('jvmArgs', '')}
+                      >
+                        {t('servers.settings.clearPreset')}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">{t('servers.settings.jvmArgsDescription')}</p>
+                <Input
+                  id="minecraft-jvm-args"
+                  value={jvmArgsValue}
+                  onChange={(e) => handleVariableChange('jvmArgs', e.target.value)}
+                  placeholder={t('servers.settings.jvmArgsPlaceholder')}
+                  className="font-mono text-xs"
+                />
+              </div>
+            </div>
+          </SettingsSection>
+        )}
 
         {isMinecraftJava && (
           <SettingsSection title={t('servers.settings.pluginsTitle')} description={t('servers.settings.pluginsDescription')}>

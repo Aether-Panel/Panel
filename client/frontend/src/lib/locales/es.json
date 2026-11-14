@@ -830,6 +830,15 @@
       "pluginsTitle": "Configuración de plugins",
       "enablePluginsLabel": "Habilitar pestaña de plugins",
       "enablePluginsDescription": "Mostrar u ocultar la pestaña de gestión de plugins para este servidor.",
+      "startupTitle": "Arranque y Argumentos de JVM",
+      "startupDescription": "Comando de inicialización del servidor y argumentos adicionales de Java para optimizar el rendimiento.",
+      "startupCommandLabel": "Línea de comando de arranque",
+      "startupCommandHint": "Comando efectivo con el que se inicia el proceso de Minecraft.",
+      "jvmArgsLabel": "Argumentos de JVM (Flags de inicio)",
+      "jvmArgsDescription": "Argumentos adicionales de Java (optimizaciones de memoria y recolector de basura) que se pasan antes de iniciar el archivo .jar.",
+      "jvmArgsPlaceholder": "-XX:+UseG1GC -XX:+ParallelRefProcEnabled ...",
+      "aikarPreset": "Usar Flags de Aikar (Recomendado)",
+      "clearPreset": "Limpiar argumentos",
       "serverTypeLabel": "Tipo de servidor",
       "resourcesTitle": "Límites de recursos",
       "resourcesDescription": "Estos límites se aplican estrictamente a nivel del contenedor Docker y solo los administradores pueden modificarlos.",
@@ -4635,6 +4644,10 @@
           "motd": {
             "display": "Mensaje del servidor (MOTD)",
             "desc": "El texto que se ve bajo el nombre del servidor en la lista de servidores."
+          },
+          "jvmArgs": {
+            "display": "Argumentos de JVM",
+            "desc": "Argumentos y flags de inicio de Java (p. ej. Flags de Aikar para optimización)."
           },
           "memory": {
             "display": "Memoria (MB)",

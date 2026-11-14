@@ -830,6 +830,15 @@
       "pluginsTitle": "Plugin Settings",
       "enablePluginsLabel": "Enable Plugins Tab",
       "enablePluginsDescription": "Show or hide the plugin management tab for this server.",
+      "startupTitle": "Startup & JVM Arguments",
+      "startupDescription": "Server initialization command line and additional Java arguments to optimize performance.",
+      "startupCommandLabel": "Startup Command Line",
+      "startupCommandHint": "Effective command used to launch the Minecraft process.",
+      "jvmArgsLabel": "JVM Arguments (Startup Flags)",
+      "jvmArgsDescription": "Additional Java arguments (memory and garbage collection optimizations) passed before launching the .jar file.",
+      "jvmArgsPlaceholder": "-XX:+UseG1GC -XX:+ParallelRefProcEnabled ...",
+      "aikarPreset": "Use Aikar's Flags (Recommended)",
+      "clearPreset": "Clear arguments",
       "serverTypeLabel": "Server Type",
       "resourcesTitle": "Resource Limits",
       "resourcesDescription": "These limits are enforced strictly at the Docker container level and can only be modified by administrators.",
@@ -4635,6 +4644,10 @@
           "motd": {
             "display": "Server message (MOTD)",
             "desc": "The text shown under the server's name in the server list."
+          },
+          "jvmArgs": {
+            "display": "JVM Arguments",
+            "desc": "Additional Java startup flags (e.g. Aikar's Flags for optimization)."
           },
           "memory": {
             "display": "Memory (MB)",
