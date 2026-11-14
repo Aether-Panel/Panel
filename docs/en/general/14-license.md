@@ -1,356 +1,150 @@
 # License System
 
-Aether Panel integrates with SkyHosting Cloud's license API for plan validation and feature entitlements.
+Aether Panel can verify a license key against an external license API and store the resulting plan in its configuration.
+
+> **Current state:** activation works (verify, bind, store), but **nothing in the panel reads the stored license yet**. No feature is enabled or blocked by the plan, there is no license screen in the frontend, and there is no periodic re-check, cache or expiry handling. The rest of this page describes exactly what the code does today.
 
 ---
 
-## Overview
+## External API
 
-The license system validates license keys against an external API and controls feature access based on plan tier.
+`internal/services/license.go` uses a fixed base URL (constant `LicenseAPIBaseURL`, not configurable):
 
-**External API:** `https://prueba.skyhostingcloud.com/api/public/licenses`
-
----
-
-## Configuration
-
-```json
-{
-  "panel": {
-    "license": {
-      "key": "YOUR_LICENSE_KEY",
-      "status": "free",
-      "serverId": "server_identifier",
-      "serverIp": "192.168.1.100"
-    }
-  }
-}
+```
+https://prueba.skyhostingcloud.com/api/public/licenses
 ```
 
-**Environment Variables:**
-| Variable | Config Key | Description |
-|----------|------------|-------------|
-| `SKYPANEL_PANEL_LICENSE_KEY` | `panel.license.key` | License key from SkyHosting |
-| `SKYPANEL_PANEL_LICENSE_STATUS` | `panel.license.status` | `free`/`pro`/`enterprise` |
-| `SKYPANEL_PANEL_LICENSE_SERVERID` | `panel.license.serverId` | Server identifier for binding |
-| `SKYPANEL_PANEL_LICENSE_SERVERIP` | `panel.license.serverIp` | Server public IP for binding |
+Requests use a plain `http.Client` with a 30-second timeout and `Content-Type`/`Accept: application/json`.
 
----
+| Call | Request | Accepted status |
+|------|---------|-----------------|
+| Verify | `GET {base}/verify?licenseKey=<key>` | `200` |
+| Bind | `POST {base}/verify` with `{"licenseKey","serverId","serverIp"}` | `200` or `201` |
 
-## License Plans
+Any other status is returned as an error containing the status code and the response body. On bind, a `200`/`201` whose body is not JSON is treated as success. The key is URL-encoded in the query string, so a key containing `&`, `#` or spaces is sent whole.
 
-| Plan | Plan Key | HasPlugins | Max Servers | Features |
-|------|----------|------------|-------------|----------|
-| **Free** | `personal` | ❌ | 1 | Basic panel |
-| **Pro** | `professional` | ✅ | 10 | Plugins, priority support |
-| **Enterprise** | `enterprise` | ✅ | Unlimited | All features, custom branding |
+### Verify response
 
----
+Fields the panel decodes (`LicenseVerifyResponse`):
 
-## LicenseService (`internal/services/license.go`)
-
-```go
-type LicenseService struct {
-    httpClient *http.Client
-}
-
-func (s *LicenseService) VerifyLicense(licenseKey string) (*LicenseVerifyResponse, error)
-func (s *LicenseService) BindLicense(licenseKey, serverID, serverIP string) (*LicenseBindResponse, error)
-func (s *LicenseService) ExtractPermissions(verifyResp *LicenseVerifyResponse) *LicensePermissions
-func (s *LicenseService) GetLicenseType(verifyResp *LicenseVerifyResponse) string
-```
-
-**Note:** No `DB` field in struct - stateless service using external API.
-
----
-
-## VerifyLicense()
-
-```go
-func (s *LicenseService) VerifyLicense(licenseKey string) (*LicenseVerifyResponse, error)
-```
-
-**Request:** `GET /api/public/licenses/verify?licenseKey={key}`
-
-**Response:**
 ```json
 {
   "valid": true,
-  "status": "valid",
+  "status": "active",
   "isInGracePeriod": false,
   "license": {
-    "key": "LICENSE_KEY",
+    "key": "ABCD-EFGH-IJKL-MNOP",
     "plan": "professional",
     "maxServers": 10,
     "usedServers": 2,
-    "expiryDate": "2025-12-31T23:59:59Z",
-    "daysRemaining": 365,
+    "expiryDate": "2027-01-01T00:00:00Z",
+    "daysRemaining": 61,
     "billingCycle": "monthly",
-    "boundServerId": "abc123",
-    "boundServerIp": "192.168.1.100"
+    "boundServerId": "panel-host",
+    "boundServerIp": "203.0.113.10"
   },
-  "user": {...},
-  "payment": {...},
-  "validation": {...}
+  "user": { "email": "…", "name": "…" },
+  "payment": { "hasCompletedPayment": true, "lastPaymentDate": "…" },
+  "validation": { "timestamp": "…", "ip": "…" }
 }
 ```
 
-**Structs:**
-```go
-type LicenseVerifyResponse struct {
-    Valid           bool   `json:"valid"`
-    Status          string `json:"status"`
-    IsInGracePeriod bool   `json:"isInGracePeriod"`
-    License         struct {
-        Key            string `json:"key"`
-        Plan           string `json:"plan"`
-        MaxServers     int    `json:"maxServers"`
-        UsedServers    int    `json:"usedServers"`
-        ExpiryDate     string `json:"expiryDate"`
-        DaysRemaining  int    `json:"daysRemaining"`
-        BillingCycle   string `json:"billingCycle"`
-        BoundServerID  string `json:"boundServerId"`
-        BoundServerIP  string `json:"boundServerIp"`
-    } `json:"license"`
-    User struct {
-        Email string `json:"email"`
-        Name  string `json:"name"`
-    } `json:"user"`
-    Payment struct {
-        HasCompletedPayment bool   `json:"hasCompletedPayment"`
-        LastPaymentDate     string `json:"lastPaymentDate"`
-    } `json:"payment"`
-    Validation struct {
-        Timestamp string `json:"timestamp"`
-        IP        string `json:"ip"`
-    } `json:"validation"`
-}
-```
-
-**Error Handling:**
-- Invalid key → `valid: false`, `status: "invalid"`
-- Expired → `valid: false`, `status: "expired"`, check `license.expiryDate`
-- Network error → returns error, falls back to cached status
+Only `valid`, `license.plan` and the `license` fields echoed in the activation response are used.
 
 ---
 
-## BindLicense()
+## Configuration keys
 
-```go
-func (s *LicenseService) BindLicense(licenseKey, serverID, serverIP string) (*LicenseBindResponse, error)
-```
+Defined in `internal/config/entries.go`. All four are editable from the settings API (`settings.edit`), see [Configuration](../backend/02-configuration.md).
 
-**Request:** `POST /api/public/licenses/verify` with body:
+| Key | Environment variable | Default | Description |
+|-----|----------------------|---------|-------------|
+| `panel.license.key` | `SKYPANEL_PANEL_LICENSE_KEY` | `""` | Last activated key |
+| `panel.license.status` | `SKYPANEL_PANEL_LICENSE_STATUS` | `free` | Type derived from the plan: `free`, `pro` or `enterprise` |
+| `panel.license.serverId` | `SKYPANEL_PANEL_LICENSE_SERVERID` | `""` | Identifier sent when binding. Generated on first activation |
+| `panel.license.serverIp` | `SKYPANEL_PANEL_LICENSE_SERVERIP` | `""` | IP sent when binding. Generated on first activation |
+
+---
+
+## Activation: `POST /api/settings/license/activate`
+
+Permission: `settings.edit`.
+
+Request:
+
 ```json
-{
-  "licenseKey": "LICENSE_KEY",
-  "serverId": "abc123",
-  "serverIp": "192.168.1.100"
-}
+{ "key": "ABCD-EFGH-IJKL-MNOP" }
 ```
 
-**Binds** the license to a specific server instance (prevents key sharing).
+Steps (`activateLicense` in `internal/web/api/settings.go`):
 
-**Response:**
+1. `key` is required. With dashes removed and upper-cased it must be exactly **16 characters**, otherwise `400 invalid license key format`.
+2. **Verify** the key. A request error or `valid: false` returns `400` with `{"success": false, "message": "…"}`.
+3. Fill in the binding data if it is not stored yet, and save it:
+   - `serverId`: the host name (`unknown` if it cannot be read).
+   - `serverIp`: the first non-loopback IPv4 the host name resolves to, otherwise the first non-loopback IPv4 of the network interfaces, otherwise `127.0.0.1`.
+4. **Bind** the key to that `serverId`/`serverIp`. A bind failure is only logged; the activation continues.
+5. Save `panel.license.key` and `panel.license.status`.
+
+Response `200`:
+
 ```json
 {
   "success": true,
-  "message": "License bound to server abc123"
+  "type": "pro",
+  "license": {
+    "key": "ABCD-EFGH-IJKL-MNOP",
+    "plan": "professional",
+    "maxServers": 10,
+    "usedServers": 2,
+    "expiryDate": "2027-01-01T00:00:00Z",
+    "daysRemaining": 61,
+    "billingCycle": "monthly"
+  },
+  "permissions": { "hasPlugins": true },
+  "bound": true,
+  "message": "License activated successfully"
 }
 ```
 
-**Use Cases:**
-- First panel startup (auto-bind)
-- Server migration (re-bind to new IP)
-- License transfer between servers
-
----
-
-## ExtractPermissions()
-
-```go
-func (s *LicenseService) ExtractPermissions(verifyResp *LicenseVerifyResponse) *LicensePermissions
-```
-
-```go
-type LicensePermissions struct {
-    HasPlugins bool `json:"has_plugins"`
-}
-```
-
-**Logic:**
-```go
-func (s *LicenseService) ExtractPermissions(verifyResp *LicenseVerifyResponse) *LicensePermissions {
-    hasPlugins := verifyResp.License.Plan == "professional" || verifyResp.License.Plan == "enterprise"
-
-    return &LicensePermissions{
-        HasPlugins: hasPlugins,
-    }
-}
-```
-
-**Used by:** Frontend to show/hide Plugins tab, Provision API, plugin installation endpoints.
-
----
-
-## GetLicenseType()
-
-```go
-func (s *LicenseService) GetLicenseType(verifyResp *LicenseVerifyResponse) string
-```
-
-**Mapping:**
-| API Plan | Returns |
-|----------|---------|
-| `personal` | `free` |
-| `professional` | `pro` |
-| `enterprise` | `enterprise` |
-| (unknown) | `pro` |
-
-**Note:** Default returns `"pro"` (not `"free"`)
-
-**Used for:** Display in Settings → License panel.
-
----
-
-## Frontend Integration
-
-### Settings → License Panel
-
-Shows:
-- Current license status (Free/Pro/Enterprise)
-- License key (masked)
-- Expiry date
-- Max servers limit
-- Feature toggles (Plugins, etc.)
-
-**Actions:**
-- **Activate License**: `POST /api/settings/license/activate`
-- **Refresh**: Re-verify with API
-
-### Plugins Tab Visibility
-
-```tsx
-// In server view
-const { HasPlugins } = useLicensePermissions();
-
-if (!HasPlugins) {
-    return <div>Upgrade to Pro to access plugins</div>;
-}
-```
-
-### Provision API Check
-
-```go
-// In provision handler
-if !licenseService.ExtractPermissions(verification).HasPlugins {
-    return errors.New("plugins not available in current plan")
-}
-```
-
----
-
-## API Endpoints
-
-| Method | Path | Scope | Description |
-|--------|------|-------|-------------|
-| POST | `/api/settings/license/activate` | `settings.edit` | Activate/verify license |
-| GET | `/api/settings/license/status` | `settings.edit` | Get current license status |
-
-### Activate License
-
-**Request:**
-```json
-{
-  "licenseKey": "YOUR_KEY"
-}
-```
-
-**Response:**
-```json
-{
-  "status": "valid",
-  "plan": "pro",
-  "expiryDate": "2025-12-31T23:59:59Z",
-  "maxServers": 10,
-  "features": {
-    "hasPlugins": true
-  }
-}
-```
-
----
-
-## Caching & Fallback
-
-**Cache Strategy:**
-- Verification cached for 1 hour (configurable)
-- On API failure: returns cached verification if < 24h old
-- After 24h without successful verification: falls back to `free` tier
-
-**Config:**
-```json
-{
-  "panel": {
-    "license": {
-      "cacheTTL": 3600
-    }
-  }
-}
-```
-
----
-
-## Error Scenarios
-
-| Scenario | Behavior |
-|----------|----------|
-| Invalid key | `valid: false`, `status: "invalid"`, shows error in UI |
-| Expired license | `valid: false`, `status: "expired"`, shows expiry date, falls back to free |
-| API unreachable | Uses cache if < 24h, else `free` |
-| Max servers exceeded | Blocks server creation, shows limit error |
-| Key bound to different server | Bind fails, shows conflict error |
-
----
-
-## Security
-
-- License key never logged (masked in logs)
-- HTTPS only for API communication
-- Server IP verified on bind (prevents key sharing)
-- Keys stored in config (not DB)
-
----
-
-## API Examples
+`bound` is `false` when the bind call failed or answered `success: false`.
 
 ```bash
-# Activate license
-curl -X POST http://panel/api/settings/license/activate \
+curl -X POST https://panel.example.com/api/settings/license/activate \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"licenseKey": "YOUR_KEY"}'
-
-# Check status
-curl -H "Authorization: Bearer $TOKEN" \
-  http://panel/api/settings/license/status
+  -d '{"key": "ABCD-EFGH-IJKL-MNOP"}'
 ```
 
-```python
-import requests
+There is no endpoint to read the license status back other than the generic settings API (`GET /api/settings/panel.license.status`).
 
-# Activate
-r = requests.post(
-    "http://panel/api/settings/license/activate",
-    headers={"Authorization": f"Bearer {token}"},
-    json={"license_key": "YOUR_KEY"}
-)
-print(r.json())
+---
 
-# Check
-r = requests.get(
-    "http://panel/api/settings/license/status",
-    headers={"Authorization": f"Bearer {token}"}
-)
-print(r.json())
-```
+## Plan mapping
+
+`GetLicenseType` turns the verification into the stored type:
+
+| Verification | Stored `panel.license.status` |
+|--------------|-------------------------------|
+| `valid: false` | `free` (not stored: activation stops before) |
+| plan `personal` | `free` |
+| plan `professional` | `pro` |
+| plan `enterprise` | `enterprise` |
+| any other plan | `pro` |
+
+`ExtractPermissions` returns `hasPlugins: true` for `professional` and `enterprise`. This value only appears in the activation response; no endpoint or page checks it.
+
+---
+
+## Security notes
+
+- The key is stored in plain text in the panel configuration. `GET /api/settings` returns it masked (`********`), like the other secrets (see [Panel settings](../features/panel-settings.md#how-it-works)).
+- Error messages from the license server (status and body) are logged and returned in the activation response.
+- The license API is called over HTTPS; the client is not the restricted (SSRF-safe) client because the URL is a constant.
+
+---
+
+## Known limitations
+
+- The license server is a test host hard-coded in the code (`prueba.skyhostingcloud.com`, see [External API](#external-api)); it cannot be changed without rebuilding.
+- The stored license does not enable or block anything yet (see the note at the top).

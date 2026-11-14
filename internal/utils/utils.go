@@ -165,7 +165,8 @@ func GenerateRandomString(n int) (string, error) {
 	return base64.URLEncoding.EncodeToString(b), nil
 }
 
-func Union[T comparable](a, b []T) []T {
+// Intersection returns the items of a that are also in b, in the order of a
+func Intersection[T comparable](a, b []T) []T {
 	result := make([]T, 0)
 
 	if a == nil || b == nil || len(a) == 0 || len(b) == 0 {

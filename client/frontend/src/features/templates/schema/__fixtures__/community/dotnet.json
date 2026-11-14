@@ -1,0 +1,225 @@
+{
+  "type": "dotnet",
+  "display": ".NET App",
+  "icon": "dotnet",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 1024,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 5000,
+      "display": "Port",
+      "desc": "Port your app listens on (TCP). It is passed to ASP.NET Core in ASPNETCORE_URLS and to the app as the PORT environment variable",
+      "required": true,
+      "userEdit": false
+    },
+    "dotnetversion": {
+      "type": "option",
+      "value": "10.0",
+      "display": ".NET Version",
+      "desc": "Version of the .NET SDK (mcr.microsoft.com/dotnet/sdk) that builds and runs the app",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "8.0",
+          "display": ".NET 8 (LTS)"
+        },
+        {
+          "value": "9.0",
+          "display": ".NET 9"
+        },
+        {
+          "value": "10.0",
+          "display": ".NET 10 (LTS)"
+        }
+      ]
+    },
+    "gitrepo": {
+      "type": "string",
+      "value": "",
+      "display": "Git Repository",
+      "desc": "HTTPS URL of a git repository to download on install, for example https://github.com/user/my-bot.git. Reinstalling pulls the latest commit. Leave empty to upload the files yourself",
+      "required": false,
+      "userEdit": true
+    },
+    "gitbranch": {
+      "type": "string",
+      "value": "",
+      "display": "Git Branch",
+      "desc": "Branch to check out. Empty means the default branch of the repository",
+      "required": false,
+      "userEdit": true
+    },
+    "gittoken": {
+      "type": "string",
+      "value": "",
+      "display": "Git Access Token",
+      "desc": "Personal access token for a private repository (GitHub, GitLab). Leave empty for public repositories",
+      "required": false,
+      "userEdit": true
+    },
+    "project": {
+      "type": "string",
+      "value": "",
+      "display": "Project",
+      "desc": "Project (.csproj) or folder to publish, relative to the server folder, for example src/MyApp/MyApp.csproj. Empty: the project or solution in the server folder",
+      "required": false,
+      "userEdit": true
+    },
+    "buildonstart": {
+      "type": "boolean",
+      "value": true,
+      "display": "Build on Start",
+      "desc": "Publish the project before every start, so code changes are picked up. Off: the build of the install (or of the last start) is run",
+      "required": false,
+      "userEdit": true
+    },
+    "startdll": {
+      "type": "string",
+      "value": "",
+      "display": "Start DLL",
+      "desc": "Run this .dll (an app you published yourself and uploaded) instead of building, relative to the server folder, for example publish/MyApp.dll",
+      "required": false,
+      "userEdit": true
+    },
+    "dotnetenv": {
+      "type": "option",
+      "value": "Production",
+      "display": "Environment",
+      "desc": "Value of DOTNET_ENVIRONMENT and ASPNETCORE_ENVIRONMENT: picks appsettings.<Environment>.json",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "Production",
+          "display": "Production"
+        },
+        {
+          "value": "Development",
+          "display": "Development"
+        }
+      ]
+    }
+  },
+  "install": [
+    {
+      "if": "gitrepo != ''",
+      "type": "command",
+      "commands": [
+        "bash -c \"for f in AetherPlaceholder.csproj Program.cs; do if grep -qs 'Placeholder written by Aether Panel' \\\"$f\\\"; then echo \\\"Removing the placeholder $f\\\"; rm -f \\\"$f\\\"; fi; done\""
+      ]
+    },
+    {
+      "if": "gitrepo != ''",
+      "type": "command",
+      "commands": [
+        "bash -c \"set -e; if [ -z \\\"$GIT_REPO\\\" ]; then exit 0; fi; if ! command -v git >/dev/null 2>&1; then if [ \\\"$(id -u)\\\" = 0 ] && command -v apt-get >/dev/null 2>&1; then echo \\\"Installing git in the install container\\\"; apt-get update -qq >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends git ca-certificates >/dev/null; else echo \\\"git is not installed, it is needed to download the repository\\\"; exit 1; fi; fi; g() { git -c safe.directory='*' -c init.defaultBranch=main -c advice.detachedHead=false \\\"$@\\\"; }; auth=(); if [ -n \\\"$GIT_TOKEN\\\" ]; then auth=(-c \\\"http.extraHeader=Authorization: Basic $(printf 'oauth2:%s' \\\"$GIT_TOKEN\\\" | base64 | tr -d '\\\\n')\\\"); fi; [ -d .git ] || g init -q; echo \\\"Fetching $GIT_REPO ${GIT_BRANCH:-(default branch)}\\\"; g \\\"${auth[@]}\\\" fetch -q --depth 1 \\\"$GIT_REPO\\\" \\\"${GIT_BRANCH:-HEAD}\\\"; g reset -q --hard FETCH_HEAD; echo \\\"Checked out $(g log -1 --format='%h %s')\\\"\""
+      ]
+    },
+    {
+      "if": "gitrepo == '' && startdll == ''",
+      "type": "mkdir",
+      "target": ".aether/placeholder"
+    },
+    {
+      "if": "gitrepo == '' && startdll == ''",
+      "type": "writefile",
+      "target": ".aether/placeholder/AetherPlaceholder.csproj",
+      "text": "<!-- Placeholder written by Aether Panel. Replace it with your project, or set a git repository in the server settings and reinstall. -->\n<Project Sdk=\"Microsoft.NET.Sdk.Web\">\n  <PropertyGroup>\n    <!-- the newest framework of the SDK that builds it, so it follows the .NET Version setting -->\n    <TargetFramework>net$(NETCoreAppMaximumVersion)</TargetFramework>\n    <ImplicitUsings>enable</ImplicitUsings>\n    <Nullable>enable</Nullable>\n  </PropertyGroup>\n</Project>\n"
+    },
+    {
+      "if": "gitrepo == '' && startdll == ''",
+      "type": "writefile",
+      "target": ".aether/placeholder/Program.cs",
+      "text": "// Placeholder written by Aether Panel. Replace it with your app, or set a git repository in the\n// server settings and reinstall.\nvar app = WebApplication.Create(args);\napp.MapGet(\"/\", () => $\"Aether Panel: .NET {Environment.Version} is running. Upload your app, or set a git repository and reinstall.\\n\");\napp.Run();\n"
+    },
+    {
+      "if": "gitrepo == '' && startdll == ''",
+      "type": "command",
+      "commands": [
+        "bash -c \"has=0; for f in *.csproj *.fsproj *.vbproj *.sln *.slnx; do if [ -e \\\"$f\\\" ]; then has=1; fi; done; if [ \\\"$has\\\" = 0 ] && [ -z \\\"${project}\\\" ]; then echo \\\"No .NET project yet: writing a placeholder AetherPlaceholder.csproj and Program.cs\\\"; cp .aether/placeholder/AetherPlaceholder.csproj .; if [ ! -e Program.cs ]; then cp .aether/placeholder/Program.cs .; fi; fi\""
+      ]
+    },
+    {
+      "if": "startdll == ''",
+      "type": "command",
+      "commands": [
+        "bash -c \"set -e; export DOTNET_CLI_HOME=\\\"$PWD/.aether/dotnet\\\" NUGET_PACKAGES=\\\"$PWD/.aether/nuget/packages\\\" NUGET_HTTP_CACHE_PATH=\\\"$PWD/.aether/nuget/http-cache\\\"; own=0; for f in *.csproj *.fsproj *.vbproj *.sln *.slnx; do if [ -e \\\"$f\\\" ] && [ \\\"$f\\\" != AetherPlaceholder.csproj ]; then own=1; fi; done; if [ -n \\\"${project}\\\" ]; then own=1; fi; if [ \\\"$own\\\" = 1 ] && grep -qs 'Placeholder written by Aether Panel' AetherPlaceholder.csproj; then echo \\\"Removing the placeholder AetherPlaceholder.csproj: the server folder has its own project\\\"; rm -f AetherPlaceholder.csproj; if grep -qs 'Placeholder written by Aether Panel' Program.cs; then echo \\\"Removing the placeholder Program.cs\\\"; rm -f Program.cs; fi; fi; p=\\\"${project}\\\"; a=(); if [ -n \\\"$p\\\" ]; then a=(\\\"$p\\\"); fi; has=0; for f in *.csproj *.fsproj *.vbproj *.sln *.slnx; do if [ -e \\\"$f\\\" ]; then has=1; fi; done; if [ -z \\\"$p\\\" ] && [ \\\"$has\\\" = 0 ]; then echo \\\"Aether Panel: there is no .NET project in the server folder. Upload your project, or set a git repository and reinstall.\\\"; exit 0; fi; echo \\\"Publishing ${p:-the server folder}\\\"; rm -rf .aether/publish; dotnet publish \\\"${a[@]}\\\" -c Release -o .aether/publish --disable-build-servers\""
+      ]
+    }
+  ],
+  "run": {
+    "command": "bash -c \"set -e; unset GIT_TOKEN ASPNETCORE_HTTP_PORTS ASPNETCORE_HTTPS_PORTS; export DOTNET_CLI_HOME=\\\"$PWD/.aether/dotnet\\\" NUGET_PACKAGES=\\\"$PWD/.aether/nuget/packages\\\" NUGET_HTTP_CACHE_PATH=\\\"$PWD/.aether/nuget/http-cache\\\"; if [ -n \\\"${startdll}\\\" ]; then if [ ! -f \\\"${startdll}\\\" ]; then echo \\\"Aether Panel: ${startdll} not found. Upload it, or empty Start DLL to build the project.\\\"; exit 0; fi; echo \\\"Starting ${startdll}\\\"; exec dotnet \\\"${startdll}\\\"; fi; own=0; for f in *.csproj *.fsproj *.vbproj *.sln *.slnx; do if [ -e \\\"$f\\\" ] && [ \\\"$f\\\" != AetherPlaceholder.csproj ]; then own=1; fi; done; if [ -n \\\"${project}\\\" ]; then own=1; fi; if [ \\\"$own\\\" = 1 ] && grep -qs 'Placeholder written by Aether Panel' AetherPlaceholder.csproj; then echo \\\"Removing the placeholder AetherPlaceholder.csproj: the server folder has its own project\\\"; rm -f AetherPlaceholder.csproj; if grep -qs 'Placeholder written by Aether Panel' Program.cs; then echo \\\"Removing the placeholder Program.cs\\\"; rm -f Program.cs; fi; fi; p=\\\"${project}\\\"; a=(); if [ -n \\\"$p\\\" ]; then a=(\\\"$p\\\"); fi; has=0; for f in *.csproj *.fsproj *.vbproj *.sln *.slnx; do if [ -e \\\"$f\\\" ]; then has=1; fi; done; if [ -z \\\"$p\\\" ] && [ \\\"$has\\\" = 0 ]; then echo \\\"Aether Panel: there is no .NET project in the server folder. Upload your project, or set a git repository and reinstall.\\\"; exit 0; fi; if [ \\\"${buildonstart}\\\" = true ] || [ ! -d .aether/publish ]; then echo \\\"Publishing ${p:-the server folder}\\\"; rm -rf .aether/publish; dotnet publish \\\"${a[@]}\\\" -c Release -o .aether/publish --disable-build-servers; fi; dll=\\\"\\\"; c=(); for f in .aether/publish/*.runtimeconfig.json; do if [ -f \\\"$f\\\" ] && ! grep -qs -e Microsoft.TestPlatform -e Microsoft.Testing.Platform \\\"${f%.runtimeconfig.json}.deps.json\\\"; then c+=(\\\"${f%.runtimeconfig.json}.dll\\\"); fi; done; if [ ${#c[@]} = 1 ]; then dll=\\\"${c[0]}\\\"; else n=\\\"$(dotnet msbuild \\\"${a[@]}\\\" -getProperty:AssemblyName 2>/dev/null | tail -n 1 | tr -d '\\\\r')\\\" || true; if [ -n \\\"$n\\\" ] && [ -f \\\".aether/publish/$n.dll\\\" ]; then dll=\\\".aether/publish/$n.dll\\\"; fi; fi; if [ ! -f \\\"$dll\\\" ]; then echo \\\"Aether Panel: cannot tell which .dll in .aether/publish is the app. Set Project to the .csproj of the app, or Start DLL to .aether/publish/<YourApp>.dll.\\\"; exit 1; fi; echo \\\"Starting $dll\\\"; exec dotnet \\\"$dll\\\"\"",
+    "stopCode": 15,
+    "environmentVars": {
+      "PORT": "${port}",
+      "ASPNETCORE_URLS": "http://0.0.0.0:${port}",
+      "DOTNET_ENVIRONMENT": "${dotnetenv}",
+      "ASPNETCORE_ENVIRONMENT": "${dotnetenv}",
+      "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+      "DOTNET_NOLOGO": "1",
+      "GIT_REPO": "${gitrepo}",
+      "GIT_BRANCH": "${gitbranch}",
+      "GIT_TOKEN": "${gittoken}"
+    },
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "docker",
+    "image": "mcr.microsoft.com/dotnet/sdk:${dotnetversion}",
+    "portBindings": [
+      "0.0.0.0:${port}:${port}/tcp"
+    ],
+    "hostConfig": {
+      "Init": true
+    }
+  },
+  "supportedEnvironments": [
+    {
+      "type": "docker",
+      "image": "mcr.microsoft.com/dotnet/sdk:${dotnetversion}",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp"
+      ],
+      "hostConfig": {
+        "Init": true
+      }
+    }
+  ]
+}

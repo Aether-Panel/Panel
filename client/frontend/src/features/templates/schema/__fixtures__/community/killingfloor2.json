@@ -1,0 +1,268 @@
+{
+  "type": "killingfloor2",
+  "display": "Killing Floor 2",
+  "icon": "killingfloor2",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 200,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 40960,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (40960 MB = 40 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 4096,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 7777,
+      "display": "Port",
+      "desc": "Game port (UDP) players connect to",
+      "required": true,
+      "userEdit": false
+    },
+    "queryport": {
+      "type": "integer",
+      "value": 27015,
+      "display": "Query Port",
+      "desc": "Steam query port (UDP), used by the server browser",
+      "required": true,
+      "userEdit": false
+    },
+    "webadminport": {
+      "type": "integer",
+      "value": 8085,
+      "display": "WebAdmin Port",
+      "desc": "Port of the WebAdmin web panel (TCP), only used when WebAdmin is on",
+      "required": true,
+      "userEdit": false
+    },
+    "servername": {
+      "type": "string",
+      "value": "Killing Floor 2 Server",
+      "display": "Server Name",
+      "desc": "Name shown in the server browser",
+      "required": true,
+      "userEdit": true
+    },
+    "serverpassword": {
+      "type": "string",
+      "value": "",
+      "display": "Server Password",
+      "desc": "Password players need to join. Empty means anyone can join",
+      "required": false,
+      "userEdit": true
+    },
+    "adminpassword": {
+      "type": "string",
+      "value": "changeme",
+      "display": "Admin Password",
+      "desc": "Password for in-game admin login and for WebAdmin (user admin). Change it",
+      "required": true,
+      "userEdit": true
+    },
+    "webadmin": {
+      "type": "boolean",
+      "value": false,
+      "display": "WebAdmin",
+      "desc": "Turn on the WebAdmin web panel",
+      "required": false,
+      "userEdit": true
+    },
+    "gamemode": {
+      "type": "option",
+      "value": "KFGameContent.KFGameInfo_Survival",
+      "display": "Game Mode",
+      "desc": "Game mode to run",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "KFGameContent.KFGameInfo_Survival",
+          "display": "Survival"
+        },
+        {
+          "value": "KFGameContent.KFGameInfo_WeeklySurvival",
+          "display": "Weekly Outbreak"
+        },
+        {
+          "value": "KFGameContent.KFGameInfo_Endless",
+          "display": "Endless"
+        },
+        {
+          "value": "KFGameContent.KFGameInfo_Objective",
+          "display": "Objective"
+        },
+        {
+          "value": "KFGameContent.KFGameInfo_VersusSurvival",
+          "display": "Versus Survival"
+        }
+      ]
+    },
+    "difficulty": {
+      "type": "option",
+      "value": 0,
+      "display": "Difficulty",
+      "desc": "Zed difficulty",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": 0,
+          "display": "Normal"
+        },
+        {
+          "value": 1,
+          "display": "Hard"
+        },
+        {
+          "value": 2,
+          "display": "Suicidal"
+        },
+        {
+          "value": 3,
+          "display": "Hell on Earth"
+        }
+      ]
+    },
+    "maxplayers": {
+      "type": "integer",
+      "value": 6,
+      "display": "Max Players",
+      "desc": "Player slots. Survival allows up to 6, Versus up to 12",
+      "required": true,
+      "userEdit": true
+    },
+    "map": {
+      "type": "string",
+      "value": "KF-BioticsLab",
+      "display": "Map",
+      "desc": "Map loaded at startup, for example KF-BioticsLab or KF-Outpost",
+      "required": true,
+      "userEdit": true
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "steamgamedl",
+      "appId": "232130"
+    },
+    {
+      "if": "env == 'docker'",
+      "type": "command",
+      "commands": [
+        "bash -c \"for try in 1 2 3 4 5; do steamcmd +@sSteamCmdForcePlatformType linux +force_install_dir /SkyPanel +login anonymous +app_update 232130 validate +quit && exit 0; echo 'steamcmd could not finish the download, trying again in 15s ($try/5)'; sleep 15; done; exit 1\""
+      ]
+    },
+    {
+      "type": "command",
+      "commands": [
+        "chmod +x ./Binaries/Win64/KFGameSteamServer.bin.x86_64",
+        "bash -c \"mkdir -p .steam/sdk32 .steam/sdk64; for d in .steam .steam/steamcmd .local/share/Steam/steamcmd steamcmd; do if [ -f $d/linux32/steamclient.so ]; then cp -f $d/linux32/steamclient.so .steam/sdk32/; fi; if [ -f $d/linux64/steamclient.so ]; then cp -f $d/linux64/steamclient.so .steam/sdk64/; fi; done; true\""
+      ]
+    },
+    {
+      "if": "!file_exists('KFGame/Config/LinuxServer-KFGame.ini')",
+      "type": "command",
+      "commands": [
+        "bash -c \"echo Starting the server once for up to 90 seconds to generate its config files...; timeout -s INT 90 ./Binaries/Win64/KFGameSteamServer.bin.x86_64 'KF-BioticsLab?Port=${port}' -QueryPort=${queryport}; true\""
+      ]
+    }
+  ],
+  "run": {
+    "command": "./Binaries/Win64/KFGameSteamServer.bin.x86_64 ${map}?Game=${gamemode}?Difficulty=${difficulty}?MaxPlayers=${maxplayers}?Port=${port} -QueryPort=${queryport}",
+    "stopCode": 2,
+    "pre": [
+      {
+        "if": "file_exists('KFGame/Config/LinuxServer-KFGame.ini')",
+        "type": "alterfile",
+        "file": "KFGame/Config/LinuxServer-KFGame.ini",
+        "search": "^ServerName=[^\\r\\n]*",
+        "replace": "ServerName=${servername}",
+        "regex": true
+      },
+      {
+        "if": "file_exists('KFGame/Config/LinuxServer-KFGame.ini')",
+        "type": "alterfile",
+        "file": "KFGame/Config/LinuxServer-KFGame.ini",
+        "search": "^GamePassword=[^\\r\\n]*",
+        "replace": "GamePassword=${serverpassword}",
+        "regex": true
+      },
+      {
+        "if": "file_exists('KFGame/Config/LinuxServer-KFGame.ini')",
+        "type": "alterfile",
+        "file": "KFGame/Config/LinuxServer-KFGame.ini",
+        "search": "^AdminPassword=[^\\r\\n]*",
+        "replace": "AdminPassword=${adminpassword}",
+        "regex": true
+      },
+      {
+        "if": "file_exists('KFGame/Config/KFWeb.ini')",
+        "type": "alterfile",
+        "file": "KFGame/Config/KFWeb.ini",
+        "search": "^bEnabled=[^\\r\\n]*",
+        "replace": "bEnabled=${webadmin}",
+        "regex": true
+      },
+      {
+        "if": "file_exists('KFGame/Config/KFWeb.ini')",
+        "type": "alterfile",
+        "file": "KFGame/Config/KFWeb.ini",
+        "search": "^ListenPort=[^\\r\\n]*",
+        "replace": "ListenPort=${webadminport}",
+        "regex": true
+      }
+    ],
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "ghcr.io/aether-panel/steamcmd",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/udp",
+        "0.0.0.0:${queryport}:${queryport}/udp",
+        "0.0.0.0:${webadminport}:${webadminport}/tcp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64"
+  }
+}

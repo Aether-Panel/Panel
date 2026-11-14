@@ -20,6 +20,9 @@ import (
 	"time"
 )
 
+// httpsScheme is the prefix of a Base URL served over TLS, which also sets the default port
+const httpsScheme = "https://"
+
 var wsupgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -33,7 +36,7 @@ func init() {
 }
 
 func SyncNodeToConfig() {
-	var masterURL = strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(config.MasterURL.Value(), "http://"), "https://"), "/")
+	var masterURL = strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(config.MasterURL.Value(), "http://"), httpsScheme), "/")
 	var masterParts = strings.SplitN(masterURL, ":", 2)
 	models.LocalNode.PublicHost = strings.Split(masterURL, ":")[0]
 	models.LocalNode.PrivateHost = strings.Split(masterURL, ":")[0]
@@ -46,7 +49,7 @@ func SyncNodeToConfig() {
 		}
 	} else {
 		// default port to 80 or 443 as the url doesn't have one, so we can assume one or other
-		if strings.HasPrefix(config.MasterURL.Value(), "https://") {
+		if strings.HasPrefix(config.MasterURL.Value(), httpsScheme) {
 			models.LocalNode.PublicPort = 443
 			models.LocalNode.PrivatePort = 443
 		} else {
@@ -104,7 +107,7 @@ func (ns *Node) syncLocalNodeHost() {
 		return
 	}
 	// the Base URL's host, also after a master node IP was removed (it used to stay until a restart)
-	host := strings.Split(strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(config.MasterURL.Value(), "http://"), "https://"), "/"), ":")[0]
+	host := strings.Split(strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(config.MasterURL.Value(), "http://"), httpsScheme), "/"), ":")[0]
 	models.LocalNode.PublicHost = host
 	models.LocalNode.PrivateHost = host
 }
@@ -163,8 +166,27 @@ func (ns *Node) Delete(id uint) error {
 		return skypanel.ErrNodeHasServers
 	}
 
+	// a store product left on a deleted node would fail every purchase
+	products, err := productsOnNode(ns.DB, model.ID)
+	if err != nil {
+		return err
+	}
+	if len(products) > 0 {
+		return skypanel.ErrNodeHasProducts(products)
+	}
+
 	res := ns.DB.Delete(model)
 	return res.Error
+}
+
+// productsOnNode lists the ids of the store products that create their servers on the node:
+// pinned to it, or falling back to it when they pin none (see provisionNodeID)
+func productsOnNode(db *gorm.DB, id uint) ([]string, error) {
+	var products []string
+	err := db.Model(&models.ProvisionProduct{}).
+		Where("node_id = ? OR ((node_id IS NULL OR node_id = 0) AND default_node = ?)", id, id).
+		Order("product_id").Pluck("product_id", &products).Error
+	return products, err
 }
 
 func (ns *Node) Create(node *models.Node) error {

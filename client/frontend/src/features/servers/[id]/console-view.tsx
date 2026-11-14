@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom';
 import AISummary from './ai-summary';
 import { AnsiText } from '@/lib/ansi-utils';
 import { useTranslations } from '@/contexts/translations-context';
-import { useSettings } from '@/hooks/use-settings';
+import { useConfig } from '@/contexts/config-context';
 import { cn } from '@/lib/utils';
 
 type LogEntry = {
@@ -67,6 +67,281 @@ function useStoredList(key: string, limit: number) {
 /** Strips ANSI colour codes so searching matches what the reader sees. */
 const plain = (text: string) => text.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '');
 
+type LevelCounts = { error: number; warn: number };
+
+/** "2/5" while searching: which match is shown, out of how many. */
+function matchLabelFor(needle: string, total: number, activeMatch: number): string {
+  if (!needle) return '';
+  return total ? `${Math.min(activeMatch, total - 1) + 1}/${total}` : '0/0';
+}
+
+// Neutral by default: only warnings, errors and the operator's own commands
+// carry colour, so the problems stand out from routine output.
+function logLevelColor(logMessage: string) {
+  const upperMessage = logMessage.toUpperCase();
+  if (upperMessage.includes('ERROR') || upperMessage.includes('FATAL') || upperMessage.includes('EXCEPTION')) return 'text-destructive-bright';
+  if (upperMessage.includes('WARN')) return 'text-warning';
+  if (logMessage.startsWith('$')) return 'text-success';
+  if (logMessage.startsWith('>')) return 'text-muted-foreground';
+  return 'text-foreground/80';
+}
+
+function ConsoleFilters({ filter, counts, onChange }: Readonly<{ filter: Filter; counts: LevelCounts; onChange: (filter: Filter) => void }>) {
+  const { t } = useTranslations();
+  return (
+    <div role="radiogroup" aria-label={t('servers.console.filters.label')} className="flex items-center gap-1">
+      {(['all', 'error', 'warn'] as Filter[]).map((option) => {
+        const count = filterCount(option, counts);
+        const active = filter === option;
+        return (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(option)}
+            className={cn(
+              'inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
+              active ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {option !== 'all' && (
+              <span aria-hidden="true" className={cn('h-1.5 w-1.5 rounded-full', option === 'error' ? 'bg-destructive-bright' : 'bg-warning')} />
+            )}
+            {t(`servers.console.filters.${option}`)}
+            {count !== null && count > 0 && <span className="tabular-nums text-muted-foreground">{count}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ConsoleSearch({ open, query, onQueryChange, inputRef, matchLabel, matchCount, onStep, onOpen, onClose }: Readonly<{
+  open: boolean;
+  query: string;
+  onQueryChange: (query: string) => void;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  matchLabel: string;
+  matchCount: number;
+  onStep: (delta: number) => void;
+  onOpen: () => void;
+  onClose: () => void;
+}>) {
+  const { t } = useTranslations();
+  if (!open) {
+    return (
+      <Button type="button" size="sm" variant="ghost" className="ml-auto h-7 gap-1.5 px-2 text-xs text-muted-foreground" onClick={onOpen}>
+        <Search aria-hidden="true" className="!size-3.5" />
+        {t('servers.console.search.open')}
+        <kbd className="hidden rounded border border-border/60 bg-muted/70 px-1 font-mono text-[10px] leading-4 sm:inline">Ctrl F</kbd>
+      </Button>
+    );
+  }
+  return (
+    // on phones the search takes its own row under the filters
+    <div className="ml-auto flex min-w-0 basis-full items-center justify-end gap-1 animate-in fade-in-0 slide-in-from-right-2 duration-200 ease-panel sm:basis-auto sm:flex-none">
+      <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
+        <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <input
+          ref={inputRef}
+          type="search"
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              onStep(e.shiftKey ? -1 : 1);
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              onClose();
+            }
+          }}
+          aria-label={t('servers.console.search.label')}
+          placeholder={t('servers.console.search.placeholder')}
+          className="h-7 w-full rounded-md border border-border/60 bg-background/60 pl-7 pr-2 font-sans text-xs text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary/50 [&::-webkit-search-cancel-button]:hidden"
+        />
+      </div>
+      <span className="w-12 shrink-0 text-center text-[11px] tabular-nums text-muted-foreground" aria-live="polite">
+        {matchLabel}
+      </span>
+      <Button type="button" size="icon" variant="ghost" className="h-7 w-7" disabled={matchCount === 0} onClick={() => onStep(-1)} aria-label={t('servers.console.search.previous')}>
+        <ChevronUp aria-hidden="true" />
+      </Button>
+      <Button type="button" size="icon" variant="ghost" className="h-7 w-7" disabled={matchCount === 0} onClick={() => onStep(1)} aria-label={t('servers.console.search.next')}>
+        <ChevronDown aria-hidden="true" />
+      </Button>
+      <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={onClose} aria-label={t('servers.console.search.close')}>
+        <X aria-hidden="true" />
+      </Button>
+    </div>
+  );
+}
+
+function ExpandButton({ expanded, onToggle }: Readonly<{ expanded: boolean; onToggle: () => void }>) {
+  const { t } = useTranslations();
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="ghost"
+      className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
+      onClick={onToggle}
+      aria-pressed={expanded}
+    >
+      {expanded ? <Minimize2 aria-hidden="true" className="!size-3.5" /> : <Maximize2 aria-hidden="true" className="!size-3.5" />}
+      <span className="hidden sm:inline">{expanded ? t('servers.console.collapse') : t('servers.console.expand')}</span>
+      <span className="sr-only sm:hidden">{expanded ? t('servers.console.collapse') : t('servers.console.expand')}</span>
+    </Button>
+  );
+}
+
+function ConsoleLines({ shown, filter, needle, matches, currentMatch, showTimes }: Readonly<{
+  shown: LogEntry[];
+  filter: Filter;
+  needle: string;
+  matches: number[];
+  currentMatch: number | null;
+  showTimes: boolean;
+}>) {
+  const { t } = useTranslations();
+  return (
+    <div role="log" aria-label={t('servers.console.title')} aria-relevant="additions" className={cn(shown.length === 0 && 'h-full')}>
+      {shown.length === 0 ? (
+        <div className="flex h-full select-none flex-col items-center justify-center gap-2 text-muted-foreground">
+          <Terminal className="h-5 w-5 text-muted-foreground/50" aria-hidden="true" />
+          <span className="text-xs">{filter === 'all' ? t('servers.console.waitingOutput') : t(`servers.console.filters.empty.${filter}`)}</span>
+        </div>
+      ) : (
+        shown.map((log) => {
+          const levelColor = logLevelColor(log.message);
+          const matched = needle !== '' && matches.includes(log.id);
+          return (
+            <div
+              key={log.id}
+              data-log={log.id}
+              className={cn(
+                '-mx-2 flex gap-3 rounded px-2 transition-colors duration-200',
+                matched && 'bg-warning/10',
+                log.id === currentMatch && 'bg-warning/25 ring-1 ring-inset ring-warning/50',
+              )}
+            >
+              {showTimes && (
+                <span className="hidden shrink-0 select-none text-muted-foreground/50 sm:inline">
+                  {log.time}
+                </span>
+              )}
+              <span className={cn('min-w-0 whitespace-pre-wrap break-words', levelColor)}>
+                <AnsiText text={log.message} />
+              </span>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+function FavoritesBar({ favorites, onSend, onRemove }: Readonly<{
+  favorites: string[];
+  onSend: (command: string) => void;
+  onRemove: (command: string) => void;
+}>) {
+  const { t } = useTranslations();
+  if (favorites.length === 0) return null;
+  return (
+    <fieldset className="flex min-w-0 shrink-0 items-center gap-1.5 overflow-x-auto border-t border-border/50 px-3 py-1.5 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden" aria-label={t('servers.console.favorites.label')}>
+      <Star className="h-3 w-3 shrink-0 text-warning" weight="fill" aria-hidden="true" />
+      {favorites.map((favorite) => (
+        <span key={favorite} className="group inline-flex shrink-0 items-center rounded-md border border-border/60 bg-background/60 transition-colors duration-200 hover:border-primary/40">
+          <button
+            type="button"
+            onClick={() => onSend(favorite)}
+            title={t('servers.console.favorites.send', { command: favorite })}
+            className="max-w-[14rem] truncate rounded-l-md px-2 py-0.5 font-mono text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+          >
+            {favorite}
+          </button>
+          <button
+            type="button"
+            onClick={() => onRemove(favorite)}
+            aria-label={t('servers.console.favorites.remove', { command: favorite })}
+            className="rounded-r-md px-1 py-0.5 text-muted-foreground opacity-60 transition-opacity hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+          >
+            <X className="h-3 w-3" aria-hidden="true" />
+          </button>
+        </span>
+      ))}
+    </fieldset>
+  );
+}
+
+function CommandBar({ canSend, commandId, command, inputRef, onCommandChange, onKeyDown, onSubmit, isFavorite, onToggleFavorite }: Readonly<{
+  canSend: boolean;
+  commandId: string;
+  command: string;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onCommandChange: (command: string) => void;
+  onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void;
+  onSubmit: (event: React.SubmitEvent<HTMLFormElement>) => void;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
+}>) {
+  const { t } = useTranslations();
+  if (!canSend) {
+    return (
+      <p className="shrink-0 border-t border-border/60 px-4 py-2.5 text-xs text-muted-foreground">{t('servers.console.readOnly')}</p>
+    );
+  }
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="flex shrink-0 items-center gap-3 border-t border-border/60 px-3 py-2.5 transition-colors duration-200 focus-within:bg-surface-1/50 sm:px-4"
+    >
+      <label htmlFor={commandId} className="sr-only">
+        {t('servers.console.commandPlaceholder')}
+      </label>
+      <span className="shrink-0 select-none font-mono text-sm font-semibold text-primary" aria-hidden="true">$</span>
+      <Input
+        id={commandId}
+        type="text"
+        placeholder={t('servers.console.commandPlaceholder')}
+        className="h-auto border-0 bg-transparent p-0 font-mono text-[13px] text-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+        ref={inputRef}
+        value={command}
+        onChange={(e) => onCommandChange(e.target.value)}
+        onKeyDown={onKeyDown}
+        autoComplete="off"
+        spellCheck={false}
+        aria-describedby={`${commandId}-hint`}
+      />
+      <span id={`${commandId}-hint`} className="sr-only">{t('servers.console.historyHint')}</span>
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        onClick={onToggleFavorite}
+        disabled={command.trim() === ''}
+        aria-pressed={isFavorite}
+        aria-label={isFavorite ? t('servers.console.favorites.unsave') : t('servers.console.favorites.save')}
+        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-warning disabled:opacity-30"
+      >
+        <Star aria-hidden="true" weight={isFavorite ? 'fill' : 'regular'} className={cn('transition-transform duration-200 ease-panel', isFavorite && 'scale-110 text-warning')} />
+      </Button>
+      <Button
+        type="submit"
+        size="icon"
+        variant="ghost"
+        disabled={command.trim() === ''}
+        aria-label={t('servers.console.sendButton')}
+        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-40"
+      >
+        <Send aria-hidden="true" />
+      </Button>
+    </form>
+  );
+}
+
 export default function ConsoleView({
   serverId,
   logs,
@@ -94,7 +369,8 @@ export default function ConsoleView({
   const [activeMatch, setActiveMatch] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const commandRef = useRef<HTMLInputElement>(null);
-  const { settings } = useSettings();
+  // read from the public config: the settings route is for administrators only
+  const { config } = useConfig();
   const scrollRef = useRef<HTMLDivElement>(null);
   // "Expand" opens the console over the whole page; Esc or the same button brings it back
   const [expanded, setExpanded] = useState(false);
@@ -115,9 +391,12 @@ export default function ConsoleView({
   // Follow new output only while the reader is at the bottom; scrolling up to
   // read pauses it and offers a way back.
   const [pinned, setPinned] = useState(true);
+  // while a search is open the console stays where its matches are: scrolling near the end
+  // would otherwise pin it again, and the next line of output pulled the view back down
+  const searchingRef = useRef(false);
   const onScroll = () => {
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el || searchingRef.current) return;
     setPinned(el.scrollHeight - el.scrollTop - el.clientHeight < 32);
   };
   const jumpToEnd = () => {
@@ -184,22 +463,16 @@ export default function ConsoleView({
     }
   };
 
+  const onCommandChange = (value: string) => {
+    setCommand(value);
+    historyIndex.current = -1;
+  };
+
   const isFavorite = command.trim() !== '' && favorites.includes(command.trim());
   const toggleFavorite = () => {
     const value = command.trim();
     if (!value) return;
     saveFavorites(isFavorite ? favorites.filter((f) => f !== value) : [value, ...favorites]);
-  };
-
-  // Neutral by default: only warnings, errors and the operator's own commands
-  // carry colour, so the problems stand out from routine output.
-  const getLogLevelColor = (logMessage: string) => {
-    const upperMessage = logMessage.toUpperCase();
-    if (upperMessage.includes('ERROR') || upperMessage.includes('FATAL') || upperMessage.includes('EXCEPTION')) return 'text-destructive-bright';
-    if (upperMessage.includes('WARN')) return 'text-warning';
-    if (logMessage.startsWith('$')) return 'text-success';
-    if (logMessage.startsWith('>')) return 'text-muted-foreground';
-    return 'text-foreground/80';
   };
 
   // Lines that already start with their own clock ("[19:36:40 INFO]") don't
@@ -260,6 +533,7 @@ export default function ConsoleView({
   const shown = useMemo(() => (filter === 'all' ? logs : logs.filter((log) => levelOf(log.message) === filter)), [logs, filter]);
 
   const needle = query.trim().toLowerCase();
+  searchingRef.current = needle !== '';
   const matches = useMemo(
     () => (needle ? shown.filter((log) => plain(log.message).toLowerCase().includes(needle)).map((log) => log.id) : []),
     [shown, needle],
@@ -274,8 +548,10 @@ export default function ConsoleView({
     const scroller = scrollRef.current;
     const line = scroller?.querySelector<HTMLElement>(`[data-log="${currentMatch}"]`);
     if (scroller && line) {
-      const target = line.offsetTop - scroller.clientHeight / 2 + line.offsetHeight / 2;
-      scroller.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+      // measured against the console itself, whatever element the line is nested in
+      const offset = line.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+      const target = scroller.scrollTop + offset - scroller.clientHeight / 2 + line.offsetHeight / 2;
+      scroller.scrollTo({ top: Math.max(0, target) });
     }
   }, [currentMatch]);
   const stepMatch = (delta: number) => {
@@ -321,8 +597,7 @@ export default function ConsoleView({
     return stamped / sample.length < 0.5;
   }, [shown]);
 
-  let matchLabel = '';
-  if (needle) matchLabel = matches.length ? `${Math.min(activeMatch, matches.length - 1) + 1}/${matches.length}` : '0/0';
+  const matchLabel = matchLabelFor(needle, matches.length, activeMatch);
 
   const frame = (
       <div
@@ -334,130 +609,37 @@ export default function ConsoleView({
         style={expanded ? undefined : { height: termHeight }}
       >
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/50 px-2 py-1.5 sm:px-3">
-          <div role="radiogroup" aria-label={t('servers.console.filters.label')} className="flex items-center gap-1">
-            {(['all', 'error', 'warn'] as Filter[]).map((option) => {
-              const count = filterCount(option, counts);
-              const active = filter === option;
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  onClick={() => setFilter(option)}
-                  className={cn(
-                    'inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
-                    active ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {option !== 'all' && (
-                    <span aria-hidden="true" className={cn('h-1.5 w-1.5 rounded-full', option === 'error' ? 'bg-destructive-bright' : 'bg-warning')} />
-                  )}
-                  {t(`servers.console.filters.${option}`)}
-                  {count !== null && count > 0 && <span className="tabular-nums text-muted-foreground">{count}</span>}
-                </button>
-              );
-            })}
-          </div>
+          <ConsoleFilters filter={filter} counts={counts} onChange={setFilter} />
 
-          {searchOpen ? (
-            // on phones the search takes its own row under the filters
-            <div className="ml-auto flex min-w-0 basis-full items-center justify-end gap-1 animate-in fade-in-0 slide-in-from-right-2 duration-200 ease-panel sm:basis-auto sm:flex-none">
-              <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
-                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                <input
-                  ref={searchRef}
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      stepMatch(e.shiftKey ? -1 : 1);
-                    } else if (e.key === 'Escape') {
-                      e.preventDefault();
-                      closeSearch();
-                    }
-                  }}
-                  aria-label={t('servers.console.search.label')}
-                  placeholder={t('servers.console.search.placeholder')}
-                  className="h-7 w-full rounded-md border border-border/60 bg-background/60 pl-7 pr-2 font-sans text-xs text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary/50 [&::-webkit-search-cancel-button]:hidden"
-                />
-              </div>
-              <span className="w-12 shrink-0 text-center text-[11px] tabular-nums text-muted-foreground" aria-live="polite">
-                {matchLabel}
-              </span>
-              <Button type="button" size="icon" variant="ghost" className="h-7 w-7" disabled={matches.length === 0} onClick={() => stepMatch(-1)} aria-label={t('servers.console.search.previous')}>
-                <ChevronUp aria-hidden="true" />
-              </Button>
-              <Button type="button" size="icon" variant="ghost" className="h-7 w-7" disabled={matches.length === 0} onClick={() => stepMatch(1)} aria-label={t('servers.console.search.next')}>
-                <ChevronDown aria-hidden="true" />
-              </Button>
-              <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={closeSearch} aria-label={t('servers.console.search.close')}>
-                <X aria-hidden="true" />
-              </Button>
-            </div>
-          ) : (
-            <Button type="button" size="sm" variant="ghost" className="ml-auto h-7 gap-1.5 px-2 text-xs text-muted-foreground" onClick={openSearch}>
-              <Search aria-hidden="true" className="!size-3.5" />
-              {t('servers.console.search.open')}
-              <kbd className="hidden rounded border border-border/60 bg-muted/70 px-1 font-mono text-[10px] leading-4 sm:inline">Ctrl F</kbd>
-            </Button>
-          )}
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
-            onClick={() => setExpanded((value) => !value)}
-            aria-pressed={expanded}
-          >
-            {expanded ? <Minimize2 aria-hidden="true" className="!size-3.5" /> : <Maximize2 aria-hidden="true" className="!size-3.5" />}
-            <span className="hidden sm:inline">{expanded ? t('servers.console.collapse') : t('servers.console.expand')}</span>
-            <span className="sr-only sm:hidden">{expanded ? t('servers.console.collapse') : t('servers.console.expand')}</span>
-          </Button>
+          <ConsoleSearch
+            open={searchOpen}
+            query={query}
+            onQueryChange={setQuery}
+            inputRef={searchRef}
+            matchLabel={matchLabel}
+            matchCount={matches.length}
+            onStep={stepMatch}
+            onOpen={openSearch}
+            onClose={closeSearch}
+          />
+          <ExpandButton expanded={expanded} onToggle={() => setExpanded((value) => !value)} />
         </div>
 
         <div
           ref={scrollRef}
-          tabIndex={0}
+          tabIndex={0} // NOSONAR: a scrolling region must be focusable to scroll it with the keyboard (WCAG 2.1.1, axe scrollable-region-focusable)
           onScroll={onScroll}
           className="custom-scrollbar relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 font-mono text-[13px] leading-6 sm:px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40"
         >
           {/* The scroller stays focusable for keyboard scrolling; the log role lives on its content. */}
-          <div role="log" aria-label={t('servers.console.title')} aria-relevant="additions" className={cn(shown.length === 0 && 'h-full')}>
-            {shown.length === 0 ? (
-              <div className="flex h-full select-none flex-col items-center justify-center gap-2 text-muted-foreground">
-                <Terminal className="h-5 w-5 text-muted-foreground/50" aria-hidden="true" />
-                <span className="text-xs">{filter === 'all' ? t('servers.console.waitingOutput') : t(`servers.console.filters.empty.${filter}`)}</span>
-              </div>
-            ) : (
-              shown.map((log) => {
-                const levelColor = getLogLevelColor(log.message);
-                const matched = needle !== '' && matches.includes(log.id);
-                return (
-                  <div
-                    key={log.id}
-                    data-log={log.id}
-                    className={cn(
-                      '-mx-2 flex gap-3 rounded px-2 transition-colors duration-200',
-                      matched && 'bg-warning/10',
-                      log.id === currentMatch && 'bg-warning/25 ring-1 ring-inset ring-warning/50',
-                    )}
-                  >
-                    {showTimes && (
-                      <span className="hidden shrink-0 select-none text-muted-foreground/50 sm:inline">
-                        {log.time}
-                      </span>
-                    )}
-                    <span className={cn('min-w-0 whitespace-pre-wrap break-words', levelColor)}>
-                      <AnsiText text={log.message} />
-                    </span>
-                  </div>
-                );
-              })
-            )}
-          </div>
+          <ConsoleLines
+            shown={shown}
+            filter={filter}
+            needle={needle}
+            matches={matches}
+            currentMatch={currentMatch}
+            showTimes={showTimes}
+          />
         </div>
 
         {!pinned && shown.length > 0 && (
@@ -473,85 +655,24 @@ export default function ConsoleView({
           </Button>
         )}
 
-        {favorites.length > 0 && (
-          <fieldset className="flex min-w-0 shrink-0 items-center gap-1.5 overflow-x-auto border-t border-border/50 px-3 py-1.5 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden" aria-label={t('servers.console.favorites.label')}>
-            <Star className="h-3 w-3 shrink-0 text-warning" weight="fill" aria-hidden="true" />
-            {favorites.map((favorite) => (
-              <span key={favorite} className="group inline-flex shrink-0 items-center rounded-md border border-border/60 bg-background/60 transition-colors duration-200 hover:border-primary/40">
-                <button
-                  type="button"
-                  onClick={() => void handleSendCommand(favorite)}
-                  title={t('servers.console.favorites.send', { command: favorite })}
-                  className="max-w-[14rem] truncate rounded-l-md px-2 py-0.5 font-mono text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
-                >
-                  {favorite}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => saveFavorites(favorites.filter((f) => f !== favorite))}
-                  aria-label={t('servers.console.favorites.remove', { command: favorite })}
-                  className="rounded-r-md px-1 py-0.5 text-muted-foreground opacity-60 transition-opacity hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
-                >
-                  <X className="h-3 w-3" aria-hidden="true" />
-                </button>
-              </span>
-            ))}
-          </fieldset>
-        )}
+        <FavoritesBar
+          favorites={favorites}
+          onSend={(favorite) => void handleSendCommand(favorite)}
+          onRemove={(favorite) => saveFavorites(favorites.filter((f) => f !== favorite))}
+        />
 
         {/* Pinned command bar */}
-        {!canSend ? (
-          <p className="shrink-0 border-t border-border/60 px-4 py-2.5 text-xs text-muted-foreground">{t('servers.console.readOnly')}</p>
-        ) : (
-        <form
+        <CommandBar
+          canSend={canSend}
+          commandId={commandId}
+          command={command}
+          inputRef={commandRef}
+          onCommandChange={onCommandChange}
+          onKeyDown={onCommandKeyDown}
           onSubmit={handleSubmit}
-          className="flex shrink-0 items-center gap-3 border-t border-border/60 px-3 py-2.5 transition-colors duration-200 focus-within:bg-surface-1/50 sm:px-4"
-        >
-          <label htmlFor={commandId} className="sr-only">
-            {t('servers.console.commandPlaceholder')}
-          </label>
-          <span className="shrink-0 select-none font-mono text-sm font-semibold text-primary" aria-hidden="true">$</span>
-          <Input
-            id={commandId}
-            type="text"
-            placeholder={t('servers.console.commandPlaceholder')}
-            className="h-auto border-0 bg-transparent p-0 font-mono text-[13px] text-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-            ref={commandRef}
-            value={command}
-            onChange={(e) => {
-              setCommand(e.target.value);
-              historyIndex.current = -1;
-            }}
-            onKeyDown={onCommandKeyDown}
-            autoComplete="off"
-            spellCheck={false}
-            aria-describedby={`${commandId}-hint`}
-          />
-          <span id={`${commandId}-hint`} className="sr-only">{t('servers.console.historyHint')}</span>
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            onClick={toggleFavorite}
-            disabled={command.trim() === ''}
-            aria-pressed={isFavorite}
-            aria-label={isFavorite ? t('servers.console.favorites.unsave') : t('servers.console.favorites.save')}
-            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-warning disabled:opacity-30"
-          >
-            <Star aria-hidden="true" weight={isFavorite ? 'fill' : 'regular'} className={cn('transition-transform duration-200 ease-panel', isFavorite && 'scale-110 text-warning')} />
-          </Button>
-          <Button
-            type="submit"
-            size="icon"
-            variant="ghost"
-            disabled={command.trim() === ''}
-            aria-label={t('servers.console.sendButton')}
-            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-40"
-          >
-            <Send aria-hidden="true" />
-          </Button>
-        </form>
-        )}
+          isFavorite={isFavorite}
+          onToggleFavorite={toggleFavorite}
+        />
       </div>
   );
 
@@ -573,7 +694,7 @@ export default function ConsoleView({
         </>
       ) : frame}
 
-      {!settings['panel.settings.hideAiAnalysis'] && (
+      {!config?.hideAiAnalysis && (
         <Card className="mt-6">
           <CardContent className="p-0">
             <AISummary logs={logs} serverId={serverId} />

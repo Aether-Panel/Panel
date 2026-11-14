@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GO_VERSION: "1.26.0"
+  GO_VERSION: "1.26.10"
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
@@ -115,13 +115,31 @@ jobs:
           install-go: false
 
       - name: Run gosec (Go Security)
-        uses: securego/gosec@a7abd50b2947e53b26a7e200223e635ce36fac9b # master
+        uses: securego/gosec@14c713478ed40c9bdfa56d35d9c2142b91608106 # master
         with:
           args: -exclude=G104,G107,G115,G122,G204,G301,G302,G304,G306,G702,G703,G706 ./...
 
+      # trivy-action's own setup, and a plain download of the release file, both fail on the
+      # runners: GitHub answers 504 for Trivy's 52 MB release asset (2026-11-09), so Code Quality
+      # failed before it scanned anything. Trivy comes from its official image instead, pinned by
+      # digest so what it holds cannot change, and the three scans below use that binary.
+      - name: Install Trivy
+        env:
+          TRIVY_IMAGE: ghcr.io/aquasecurity/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+        run: |
+          set -euo pipefail
+          docker pull --quiet "$TRIVY_IMAGE"
+          id=$(docker create "$TRIVY_IMAGE")
+          mkdir -p "$HOME/.local/bin"
+          docker cp "$id:/usr/local/bin/trivy" "$HOME/.local/bin/trivy"
+          docker rm "$id" > /dev/null
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/trivy" --version
+
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # master
+        uses: aquasecurity/trivy-action@38b337fff0a2f984d5be173c99e3f633438167ec # master
         with:
+          skip-setup-trivy: true
           scan-type: 'fs'
           scan-ref: '.'
           format: 'table'
@@ -131,8 +149,9 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Run Trivy Secret Scan
-        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # master
+        uses: aquasecurity/trivy-action@38b337fff0a2f984d5be173c99e3f633438167ec # master
         with:
+          skip-setup-trivy: true
           scan-type: 'fs'
           scan-ref: '.'
           format: 'table'
@@ -140,8 +159,9 @@ jobs:
           scanners: 'secret'
 
       - name: Run Trivy Config Scan
-        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87 # master
+        uses: aquasecurity/trivy-action@38b337fff0a2f984d5be173c99e3f633438167ec # master
         with:
+          skip-setup-trivy: true
           scan-type: 'fs'
           scan-ref: '.'
           format: 'table'
@@ -163,6 +183,9 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: '22'
+          # the newest 22.x, not whatever the runner has cached: astro asks for a recent patch and
+          # an older cached one failed the install on some runners
+          check-latest: true
           cache: 'yarn'
           cache-dependency-path: 'client/yarn.lock'
 
@@ -175,6 +198,10 @@ jobs:
         run: |
           yarn lint
           yarn typecheck
+
+      - name: Run Frontend Unit Tests
+        working-directory: ./client/frontend
+        run: yarn test
 
       - name: Verify Frontend Build
         working-directory: ./client
@@ -270,7 +297,7 @@ jobs:
 
       - name: Log in to GitHub Container Registry
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -325,41 +352,81 @@ jobs:
             dockerfile: docker/runtime-images/steamcmd/Dockerfile
           - name: generic
             dockerfile: docker/runtime-images/generic/Dockerfile
+          # one image per PHP version, tagged with it (ghcr.io/aether-panel/php:8.3)
+          - name: php
+            dockerfile: docker/runtime-images/php/Dockerfile
+            version: "8.2"
+          - name: php
+            dockerfile: docker/runtime-images/php/Dockerfile
+            version: "8.3"
+          - name: php
+            dockerfile: docker/runtime-images/php/Dockerfile
+            version: "8.4"
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Building these images takes long (PHP compiles its extensions, and arm64 runs emulated),
+      # so a change that does not touch an image does not rebuild it. A push to main or dev2.0
+      # always builds, since that is what publishes.
+      - name: Did this image change?
+        id: changed
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PUBLISH: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev2.0') }}
+        run: |
+          build=true
+          if [ "$PUBLISH" != "true" ] && [ -n "$BASE" ] && git cat-file -e "$BASE^{commit}" 2>/dev/null \
+             && git diff --quiet "$BASE" HEAD -- "docker/runtime-images/${{ matrix.name }}"; then
+            build=false
+          fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "build $build"
 
       - name: Set up QEMU (for multi-arch builds)
+        if: steps.changed.outputs.build == 'true'
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1
 
       - name: Set up Docker Buildx
+        if: steps.changed.outputs.build == 'true'
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
 
       - name: Log in to GitHub Container Registry
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6
+        if: steps.changed.outputs.build == 'true' && github.event_name != 'pull_request'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract Docker metadata (tags, labels)
+        if: steps.changed.outputs.build == 'true'
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.name }}
+          # an image built per version is tagged with that version, never latest or the branch,
+          # which the versions would overwrite in turn
           tags: |
-            type=ref,event=branch
-            type=sha,prefix=sha-,format=short
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=ref,event=branch,enable=${{ !matrix.version }}
+            type=sha,prefix=sha-,format=short,enable=${{ !matrix.version }}
+            type=raw,value=latest,enable=${{ !matrix.version && github.ref == 'refs/heads/main' }}
+            type=raw,value=${{ matrix.version }},enable=${{ !!matrix.version && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev2.0') }}
+            type=sha,prefix=${{ matrix.version }}-sha-,format=short,enable=${{ !!matrix.version }}
 
       - name: Build and push Docker image
+        if: steps.changed.outputs.build == 'true'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
         with:
           context: ${{ github.workspace }}/docker/runtime-images/${{ matrix.name }}
           file: ${{ matrix.dockerfile }}
-          platforms: linux/amd64,linux/arm64
+          build-args: |
+            RUNTIME_VERSION=${{ matrix.version }}
+          # arm64 builds emulated and slowly: only what is published gets it, a check builds amd64
+          platforms: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev2.0') && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           push: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev2.0') && github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

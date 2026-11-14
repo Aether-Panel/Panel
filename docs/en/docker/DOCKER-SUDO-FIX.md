@@ -1,66 +1,63 @@
 # Docker Socket and Permissions
 
-The panel needs access to the Docker socket to orchestrate game server containers. This applies in both development and production.
+The panel creates and controls the game server containers through the host's Docker socket. This document explains how it gets access and how to fix connection and permission errors.
 
-## Mounting the Socket
+## Socket mount
 
-In both `docker-compose.yml` and `docker-compose.dev.yml` the socket is mounted as follows:
+Both Compose files mount the host's socket into the panel container:
 
 ```yaml
+# docker-compose.yml
 volumes:
-  - /var/run/docker.sock:/var/run/docker.sock
+  - //var/run/docker.sock:/var/run/docker.sock
+
+# docker-compose.dev.yml
+volumes:
+  - /var/run/docker.sock:/var/run/docker.sock:z
 ```
 
-## Server Management
+The panel uses the Docker client with the standard variables (`DOCKER_HOST`, etc.); without them it connects to `unix:///var/run/docker.sock`.
 
-The panel runs each game server in its own Docker container. For this it requires:
+## Container user
 
-1. Access to the host's Docker socket
-2. Permissions to create/delete containers
-3. The `SKYPANEL_DOCKER_DISALLOWHOST=true` configuration to force Docker usage (disabling host/TTY environments)
+By default the image runs as the `SkyPanel` user (UID 1000), which has no permission on the socket (`srw-rw----`, `root:docker`). That is why:
+
+- `docker-compose.yml` runs the panel as root (`user: "0:0"`).
+- `docker-compose.dev.yml` also uses `privileged: true`.
+
+The panel being root does not make the games root: with the panel as root, installs run as root and the game as `docker.serverUser` (`988:988` by default), without the Linux capabilities it does not need, with `no-new-privileges` and with a process limit (`docker.pidsLimit`). See [Container user and isolation](../backend/04-servers.md#container-user-and-isolation).
+
+## Containers only (`docker.disallowHost`)
+
+The image and `docker-compose.yml` set `SKYPANEL_DOCKER_DISALLOWHOST=true`. With this option the node only runs servers in containers: the environments that run processes directly on the host (`host`, `tty`, `standard`, `bubblewrap`) are hidden, refused when a server is created or redefined, and do not start even if their definition arrives another way. Do not turn it off in the Docker install: the panel runs inside a container and host environments would make no sense.
 
 ## Troubleshooting
 
-### Error: "Cannot connect to the Docker daemon"
+### "Cannot connect to the Docker daemon"
 
-1. Verify that Docker is running on the host:
+1. Check that Docker runs on the host:
    ```bash
    sudo systemctl status docker
+   docker info
    ```
-
-2. Verify that the socket exists:
+2. Check that the socket exists on the host and that the container sees it:
    ```bash
    ls -la /var/run/docker.sock
-   ```
-
-3. Verify that the container sees the socket:
-   ```bash
    docker exec skypanel ls -la /var/run/docker.sock
    ```
 
-### Error: "permission denied" when accessing the socket
+If the daemon cannot start inside Docker (`SKYPANEL_PLATFORM=docker`), the web panel keeps running and logs "Continuing without daemon in Docker environment", but this node's servers will not be available until it is fixed and the container restarted.
 
-The Docker socket has permissions `srw-rw----` (socket, owner root, group docker). The `SkyPanel` user (UID 1000) inside the container needs access.
+### "permission denied" on the socket
 
-**Solution in production (`docker-compose.yml`):**
-The container runs as root (`user: "0:0"`), which avoids permission issues.
+The container is not running as root. Check that the `skypanel` service has `user: "0:0"` (also in your own `docker-compose.override.yml`) and recreate the container:
 
-**Solution in development (`docker-compose.dev.yml`):**
-Uses `privileged: true` and `user: "0:0"`, which also avoids restrictions.
-
-### The host does not have Docker
-
-If the panel runs without Docker on the host (e.g., server without Docker), disable Docker usage:
-
-```yaml
-environment:
-  - SKYPANEL_DOCKER_DISALLOWHOST=false
+```bash
+docker compose up -d --force-recreate skypanel
 ```
 
-And remove the socket mount. The panel will use TTY environments instead.
+## Security
 
-### Security
-
-- The mounted Docker socket grants full control over the host's Docker
-- In production, ensure that only trusted users have access to the host
-- Consider using `docker.sock` with authorization proxies like `alexellis/faas-netes` or `docker-socket-proxy`
+- Whoever controls the Docker socket controls the host's whole Docker. Limit access to the server to trusted people.
+- MariaDB and Adminer are only published on `127.0.0.1`; game servers use their own network (`skypanel-servers`) and cannot reach the panel.
+- A socket authorisation proxy (such as `docker-socket-proxy`) has not been tested with the panel: the panel needs to create, inspect, start and remove containers, pull images, inspect networks and run commands inside containers.

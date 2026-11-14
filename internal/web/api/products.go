@@ -1,14 +1,20 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
+	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
+	"github.com/SkyPanel/SkyPanel/v3/internal/services"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func registerProducts(g *gin.RouterGroup) {
@@ -39,6 +45,9 @@ func createProduct(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
+	if !validateProduct(c, db, &req, true, true) {
+		return
+	}
 
 	err := db.Create(&req).Error
 	if response.HandleError(c, err, http.StatusInternalServerError) {
@@ -62,11 +71,18 @@ func updateProduct(c *gin.Context) {
 		return
 	}
 
+	// read before binding: the binding writes through the node_id pointer
+	oldTemplate, oldNode := product.Template, provisionNodeID(&product)
 	if err := c.ShouldBindJSON(&product); response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 
 	product.ID = uint(id)
+	// only what the edit changes is checked: an unreachable templates.url index must not block
+	// changing the limits or the name of a product whose template it already had
+	if !validateProduct(c, db, &product, product.Template != oldTemplate, provisionNodeID(&product) != oldNode) {
+		return
+	}
 	err = db.Save(&product).Error
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -89,4 +105,81 @@ func deleteProduct(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+// validateProduct refuses a product provisioning could not use: a template no repo has, looked
+// up the way provisioning does, or a node (the pinned one, else the fallback) that does not
+// exist; each only when asked to check it. False when a response has been written.
+func validateProduct(c *gin.Context, db *gorm.DB, product *models.ProvisionProduct, checkTemplate, checkNode bool) bool {
+	if checkTemplate && !validateProductTemplate(c, db, product.Template) {
+		return false
+	}
+	if !checkNode {
+		return true
+	}
+	nodeID := provisionNodeID(product)
+	_, err := (&services.Node{DB: db}).Get(nodeID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		response.HandleError(c, skypanel.ErrProductNodeNotFound(nodeID), http.StatusBadRequest)
+		return false
+	}
+	return !response.HandleError(c, err, http.StatusInternalServerError)
+}
+
+func validateProductTemplate(c *gin.Context, db *gorm.DB, template string) bool {
+	if strings.TrimSpace(template) == "" {
+		response.HandleError(c, skypanel.ErrProductTemplateRequired, http.StatusBadRequest)
+		return false
+	}
+	err := lookupProductTemplate(&services.Template{DB: db}, template)
+	if err == nil {
+		return true
+	}
+	status := http.StatusInternalServerError
+	switch {
+	case errors.Is(err, skypanel.ErrProductTemplateNotFound("")):
+		status = http.StatusBadRequest
+	case errors.Is(err, skypanel.ErrProductTemplateUnreadable("", "")):
+		// the request may be right: the repo (the templates.url index) could not be asked
+		status = http.StatusBadGateway
+	}
+	response.HandleError(c, err, status)
+	return false
+}
+
+// lookupProductTemplate is nil when a repo provisioning reads has the template (see
+// findTemplateInRepos). Otherwise it tells a template no repo has from one a repo that could
+// not be read may have.
+func lookupProductTemplate(ts *services.Template, name string) error {
+	repos, err := ts.GetRepos()
+	if err != nil {
+		return err
+	}
+	var unreadable *models.TemplateRepo
+	for _, repo := range repos {
+		template, err := ts.Get(repo.ID, name)
+		switch {
+		case err == nil && template != nil:
+			return nil
+		case err == nil, errors.Is(err, gorm.ErrRecordNotFound), errors.Is(err, skypanel.ErrNoTemplate("")):
+		case repo.IsLocal:
+			// the panel's own database
+			return err
+		default:
+			logging.Error.Printf("Could not look for template %s in repo %s: %s", logLine(name), logLine(repo.Name), logLine(err.Error()))
+			if unreadable == nil {
+				unreadable = repo
+			}
+		}
+	}
+	if unreadable != nil {
+		return skypanel.ErrProductTemplateUnreadable(name, unreadable.Name)
+	}
+	return skypanel.ErrProductTemplateNotFound(name)
+}
+
+// logLine keeps a value that came with the request on one log line, so it cannot forge entries
+func logLine(value string) string {
+	value = strings.ReplaceAll(value, "\n", "")
+	return strings.ReplaceAll(value, "\r", "")
 }

@@ -1,0 +1,187 @@
+{
+  "type": "insurgencysandstorm",
+  "display": "Insurgency: Sandstorm",
+  "icon": "insurgencysandstorm",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 200,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 30720,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (30720 MB = 30 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 4096,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 27102,
+      "display": "Port",
+      "desc": "Game port (UDP) players connect to",
+      "required": true,
+      "userEdit": false
+    },
+    "queryport": {
+      "type": "integer",
+      "value": 27131,
+      "display": "Query Port",
+      "desc": "Steam query port (UDP), used by the server browser",
+      "required": true,
+      "userEdit": false
+    },
+    "rconport": {
+      "type": "integer",
+      "value": 27015,
+      "display": "RCON Port",
+      "desc": "RCON port (TCP), only used when an RCON password is set",
+      "required": true,
+      "userEdit": false
+    },
+    "servername": {
+      "type": "string",
+      "value": "Insurgency Sandstorm Server",
+      "display": "Server Name",
+      "desc": "Name shown in the server browser",
+      "required": true,
+      "userEdit": true
+    },
+    "serverpassword": {
+      "type": "string",
+      "value": "",
+      "display": "Server Password",
+      "desc": "Password players need to join. Empty means anyone can join. No spaces or question marks",
+      "required": false,
+      "userEdit": true
+    },
+    "maxplayers": {
+      "type": "integer",
+      "value": 28,
+      "display": "Max Players",
+      "desc": "Player slots",
+      "required": true,
+      "userEdit": true
+    },
+    "map": {
+      "type": "string",
+      "value": "Oilfield",
+      "display": "Map",
+      "desc": "Map loaded at startup, for example Oilfield, Farmhouse or Hideout",
+      "required": true,
+      "userEdit": true
+    },
+    "scenario": {
+      "type": "string",
+      "value": "Scenario_Refinery_Push_Security",
+      "display": "Scenario",
+      "desc": "Scenario for that map, for example Scenario_Refinery_Push_Security or Scenario_Farmhouse_Checkpoint_Security",
+      "required": true,
+      "userEdit": true
+    },
+    "rconpassword": {
+      "type": "string",
+      "value": "",
+      "display": "RCON Password",
+      "desc": "Password for RCON tools. Empty turns RCON off",
+      "required": false,
+      "userEdit": true
+    },
+    "gslt": {
+      "type": "string",
+      "value": "",
+      "display": "GSLT Token",
+      "desc": "Steam game server login token (App ID 581320), from steamcommunity.com/dev/managegameservers. Needed to show up in the server browser",
+      "required": false,
+      "userEdit": true
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "steamgamedl",
+      "appId": "581330"
+    },
+    {
+      "if": "env == 'docker'",
+      "type": "command",
+      "commands": [
+        "bash -c \"for try in 1 2 3 4 5; do steamcmd +@sSteamCmdForcePlatformType linux +force_install_dir /SkyPanel +login anonymous +app_update 581330 validate +quit && exit 0; echo 'steamcmd could not finish the download, trying again in 15s ($try/5)'; sleep 15; done; exit 1\""
+      ]
+    },
+    {
+      "type": "command",
+      "commands": [
+        "chmod +x ./Insurgency/Binaries/Linux/InsurgencyServer-Linux-Shipping",
+        "bash -c \"mkdir -p .steam/sdk32 .steam/sdk64; for d in .steam .steam/steamcmd .local/share/Steam/steamcmd steamcmd; do if [ -f $d/linux32/steamclient.so ]; then cp -f $d/linux32/steamclient.so .steam/sdk32/; fi; if [ -f $d/linux64/steamclient.so ]; then cp -f $d/linux64/steamclient.so .steam/sdk64/; fi; done; true\""
+      ]
+    }
+  ],
+  "run": {
+    "command": [
+      {
+        "if": "rconpassword != '' && gslt != ''",
+        "command": "bash -c \"if [ \\\"$(id -u)\\\" = 0 ] && id container >/dev/null 2>&1; then chown -R container:container . && exec setpriv --reuid=container --regid=container --init-groups env HOME=\\\"$PWD\\\" \\\"$@\\\"; fi; exec \\\"$@\\\"\" aether ./Insurgency/Binaries/Linux/InsurgencyServer-Linux-Shipping ${map}?Scenario=${scenario}?MaxPlayers=${maxplayers}?Password=${serverpassword} -Port=${port} -QueryPort=${queryport} -hostname=\"${servername}\" -Rcon -RconPassword=\"${rconpassword}\" -RconListenPort=${rconport} -GSLTToken=${gslt} -log"
+      },
+      {
+        "if": "rconpassword != ''",
+        "command": "bash -c \"if [ \\\"$(id -u)\\\" = 0 ] && id container >/dev/null 2>&1; then chown -R container:container . && exec setpriv --reuid=container --regid=container --init-groups env HOME=\\\"$PWD\\\" \\\"$@\\\"; fi; exec \\\"$@\\\"\" aether ./Insurgency/Binaries/Linux/InsurgencyServer-Linux-Shipping ${map}?Scenario=${scenario}?MaxPlayers=${maxplayers}?Password=${serverpassword} -Port=${port} -QueryPort=${queryport} -hostname=\"${servername}\" -Rcon -RconPassword=\"${rconpassword}\" -RconListenPort=${rconport} -log"
+      },
+      {
+        "if": "gslt != ''",
+        "command": "bash -c \"if [ \\\"$(id -u)\\\" = 0 ] && id container >/dev/null 2>&1; then chown -R container:container . && exec setpriv --reuid=container --regid=container --init-groups env HOME=\\\"$PWD\\\" \\\"$@\\\"; fi; exec \\\"$@\\\"\" aether ./Insurgency/Binaries/Linux/InsurgencyServer-Linux-Shipping ${map}?Scenario=${scenario}?MaxPlayers=${maxplayers}?Password=${serverpassword} -Port=${port} -QueryPort=${queryport} -hostname=\"${servername}\" -GSLTToken=${gslt} -log"
+      },
+      {
+        "command": "bash -c \"if [ \\\"$(id -u)\\\" = 0 ] && id container >/dev/null 2>&1; then chown -R container:container . && exec setpriv --reuid=container --regid=container --init-groups env HOME=\\\"$PWD\\\" \\\"$@\\\"; fi; exec \\\"$@\\\"\" aether ./Insurgency/Binaries/Linux/InsurgencyServer-Linux-Shipping ${map}?Scenario=${scenario}?MaxPlayers=${maxplayers}?Password=${serverpassword} -Port=${port} -QueryPort=${queryport} -hostname=\"${servername}\" -log"
+      }
+    ],
+    "stopCode": 2,
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "ghcr.io/aether-panel/steamcmd",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/udp",
+        "0.0.0.0:${queryport}:${queryport}/udp",
+        "0.0.0.0:${rconport}:${rconport}/tcp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64"
+  }
+}

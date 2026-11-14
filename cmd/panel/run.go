@@ -25,8 +25,11 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers/docker"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/sftp"
+	"github.com/SkyPanel/SkyPanel/v3/internal/stats"
+	"github.com/SkyPanel/SkyPanel/v3/internal/update"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web"
+	"github.com/SkyPanel/SkyPanel/v3/internal/web/api"
 	daemonweb "github.com/SkyPanel/SkyPanel/v3/internal/web/daemon"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-contrib/sessions"
@@ -94,6 +97,15 @@ func internalRun() (terminate chan bool, success bool) {
 
 	web.RegisterRoutes(router)
 
+	// node transfers cut short by the last stop are undone or finished; the routes must be in
+	// place first, the panel's own node answers through them
+	if config.PanelEnabled.Value() {
+		go api.RecoverNodeTransfers()
+		// federated transfers that expired unfinished leave a full copy of the server behind
+		go api.SweepExpiredExTransfers()
+		go stats.Run()
+	}
+
 	l, err := net.Listen("tcp", config.WebHost.Value())
 	if err != nil {
 		logging.Error.Printf("error starting http server: %s", err.Error())
@@ -119,15 +131,13 @@ func internalRun() (terminate chan bool, success bool) {
 	return
 }
 
-// configureTrustedProxies trusts no proxies unless the config lists some.
+// configureTrustedProxies trusts this machine, private networks and Cloudflare's edge, plus
+// what the config lists (trustedProxyList), so the panel sees the visitor's real address
 func configureTrustedProxies(router *gin.Engine) {
-	// do not trust proxies by default
-	_ = router.SetTrustedProxies(nil)
-	if proxies := config.SecurityTrustedProxies.Value(); proxies != nil {
-		err := router.SetTrustedProxies(proxies)
-		if err != nil {
-			logging.Error.Printf("Failed to add trusted proxies: %s", err.Error())
-		}
+	if err := router.SetTrustedProxies(trustedProxyList(config.SecurityTrustedProxies.Value())); err != nil {
+		logging.Error.Printf("Failed to add trusted proxies: %s", err.Error())
+		// a bad entry from the config: keep the safe built-in list rather than none
+		_ = router.SetTrustedProxies(trustedProxyList(nil))
 	}
 	if header := config.SecurityTrustedProxyHeader.Value(); header != "" {
 		router.TrustedPlatform = header
@@ -153,9 +163,7 @@ func startDaemon() bool {
 func warnPanelDisabled() {
 	logging.Info.Printf("Panel web routes are disabled. Only Daemon API is active.")
 	if config.TokenPublicURL.Value() == "" {
-		logging.Error.Printf("WARNING: Panel is disabled but token.public (TokenPublicURL) is empty!")
-		logging.Error.Printf("This node will not be able to authenticate requests from the Master Panel.")
-		logging.Error.Printf("Please configure it in config.json or set SKYPANEL_TOKEN_PUBLIC in docker-compose.")
+		logging.Info.Printf("token.public is not set: the panel's public key is read at %s (from daemon.auth.url)", services.PanelPublicKeyURL())
 	}
 }
 
@@ -212,6 +220,9 @@ func setupPanel(router *gin.Engine) bool {
 		// the domain sits behind Cloudflare's proxy, kept current as either changes
 		services.KeepLocalNodeHostInSync(db)
 	}
+	// the remote nodes take the settings their daemons use (S3 off-site backups, the
+	// CurseForge key) from the panel, so none needs them in its own config.json
+	services.StartNodeSettingsSync(db)
 	return true
 }
 
@@ -331,8 +342,12 @@ func daemon() error {
 	logging.Debug.Printf("Daemon PATH variable: %s", os.Getenv("PATH"))
 
 	servers.LoadFromFolder()
+	// an update restarts the panel before it can remove its own container
+	go update.RemoveLeftovers()
 
 	servers.InitService()
+	// each server's periodic off-site copy, made by this node
+	servers.StartOffsitePeriodic()
 
 	for _, element := range servers.GetAll() {
 		element.GetEnvironment().DisplayToConsole(true, "Daemon has been started\n")

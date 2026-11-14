@@ -1,223 +1,96 @@
 # Panel Usage
 
-## Interface Navigation
+A tour of the web interface: what each part of the menu is for, who sees it, and where its detailed guide is. For the ideas behind it (nodes, owners, templates…) see [Core concepts](./concepts.md); for every feature in depth, the [feature guides](../features/README.md).
 
-The panel interface is divided into several main sections, accessible from the sidebar. The dashboard provides an overview, while other sections allow you to manage specific resources like servers, users, and nodes. The panel consists of two parts: a Go backend serving the REST API and web frontend, and a modern frontend built with Astro and React.
+## Layout
 
-### Main Sections
+- **Sidebar**: the menu. It can be collapsed to an icon rail and is a slide-out menu on phones. Each entry only shows to users with the permission it needs.
+- **Quick search**: `Ctrl+K` (`⌘K` on macOS) to jump to a page or a server.
+- **Account menu**: **Account Settings** and sign out.
 
-#### Dashboard
+| Menu entry | Shown with | What it is for |
+|------------|------------|----------------|
+| **Home** | Everyone | Dashboard: an overview of the installation for operators, the list of their servers for everyone else. |
+| **Servers** | `login` | The servers you own, are a member of or administer. |
+| **Users** | `users.info.search` | Accounts, their role and their permissions. |
+| **Roles** | `admin` | Roles and the panel scopes they give. |
+| **Nodes** | `nodes.view` | The machines that run servers. |
+| **Database Hosts** | `admin` | MySQL/MariaDB servers for server databases. |
+| **Templates** | `templates.view` | Template repositories and local templates. |
+| **Settings** | `settings.edit` | Panel-wide settings. |
 
-Overview with statistics, active servers, and system status with resource usage charts.
+Installed extensions can add their own pages to the menu and tabs to every server ([Extensions](../reference/15-extensions.md)).
 
-#### Servers
+## Home
 
-Manage all your game servers from here: real-time console, files, backups, databases, plugins, and more.
+Users with `nodes.view` or `users.info.search` get an overview: active servers, overall health (30-day availability), live network traffic, low-disk alerts, average CPU, memory and storage, panel information, the nodes' network history (1 h, 6 h, 24 h) and the latest sign-ins. Everyone else gets **My Servers**, one card per server they can open. See [Dashboard and nodes](../features/dashboard-and-nodes.md).
 
-#### Users
+## Servers
 
-Manage users, granular scope-based permissions, and panel roles.
+The list of servers you have access to. Administrators create servers with **Add Server** (the wizard is described step by step in [Getting started](./getting-started.md#6-create-your-first-server)).
 
-#### Nodes
+### Server page
 
-Configure and manage the physical or virtual nodes where servers run.
+The tabs depend on your permissions on that server (the exact rules are in the [Scopes reference](./scopes-reference.md#what-each-person-sees-on-the-web)):
 
-#### Administration
+| Tab | What you do there | Guide |
+|-----|-------------------|-------|
+| **Console** | Live output, commands (with `server.console.send`), start / restart / stop / kill. It can be expanded over the page; a crash shows a notice and a crash report. | [Crash reports](../features/crash-reports.md), [AI assistant](../features/ai-assistant.md) |
+| **Overview** | Address, version, players, and CPU, memory and network charts. | [Server overview and statistics](../features/server-statistics.md), [Game version](../features/game-versions.md) |
+| **File Manager** | Browse, edit, upload, compress and extract files; select several items to compress or delete them together; file history. | [File history](../features/file-history.md) |
+| **Settings** | Name, variables the template opens to you, auto start and restart, port notes and primary port, notifications, subdomain. | [Server settings](../features/server-settings.md), [Notifications](../features/server-notifications.md), [Subdomains](../features/subdomains.md) |
+| **Properties** (beta) | `server.properties` editor for Minecraft: Java Edition. | [Server properties](../features/server-properties.md) |
+| **Users** | The owner and sub-users, and their permissions. | [Scopes reference](./scopes-reference.md#owner-and-sub-users) |
+| **Database** | Databases on the database hosts this server may use. | [Database hosts](../features/database-hosts.md) |
+| **Backups** | Create, download, restore and delete backups. | [Backups](../features/backups.md) |
+| **Tasks** | Scheduled tasks (commands, power actions, backups). | [Scheduled tasks](../features/scheduled-tasks.md) |
+| **Activity** | Who did what on the server. | [Activity log](../features/activity-and-access-log.md) |
+| **SFTP Access** | The SFTP address and username (`email#serverID`). | [Core concepts: SFTP](./concepts.md#sftp) |
+| **Migration** | Move the server to another Aether Panel installation (administrators). | [Server transfers](../features/server-transfers.md) |
+| **Splitter** | Split the server into sub-servers (owner or administrator). | [Sub-servers](../features/sub-servers.md) |
+| **Plugins**, **Modpacks** | Install plugins, or mods on Fabric, Forge and NeoForge servers (from Modrinth), and modpacks (Modrinth, CurseForge). | [Modpacks and plugins](../features/modpacks-and-plugins.md) |
+| **Map** | World map for Minecraft: Java Edition. | [World map](../features/world-map.md) |
+| **Administration** | Reinstall, and for administrators: transfer to another node, definition, suspension, cloning, deletion. | [Server transfers](../features/server-transfers.md), [Cloning](../features/cloning.md) |
 
-Advanced panel configuration: Database Hosts, templates, global roles, and more.
+## Users and roles
 
-## Panel Architecture
+**Users** lists accounts with their role. With `users.info.edit` you create, edit and delete accounts; with `users.perms.edit` you change their panel permissions. Staff cannot edit accounts with powers they lack ([Editing other accounts](./scopes-reference.md#editing-other-accounts)). Only administrators pick a user's role.
 
-Aether Panel is an open source panel built with Go 1.25. The backend exposes a RESTful API using Gin (web framework) and GORM (ORM). The panel runs in two modes: panel (web interface and API) and daemon (server execution). In standard installations, both modes run in a single binary.
+**Roles** (administrators) groups panel scopes under a name. The panel creates "Administrador" and "Usuario"; a role's server scopes have no effect on servers. See [Roles](./scopes-reference.md#roles).
 
-### Technology Stack
+Server access is given on the server itself, in its **Users** tab, not here.
 
-#### Backend (Go)
+## Nodes
 
-- Go 1.25 with Gin framework for REST API
-- GORM for database access (SQLite default, PostgreSQL/MySQL supported)
-- Cobra CLI for administration commands
-- Bearer token authentication with sessions and cookies
-- Integrated OAuth2 server for third-party authentication
-- Integrated SFTP server for file transfer
-- WebSocket for real-time console and stats
-- Docker for isolated server environments
+**Nodes** lists the local node and the remote nodes with their state and resources. Administrators add remote nodes (`nodes.create`), edit them and see their deployment credentials (`nodes.deploy`). See [Core concepts: Nodes](./concepts.md#nodes) and [Dashboard and nodes](../features/dashboard-and-nodes.md).
 
-#### Frontend (Dashboard)
+## Database hosts
 
-- Astro + React 19 with TypeScript
-- Tailwind CSS 3.4 for styling
-- shadcn/ui + Radix UI for interface components
-- Full control panel with responsive design
-- Integrated code editor with syntax highlighting
-- Real-time charts with Recharts
-- Interactive web console via WebSocket
+**Database Hosts** (administrators) holds the MySQL/MariaDB servers where server databases are created. **Add Host** opens a three-step wizard:
 
-## Server Management
+1. **Credentials**: the username and password of a MySQL account that can create users and databases.
+2. **Instructions**: the SQL to create that account, with buttons to copy it:
 
-To add a new server, navigate to the "Servers" section and click "Create New". You will be prompted to select a node, choose a template, and configure its settings. Servers run in Docker containers for isolation and security.
+   ```sql
+   CREATE USER 'aetheruser'@'%' IDENTIFIED BY 'your_strong_password';
+   GRANT ALL PRIVILEGES ON *.* TO 'aetheruser'@'%' WITH GRANT OPTION;
+   ```
 
-### Creating a Server
+   The user is created for `'%'` because a panel in Docker connects from its container's IP. If the database is on another machine, it also shows how to allow external connections (`bind-address=0.0.0.0` under `[mysqld]` in `my.cnf`, then restart MySQL and open port 3306 to the panel).
+3. **Configuration**: **Host Name** (a label), **Connection Host** (IP or domain the panel connects to), **Port** (3306), **Database Limit** (empty or 0 for no limit) and **Linked Nodes** (optional). **Test connection** checks host, username and password before saving.
 
-- Click the "Create Server" button
-- Select the node where the server will run
-- Choose a template (Minecraft, Terraria, etc.)
-- Configure name, port, IP, and resources
-- Assign users to the server with their permissions
-- Click "Create" — the panel will install the server automatically
+A host linked to a node is only offered to servers on that node. Hosts can be edited later (leave username and password empty to keep them) and deleted, but only once they have no databases left.
 
-### Server Lifecycle
+Then, in a server's **Database** tab, anyone with `server.data.edit` creates a database: the panel names it `s_<serverId>_<name>`, creates a user with a random name and password for it alone, and shows the connection details. Game servers reach the panel's own MariaDB as `mysql:3306`. Full details: [Database hosts](../features/database-hosts.md).
 
-The panel exposes REST endpoints to fully control the server lifecycle. Each action requires authentication and specific permissions.
+## Templates
 
-- Start — powers on the server
-- Stop — gracefully shuts down the server
-- Restart — stops then starts the server
-- Kill — force immediate shutdown
-- Install/Reinstall — runs the template installation process
-- Reload — reloads the server configuration
+**Templates** shows the repositories (**Community** and **Local**) and their templates. **Use Template** opens the new-server wizard with that template. With `templates.local.edit` you upload, create, edit and delete local templates. See [Templates](../features/templates.md).
 
-### Server Tabs
+## Settings
 
-#### Console
+**Settings** (`settings.edit`) has these tabs: **General** (company name, Base URL, master node IP, notification language, Gemini key, CurseForge key, sign-ups, anti-bot check and Turnstile, experimental features), **Discord Notifications**, **Mail**, **API keys** (billing), **Products** (plans for billing), **Updates**, **Off-site backups** (S3), **Domains** (Cloudflare subdomains) and **Extensions**. See [Panel settings](../features/panel-settings.md).
 
-Access the server console in real-time via WebSocket. Send commands and view live logs with auto-scroll. The console includes timestamps and fullscreen mode.
+## Account Settings
 
-#### Files
-
-Full file manager with integrated code editor. Navigate, edit, rename, create, delete, compress, and extract files. The editor includes syntax highlighting and keyboard shortcuts.
-
-#### Databases
-
-Create and manage MySQL/MariaDB databases for your server. Credentials are auto-generated and connection info is displayed with quick-copy.
-
-#### SFTP
-
-Integrated SFTP access for file transfer using clients like FileZilla or WinSCP. Displays server, port, user, and password.
-
-#### Backups
-
-Create, download, restore, and delete server backups. Each backup is stored compressed on the node. You can name each backup for easy identification.
-
-#### Plugins
-
-Search, install, and manage plugins from the panel. Compatible with Minecraft servers (Spigot/Paper). Search by name in public plugin repositories.
-
-#### Server Users
-
-Manage which users have access to the server and with what permissions. Add or remove users and adjust scopes individually.
-
-#### Settings
-
-Environment variables, startup flags, server type, name, and advanced server configuration.
-
-#### Statistics
-
-Real-time CPU, RAM, disk, and network charts. Data updates via WebSocket for a smooth experience.
-
-### Node Transfer
-
-You can transfer servers between nodes in the panel. The transfer includes all files and configuration. External federated transfers between independent panels are also available.
-
-## User & Role Management
-
-In the "Users" section, you can create new user accounts and assign them to roles with specific permissions. The permission system is based on scopes that granularly control every action within the panel.
-
-### Creating a User
-
-- Click "Create User"
-- Fill the form with username, email, and password
-- Assign global permissions or roles
-- Save the user
-
-### Permission System (Scopes)
-
-Aether Panel uses 74 granular scopes (50 server-specific + 24 global) that control every action. Permissions can be assigned at global level (affect all servers) or at individual server level. There are also roles that group scopes for mass assignment.
-
-#### Scope Categories
-
-- **server**: Server control: view, start, stop, kill, restart, install, reload, status, stats, console, send commands, rename
-- **files**: Files: view, edit, sftp, compress, extract
-- **backups**: Backups: view, create, restore, delete, download
-- **users**: Server users: view, create, edit, delete
-- **data**: Server data: view, edit (user), edit (admin)
-- **tasks**: Scheduled tasks: view, run, create, edit, delete
-- **admin**: Global administration: admin, settings.edit, nodes (view/create/edit/delete/deploy), users (search/view/edit), templates, uptime
-## Node Management
-
-Nodes are physical or virtual servers where Docker containers for your game servers run. The panel can manage multiple nodes from a single interface. Each node runs a daemon that communicates with the panel via HTTP API.
-
-### Creating a Node
-
-- Go to the "Nodes" section in the admin panel
-- Click "Create Node"
-- Configure name, IP, port, and server folders
-- Configure communication credentials (shared secret)
-- Verify the connection with the new node
-- Save the node — you can now create servers on it
-
-### Local Node
-
-The local node is the same server where the panel is installed. It is configured automatically during installation and runs the daemon in the same process.
-
-### Node Features
-
-Each node exposes its capabilities to the panel: environment type (Docker), file system, system information (CPU, RAM, disk). You can check any node's features from the interface.
-
-## Database Hosts
-
-Database Hosts allow managing MySQL/MariaDB servers to automatically create databases for your game servers.
-
-### Creating a Database Host
-
-- Go to Admin  Database Hosts
-- Click "Create Database Host"
-- Step 1: Enter MySQL credentials with GRANT ALL privileges
-- Step 2: Configure host, port, name, and linked nodes
-- Save the Database Host
-
-### MySQL Setup
-
-For the panel to automatically create databases, you need:
-
-- A MySQL user with GRANT ALL PRIVILEGES ON *.* WITH GRANT OPTION
-- MySQL configured to accept external connections (bind-address=0.0.0.0)
-- Port 3306 open in the firewall
-
-### Using Database Hosts
-
-Once a Database Host is created, you can create databases from the server's "Database" tab. The panel will automatically generate:
-
-- Unique database name
-- User with specific permissions
-- Secure password
-- Remote connection information
-
-## SFTP
-
-Aether Panel includes an integrated SFTP server that allows users to access their server files using any standard SFTP client (FileZilla, WinSCP, Cyberduck).
-
-- The SFTP server runs on the configured port (default 5657)
-- Each user can only access servers where they have permissions
-- Authentication uses the panel credentials
-- Users need the server.sftp scope to access via SFTP
-
-## Real-Time WebSocket Connection
-
-The panel provides a WebSocket connection through the REST API that allows receiving real-time data from the server. The socket connects via proxy from the panel to the node daemon.
-
-- Interactive server console with live logs
-- Real-time CPU, RAM, and disk statistics
-- Server status (running/stopped/installing)
-- Authentication via the panel's Bearer token
-
-## Command Line Interface (CLI)
-
-The panel includes a full Cobra-based CLI for terminal administration.
-
-- SkyPanel run — Starts the panel and daemon
-- SkyPanel version — Shows the panel version
-- SkyPanel user — User management commands (create, modify, delete)
-- SkyPanel db — Database commands (migrate, upgrade)
-- SkyPanel runservice — Runs as a system service
-
+Every user's own page: account details (username, email), password, two-factor authentication, SSH keys for SFTP, OAuth2 clients (with `self.clients`) and preferences (language: English or Spanish). See [Security](./security.md#sign-in-and-sessions).

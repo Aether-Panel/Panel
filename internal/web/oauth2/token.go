@@ -1,7 +1,9 @@
 package oauth2
 
 import (
+	"errors"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
+	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/oauth2"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
@@ -70,17 +72,13 @@ func handleClientCredentialsGrant(c *gin.Context, db *gorm.DB, session *services
 		return
 	}
 
-	token, err := session.CreateForClient(client)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
-	}
-
+	// the column, not client.Server: Get does not load the relation, and with it nil every
+	// server client was checked and reported as a personal one
 	var serverID string
-	if client.Server != nil {
-		serverID = client.Server.Identifier
+	if client.ServerID != nil {
+		serverID = *client.ServerID
 	}
 
-	var allScopes []string
 	ps := &services.Permission{DB: db}
 	perms, err := ps.GetForUserAndServer(client.UserID, serverID)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
@@ -90,16 +88,48 @@ func handleClientCredentialsGrant(c *gin.Context, db *gorm.DB, session *services
 	if !scopes.ContainsScope(perms.Scopes, scopes.ScopeLogin) && !serverClientMayLogin(c, ps, client.UserID, serverID) {
 		return
 	}
-	for _, v := range perms.Scopes {
-		allScopes = append(allScopes, v.String())
+
+	usable, ok := clientTokenScopes(c, db, client, serverID)
+	if !ok {
+		return
+	}
+
+	// only now: a refused request must not leave a session behind
+	token, err := session.CreateForClient(client)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
 	}
 
 	c.JSON(http.StatusOK, &oauth2.TokenResponse{
 		AccessToken: token,
 		TokenType:   "Bearer",
-		Scope:       strings.Join(allScopes, " "),
+		Scope:       strings.Join(usable, " "),
 		ExpiresIn:   expiresIn,
 	})
+}
+
+// clientTokenScopes are the scopes a token of the client can really use: what its user may do
+// (on its server, for a server client), within the client's bounds, as the middleware applies
+// them to each request. It writes the response itself and returns false when the request must stop.
+func clientTokenScopes(c *gin.Context, db *gorm.DB, client *models.Client, serverID string) ([]string, bool) {
+	user, err := (&services.User{DB: db}).GetByID(client.UserID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		c.AbortWithStatus(http.StatusForbidden)
+		return nil, false
+	}
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return nil, false
+	}
+	granted, err := middleware.UserScopesOn(db, user, serverID)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return nil, false
+	}
+	usable := middleware.ClientScopes(client, granted, serverID)
+	names := make([]string, 0, len(usable))
+	for _, s := range usable {
+		names = append(names, s.String())
+	}
+	return names, true
 }
 
 // serverClientMayLogin checks the login scope for a client without one of its own: servers

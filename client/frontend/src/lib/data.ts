@@ -3,7 +3,15 @@ export type Server = {
   name: string;
   ipAddress: string;
   port: number;
+  /** the name players use instead of the IP (survival.play.example.com), when it has one */
+  subdomain?: string;
+  /** Minecraft Java finds the port through the SRV record, so the subdomain goes without it */
+  subdomainSrv?: boolean;
   ports?: number[];
+  /** the logo key of the template it was made from (minecraft-java, nodejs…), when it has one */
+  icon?: string;
+  /** the template type (minecraft-java, discord…); finds a logo for servers made before icons existed */
+  type?: string;
   status: 'online' | 'offline' | 'pending';
   /** CPU as a share of what the server may use, 0-100 (its limit, or every core of the node) */
   cpuUsage: number;
@@ -47,6 +55,8 @@ export type User = {
   roleId?: number;
   avatar?: string;
   assignedServers: string[]; // array of server IDs
+  /** made through public registration and not approved yet: it cannot sign in */
+  pendingApproval?: boolean;
 };
 
 export type Node = {

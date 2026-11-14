@@ -1,342 +1,134 @@
-# Security: unshare & Kernel Isolation
+# Kernel isolation: openat2 and unshare
 
-Aether Panel uses Linux `unshare` syscall for server process isolation. This document explains the implementation, kernel requirements, and configuration.
+Two Linux kernel features protect the node from what runs on it:
 
----
+- **`openat2`** keeps every file the daemon opens for a server inside that server's folder.
+- **`unshare`** (user and mount namespaces) jails servers that run directly on the node, with the `host` environment.
 
-## Overview
+Servers in the `docker` environment, the default, are isolated by Docker instead: see [Container user and isolation](../backend/04-servers.md#container-user-and-isolation). How the `files` package uses `openat2` is described in [Server files and archives](19-files-compression.md).
 
-`unshare` creates new Linux namespaces, isolating processes from the host system:
+## openat2
 
-| Namespace | Constant | Isolates |
-|-----------|----------|----------|
-| User | `CLONE_NEWUSER` | UID/GID mappings |
-| Mount | `CLONE_NEWNS` | Filesystem mounts |
-| PID | `CLONE_NEWPID` | Process IDs |
-| Network | `CLONE_NEWNET` | Network interfaces |
-| IPC | `CLONE_NEWIPC` | IPC resources |
-| UTS | `CLONE_NEWUTS` | Hostname/domain |
-| Cgroup | `CLONE_NEWCGROUP` | Cgroup hierarchy |
+### Kernel check at start-up
 
----
+When the daemon starts (`utils.DetermineKernelSupport()`, called from `daemon()` in `cmd/panel/run.go`), it checks that the kernel has `openat2` (added in Linux 5.6):
 
-## Implementation (`internal/sys/syscall.go`)
+1. It tries the call the way the file server uses it: it opens `/` and, from there, `.` with `openat2` and `RESOLVE_BENEATH`. If that works, `openat2` is available.
+2. `ENOSYS` (the kernel lacks it), `EOPNOTSUPP` or `EPERM` mean it is not available. `EPERM` is what a seccomp filter that blocks it returns (an older Docker profile, for example): with it every file access would fail the same way, so it counts as unavailable even if the kernel has it.
+3. Any other error leaves the probe inconclusive and `/proc/kallsyms` is read instead, looking for the `do_sys_openat2` symbol (whatever its type, `t` or `T`). If that file cannot be opened, `openat2` counts as unavailable.
+4. If `openat2` is not available, the daemon **does not start**:
 
-```go
-func Unshare(flags int) error {
-    return unix.Unshare(flags)
-}
-
-// Default flags for TTY environment
-const DefaultUnshareFlags = unix.CLONE_NEWUSER |
-    unix.CLONE_NEWNS |
-    unix.CLONE_NEWPID |
-    unix.CLONE_NEWNET |
-    unix.CLONE_NEWIPC |
-    unix.CLONE_NEWUTS |
-    unix.CLONE_NEWCGROUP
+```
+OpenAt2 is not supported. Cowardly not starting to avoid security issues.
 ```
 
-**Execution Flow:**
-1. Panel forks child process
-2. Child calls `unshare(flags)`
-3. Sets up UID/GID maps in new user namespace
-4. Mounts proc, sysfs in new mount namespace
-5. Executes server process
+To start anyway, set `security.forceOpenat` (see below).
 
----
+### What it is used for
 
-## Kernel Requirements
+With `openat2`, every open done by the file server uses `RESOLVE_BENEATH`, relative to the server's folder opened once. The kernel then refuses any path, `..` or symbolic link that leads outside that folder, also when a folder is swapped for a link while the request is running.
 
-| Feature | Kernel Version | Config |
-|---------|----------------|--------|
-| `unshare(CLONE_NEWUSER)` | 3.8+ | `CONFIG_USER_NS=y` |
-| `unshare(CLONE_NEWPID)` | 3.8+ | `CONFIG_PID_NS=y` |
-| `unshare(CLONE_NEWNET)` | 3.8+ | `CONFIG_NET_NS=y` |
-| `unshare(CLONE_NEWNS)` | 2.4.19+ | `CONFIG_NAMESPACES=y` |
-| `openat2` / `RESOLVE_BENEATH` | 5.6+ | `CONFIG_OPENAT2=y` |
+### Fallback: `security.forceOpenat`
 
-**Ubuntu 24.04+** restricts unprivileged user namespaces by default:
-```bash
-# Check current setting
-sysctl kernel.apparmor_restrict_unprivileged_userns
+| Key | Environment variable | Default |
+|-----|----------------------|---------|
+| `security.forceOpenat` | `SKYPANEL_SECURITY_FORCEOPENAT` | `false` |
 
-# Enable (required for Panel)
-sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+When it is `true`, the daemon skips the check, logs `WARNING: OPENAT2 SUPPORT NOT ENABLED. OVERRIDE IS BEING USED.` and uses plain `openat`: each part of the path is opened one by one with `O_NOFOLLOW`. It still stays inside the folder, but **any** symbolic link on the way fails, even one that points inside the server. Use it only on kernels without `openat2`, or where a seccomp filter blocks it and cannot be changed.
 
-# Persistent
-echo "kernel.apparmor_restrict_unprivileged_userns=0" >> /etc/sysctl.d/99-panel.conf
-sysctl --system
-```
+There is no automatic fallback: without `openat2` and without this key, the daemon does not start.
 
----
+### `internal/sys`
 
-## Configuration
+`sys.SyscallMode` turns a Go `os.FileMode` into the mode the system calls expect, keeping the permission bits and the setuid, setgid and sticky bits. The file server uses it for `openat2`, `openat` and `mkdirat`.
 
-```json
-{
-  "security": {
-    "disableUnshare": false
-  }
-}
-```
+## unshare: the `host` environment jail
 
-**Environment Variable:**
-```bash
-SKYPANEL_SECURITY_DISABLEUNSHARE=true
-```
+Servers with the `host` environment (the older names `tty` and `standard` are changed to `host` when the server is loaded) run as processes of the daemon, without a container. Unless it is turned off, each one is started inside a jail (`internal/servers/tty/tty.go`).
 
-**Per-Server Override (in server definition):**
-```json
-{
-  "environment": {
-    "type": "tty",
-    "disableUnshare": true
-  }
-}
-```
+### How the jail is built
 
----
+The daemon writes a small Bash script to a temporary folder (`/tmp/unshare-pp-*`) and runs it in new namespaces:
 
-## UID/GID Mapping
+| Namespace | Flag |
+|-----------|------|
+| User | `CLONE_NEWUSER` |
+| Mount | `CLONE_NEWNS` |
+| Cgroup | `CLONE_NEWCGROUP` |
+| IPC | `CLONE_NEWIPC` |
+| Hostname (UTS) | `CLONE_NEWUTS` |
 
-In the new user namespace:
+The process also gets its own file descriptor table (`CLONE_FILES`). There is **no** PID or network namespace: the server uses the node's network and its `/proc` is the node's.
 
-```go
-// Write to /proc/<pid>/uid_map
-echo "0 1000 1" > /proc/$PID/uid_map  // Container root (0) -> Host UID 1000
-echo "1 1001 1" > /proc/$PID/uid_map  // Container user (1) -> Host UID 1001
+User mapping: user and group `0` inside the jail are the daemon's own user and group outside (a single-ID map). The server believes it is root, but on the node it has only the daemon user's rights, and the files it creates belong to that user.
 
-// Write to /proc/<pid>/gid_map
-echo "0 1000 1" > /proc/$PID/gid_map
-echo "1 1001 1" > /proc/$PID/gid_map
-```
+The script then builds a new root in the temporary folder and switches to it:
 
-**Requirements:**
-- `/proc/sys/kernel/max_user_namespaces` > 0
-- `/proc/sys/kernel/max_map_count` sufficient for mappings
+| Inside the jail | Comes from |
+|-----------------|------------|
+| `/bin`, `/lib` | Bind mount of the node's folders. |
+| `/lib64` | Bind mount, on `amd64` only. |
+| `/usr`, `/etc`, `/dev`, `/proc` | Recursive bind mount of the node's folders. |
+| `/tmp` | A new `tmpfs` of 50 MB. |
+| The server folder | Bind mount, at the same absolute path. |
+| The binaries folder (`daemon.data.binaries`) and the cache folder (`daemon.data.cache`) | Bind mount, at the same absolute path. |
+| Each path in the server's `mounts` | Bind mount, at the same path. |
+| The target of `/etc/resolv.conf` | Bind mount, when `/etc/resolv.conf` is a symbolic link (systemd-resolved), so DNS keeps working. |
 
----
+Then `pivot_root` makes that folder the root, the old root is unmounted (`umount -l`) and removed, and the start command runs from the server folder. The command and its arguments are quoted one by one, so the shell does not interpret them; a start command that is empty or contains a NUL or a line break is refused.
 
-## Mount Namespace
+The rest of the node (`/home`, `/root`, `/var`, other servers' folders...) is not visible. Inside the jail, the binaries folder is put first in `PATH`; a relative binaries folder is made absolute (`/` + path).
 
-Isolated filesystem view:
+The script needs `bash`, `mount`, `umount`, `mkdir`, `touch`, `rm` and `pivot_root` on the node (util-linux and coreutils).
 
-```go
-// In new mount namespace
-unix.Mount("proc", "/proc", "proc", 0, "")
-unix.Mount("sysfs", "/sys", "sysfs", 0, "")
-unix.Mount("tmpfs", "/tmp", "tmpfs", 0, "")
-unix.Mount("devpts", "/dev/pts", "devpts", 0, "")
-```
+### Settings
 
-**Server Directory Mount:**
-```go
-// Bind mount server root
-unix.Mount(serverRoot, "/server", "bind", unix.MS_BIND|unix.MS_REC, "")
-```
+| Where | Key | Default | Effect |
+|-------|-----|---------|--------|
+| `config.json` | `security.disableUnshare` (`SKYPANEL_SECURITY_DISABLEUNSHARE`) | `false` | `true` turns the jail off for every `host` server on the node. |
+| Server environment | `disableUnshare` | `false` | `true` turns the jail off for that server. |
+| Server environment | `mounts` | empty | Extra node paths to bind-mount inside the jail. |
 
----
-
-## PID Namespace
-
-```go
-// In new PID namespace, process sees itself as PID 1
-// Children see sequential PIDs
-// Host sees actual PID
-```
-
-**Benefits:**
-- Process isolation
-- Clean process tree
-- `kill -9 1` inside container only kills container
-
----
-
-## Network Namespace
-
-```go
-// Creates new network stack
-// Own loopback, routing table, firewall
-// No access to host network by default
-```
-
-**Docker Integration:** When using Docker environment, network namespace handled by Docker (not `unshare`).
-
----
-
-## Disabling unshare
-
-### Global (config.json)
-```json
-{
-  "security": {
-    "disableUnshare": true
-  }
-}
-```
-
-### Per-Server (server definition)
 ```json
 {
   "environment": {
-    "type": "tty",
-    "disableUnshare": true
+    "type": "host",
+    "disableUnshare": false,
+    "mounts": ["/opt/shared-maps"]
   }
 }
 ```
 
-### Environment Variable
-```bash
-SKYPANEL_SECURITY_DISABLEUNSHARE=true
+Without the jail, the command runs directly as the daemon's user, in the server folder, with access to everything that user can reach.
+
+### Turning off host environments: `docker.disallowHost`
+
+`docker.disallowHost` (default `false`) turns off the environments that run on the node itself (`host`, `tty`, `standard`, `bubblewrap`). When it is on, the node does not offer them, and creating, redefining, installing or starting a server with one of them is refused with `environment "<type>" is disabled on this node (docker.disallowHost)`.
+
+### Ubuntu 24.04 and later
+
+Ubuntu 24.04 restricts unprivileged user namespaces through AppArmor. The jail then fails to start, and the console shows:
+
+```
+ERROR: Permission denied while starting the security jail.
+Your OS (e.g. Ubuntu 24.04) might be restricting unprivileged user namespaces.
+FIX 1 (Recommended): Run 'sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0'
+FIX 2: Add '"security": {"disableUnshare": true}' to your config.json and restart.
 ```
 
----
-
-## Troubleshooting
-
-| Error | Cause | Solution |
-|-------|-------|----------|
-| `operation not permitted` | User namespaces disabled | Enable `kernel.apparmor_restrict_unprivileged_userns=0` |
-| `invalid argument` | Kernel too old | Upgrade kernel (3.8+ required) |
-| `permission denied` | AppArmor/SELinux | Adjust policy or disable |
-| `no space left` | User namespace limit | Increase `max_user_namespaces` |
-| `cannot allocate memory` | Map count exceeded | Increase `max_map_count` |
-
-### Check Kernel Support
+To keep the first fix after a reboot, put it in a file under `/etc/sysctl.d/`:
 
 ```bash
-# Check namespaces
-lsns
-
-# Check user namespace limit
-cat /proc/sys/kernel/max_user_namespaces
-
-# Check kernel version
-uname -r
-
-# Check AppArmor
-aa-status | grep userns
-```
-
-### Ubuntu 24.04+ Fix
-
-```bash
-# Temporary
-sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-
-# Permanent
-echo "kernel.apparmor_restrict_unprivileged_userns=0" | \
-    sudo tee /etc/sysctl.d/99-panel-userns.conf
+echo "kernel.apparmor_restrict_unprivileged_userns=0" | sudo tee /etc/sysctl.d/99-aether-userns.conf
 sudo sysctl --system
 ```
 
-### Docker Alternative
+More on this in [Troubleshooting](../setup/troubleshooting.md).
 
-If `unshare` cannot be enabled, use Docker environment:
-```json
-{
-  "environment": {
-    "type": "docker",
-    "image": "eclipse-temurin:17"
-  }
-}
-```
+## Summary
 
----
-
-## Security Implications
-
-| Aspect | With unshare | Without unshare |
-|--------|--------------|-----------------|
-| Filesystem | Isolated (bind mounts) | Full host access |
-| Processes | PID namespace isolated | Visible to host |
-| Network | Isolated stack | Host network access |
-| Users | UID mapping | Real host UID |
-| Breakout risk | Low | High |
-
----
-
-## AppArmor Profile
-
-For production, use custom AppArmor profile:
-
-```apparmor
-# /etc/apparmor.d/usr.bin.skypanel
-#include <tunables/global>
-
-/usr/bin/SkyPanel {
-  #include <abstractions/base>
-  
-  capability setuid,
-  capability setgid,
-  capability sys_admin,
-  capability sys_resource,
-  capability dac_override,
-  
-  # unshare
-  capability sys_admin,
-  
-  # Mount namespace
-  mount options=(rw, bind),
-  
-  # Network
-  network inet tcp,
-  network inet udp,
-  
-  # File access
-  /var/lib/SkyPanel/** rw,
-  /tmp/** rw,
-}
-```
-
-Apply:
-```bash
-sudo apparmor_parser -r /etc/apparmor.d/usr.bin.skypanel
-```
-
----
-
-## SELinux
-
-```bash
-# Allow unshare
-setsebool -P allow_unshare 1
-
-# Allow mount namespace
-setsebool -P container_manage_cgroup 1
-```
-
----
-
-## Verification
-
-```go
-// Check if unshare works
-func TestUnshare() error {
-    // Try in child process
-    cmd := exec.Command("unshare", "--user", "--pid", "--mount", "true")
-    return cmd.Run()
-}
-```
-
----
-
-## Performance Impact
-
-| Metric | Overhead |
-|--------|----------|
-| Process start | +5-10ms |
-| Memory | +1-2MB per namespace |
-| CPU | Negligible |
-| File I/O | Minimal (bind mounts) |
-
----
-
-## Best Practices
-
-1. **Always enable** on production (security)
-2. **Test on target kernel** before deployment
-3. **Monitor** `dmesg` for AppArmor/SELinux denials
-4. **Use Docker** if kernel support insufficient
-5. **Keep kernel updated** for security patches
+| Protection | Applies to | Can be turned off |
+|------------|------------|-------------------|
+| `openat2` + `RESOLVE_BENEATH` | Every server file the daemon opens (file manager, SFTP, archives, backups, downloads) | Only replaced by `openat` with `security.forceOpenat` |
+| `unshare` jail | `host` environment servers | `security.disableUnshare` or `disableUnshare` per server |
+| Docker isolation | `docker` environment servers | See [Container user and isolation](../backend/04-servers.md#container-user-and-isolation) |

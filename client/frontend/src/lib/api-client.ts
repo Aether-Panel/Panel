@@ -5,15 +5,36 @@ import es from '@/lib/locales/es.json';
 // the rest keep the panel's own message.
 const API_ERRORS: Record<string, Record<string, string>> = { en: en.apiErrors, es: es.apiErrors };
 
-function localizedError(code: unknown): string | undefined {
-    if (typeof code !== 'string') return undefined;
-    let language = 'en';
+// Words some errors carry in their metadata (the Discord webhooks a test did not reach), per
+// error code, so they read in the viewer's language too.
+const API_ERROR_VALUES: Record<string, Record<string, Record<string, string>>> = { en: en.apiErrorValues, es: es.apiErrorValues };
+
+function viewerLanguage(): string {
     try {
-        language = localStorage.getItem('aether_panel_language') || 'en';
+        return localStorage.getItem('aether_panel_language') || 'en';
     } catch {
         // storage blocked: the panel's default language
+        return 'en';
     }
-    return (API_ERRORS[language] ?? API_ERRORS.en)[code];
+}
+
+/**
+ * The text for an error code in the viewer's language, with its {{placeholders}} filled from
+ * the error's metadata (a list is joined with commas).
+ */
+function localizedError(code: unknown, metadata: unknown): string | undefined {
+    if (typeof code !== 'string') return undefined;
+    const language = viewerLanguage();
+    const text = (API_ERRORS[language] ?? API_ERRORS.en)[code];
+    if (text === undefined) return undefined;
+    const values = (API_ERROR_VALUES[language] ?? API_ERROR_VALUES.en)[code] ?? {};
+    const meta = metadata !== null && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : {};
+    return text.replace(/\{\{(\w+)\}\}/g, (_match, name: string) => {
+        const value = meta[name];
+        if (value === undefined || value === null) return '';
+        const parts: unknown[] = Array.isArray(value) ? value : [value];
+        return parts.map((part) => values[String(part)] ?? String(part)).join(', ');
+    });
 }
 
 export class ApiError extends Error {
@@ -24,7 +45,7 @@ export class ApiError extends Error {
 }
 
 /** Pages where a 401 is part of the flow (signing in), not an expired session */
-const AUTH_PAGES = ['/login', '/register', '/forgot-password', '/reset-password'];
+const AUTH_PAGES = new Set(['/login', '/register', '/forgot-password', '/reset-password']);
 let sentToLogin = false;
 
 /** sessionStorage key with the page to return to after signing in */
@@ -52,7 +73,7 @@ function sessionExpired(url: string) {
     // the panel's own sign-in calls answer 401 for a wrong password; that is not an expired session
     if (url.startsWith('/auth/')) return;
     const path = window.location.pathname.replace(/\/$/, '') || '/';
-    if (AUTH_PAGES.includes(path)) return;
+    if (AUTH_PAGES.has(path)) return;
     sentToLogin = true;
     rememberPageForLogin();
     window.location.href = '/login/?expired=1';
@@ -75,7 +96,7 @@ async function handleResponse(response: Response, url = '') {
             if (typeof data.error === 'string') {
                 message = data.error;
             } else if (typeof data.error === 'object' && data.error.msg) {
-                message = localizedError(data.error.code) ?? data.error.msg;
+                message = localizedError(data.error.code, data.error.metadata) ?? data.error.msg;
             }
         }
         throw new ApiError(response.status, message, data);

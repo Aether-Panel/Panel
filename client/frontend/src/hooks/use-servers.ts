@@ -5,19 +5,36 @@ import { parsePlayerQuery } from '@/lib/players';
 import { fetchAllPages } from '@/lib/paged';
 const globalFailedStatsSet = new Set<string>();
 
+/** A node address players can type: a real name (usa.example.com), not an IP or a local name. */
+function isPublicName(host: string | undefined): host is string {
+    if (!host) return false;
+    const h = host.trim().toLowerCase();
+    if (/^[\d.]+$/.test(h) || h.includes(':') || !h.includes('.')) return false;
+    return !/\.(local|internal|localhost)$/.test(h);
+}
+
+/** The address the list shows: the node's name when it has one, else the server's own IP, else the node's. */
+export function serverHost(ip: string | undefined, nodeHost: string | undefined): string {
+    if (isPublicName(nodeHost) && (!ip || !isPublicName(ip))) return nodeHost.trim();
+    if (ip && ip !== '0.0.0.0') return ip;
+    return nodeHost || '0.0.0.0';
+}
+
 // Stats are polled for every listed server; cap parallel requests so large lists do not flood the panel
 const STATS_CONCURRENCY = 6;
 
 async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
     const results = new Array<R>(items.length);
     let next = 0;
-    const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-        while (next < items.length) {
-            const i = next++;
-            results[i] = await fn(items[i]);
-        }
-    });
-    await Promise.all(workers);
+    // Each worker takes the next item only once its previous one is done: that wait is what
+    // holds the requests to `limit` at a time, so it stays sequential within a worker.
+    const work = async (): Promise<void> => {
+        if (next >= items.length) return;
+        const i = next++;
+        results[i] = await fn(items[i]);
+        await work();
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => work()));
     return results;
 }
 
@@ -100,8 +117,12 @@ export function useServers(statsFor?: (server: Server) => boolean) {
                     id: s.id,
                     name: s.name,
                     nodeId: s.nodeId ?? (s.node?.id !== undefined ? s.node.id : 0),
-                    ipAddress: s.ip && s.ip !== '0.0.0.0' ? s.ip : (s.node?.publicHost || '0.0.0.0'),
+                    ipAddress: serverHost(s.ip, s.node?.publicHost),
                     port: s.port || 0,
+                    subdomain: s.subdomain || undefined,
+                    subdomainSrv: !!s.subdomainSrv,
+                    icon: s.icon || undefined,
+                    type: s.type || undefined,
                     status: uptime.currentStatus ? 'online' : 'offline',
                     cpuUsage: 0,
                     memoryUsage: 0,
@@ -131,6 +152,10 @@ export function useServers(statsFor?: (server: Server) => boolean) {
                     nodeId: fresh.nodeId,
                     ipAddress: fresh.ipAddress,
                     port: fresh.port,
+                    subdomain: fresh.subdomain,
+                    subdomainSrv: fresh.subdomainSrv,
+                    icon: fresh.icon,
+                    type: fresh.type,
                     isGhost: fresh.isGhost,
                     parentServerId: fresh.parentServerId,
                     totalCpu: fresh.totalCpu,

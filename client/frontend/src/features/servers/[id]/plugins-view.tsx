@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Puzzle, Search, Download, Trash2, ExternalLink, Loader2, CheckCircle2, ShieldCheck } from '@/components/icons';
 import { useTranslations } from '@/contexts/translations-context';
-import { api } from '@/lib/api-client';
+import { api, ApiError } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { EmptyState } from '@/components/empty-state';
@@ -32,6 +32,47 @@ type PluginsViewProps = {
   serverId: string;
 };
 
+// What the map tab reports about the server: the platform it worked out from the template
+// (modpack loader, "modlauncher" variable or the install step) and the Minecraft version
+type ServerPlatform = {
+  platform?: string;
+  gameVersion?: string;
+};
+
+// Modrinth loaders whose builds run on each platform. Paper and its forks also load Spigot
+// and Bukkit plugins. The daemon searches the same loaders, so what it lists can be installed.
+const PLATFORM_LOADERS: Record<string, string[]> = {
+  paper: ['paper', 'spigot', 'bukkit'],
+  fabric: ['fabric'],
+  forge: ['forge'],
+  neoforge: ['neoforge'],
+};
+
+// The query that makes the daemon install the newest version built for this server rather
+// than the newest one of all; an unknown platform or version leaves that part out
+function installFilter(target: ServerPlatform | null): string {
+  const params = new URLSearchParams();
+  const loaders = target?.platform ? PLATFORM_LOADERS[target.platform] : undefined;
+  if (loaders) params.set('loaders', loaders.join(','));
+  if (target?.gameVersion) params.set('game_versions', target.gameVersion);
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}
+
+// Fabric, Forge and NeoForge load mods (the daemon keeps them in mods/ and only searches mods),
+// Paper loads plugins; an unknown platform searches both
+const MOD_PLATFORMS = new Set(['fabric', 'forge', 'neoforge']);
+
+function searchPlaceholderKey(target: ServerPlatform | null): string {
+  if (target?.platform === 'paper') return 'servers.plugins.searchPlaceholderPlugins';
+  if (target?.platform && MOD_PLATFORMS.has(target.platform)) return 'servers.plugins.searchPlaceholderMods';
+  return 'servers.plugins.searchPlaceholder';
+}
+
+// Install failures the daemon names by code and the api client translates: they say why,
+// so they are shown instead of the generic message
+const EXPLAINED_INSTALL_ERRORS = new Set(['ErrPluginNoCompatibleVersion', 'ErrPluginBadFileName']);
+
 export default function PluginsView({ serverId }: Readonly<PluginsViewProps>) {
   const [activeTab, setActiveTab] = useState('installed');
   const [installedPlugins, setInstalledPlugins] = useState<PluginInfo[]>([]);
@@ -42,8 +83,17 @@ export default function PluginsView({ serverId }: Readonly<PluginsViewProps>) {
   const [pendingPlugin, setPendingPlugin] = useState<string | null>(null);
   // Only used to tell "no search yet" apart from "search returned nothing".
   const [hasSearched, setHasSearched] = useState(false);
+  const [target, setTarget] = useState<ServerPlatform | null>(null);
   const { t } = useTranslations();
-  
+
+  useEffect(() => {
+    let active = true;
+    // without it the install simply is not filtered, as before
+    api.get<ServerPlatform>(`/api/servers/${serverId}/map`)
+      .then((data) => { if (active) setTarget(data); })
+      .catch(() => { if (active) setTarget(null); });
+    return () => { active = false; };
+  }, [serverId]);
 
   const fetchInstalled = useCallback(async () => {
     try {
@@ -85,7 +135,7 @@ export default function PluginsView({ serverId }: Readonly<PluginsViewProps>) {
   const handleInstall = async (plugin: PluginSearchResult) => {
     try {
       setInstallingId(plugin.id);
-      await api.post(`/api/servers/${serverId}/plugins/${plugin.id}`, {});
+      await api.post(`/api/servers/${serverId}/plugins/${encodeURIComponent(plugin.id)}${installFilter(target)}`, {});
       sileo.success({
         title: t('common.success'),
         description: t('servers.plugins.notifications.installSuccess', { name: plugin.name })
@@ -93,10 +143,13 @@ export default function PluginsView({ serverId }: Readonly<PluginsViewProps>) {
       void fetchInstalled();
     } catch (err) {
       console.error('Failed to install project:', err);
-      sileo.error({
-        title: t('common.error'),
-        description: t('servers.plugins.notifications.installError')
-      });
+      // "no version for this server" or "not a safe .jar name" is worth saying; anything else
+      // stays generic
+      const code: unknown = err instanceof ApiError ? err.data?.error?.code : undefined;
+      const description = err instanceof ApiError && typeof code === 'string' && EXPLAINED_INSTALL_ERRORS.has(code)
+        ? err.message
+        : t('servers.plugins.notifications.installError');
+      sileo.error({ title: t('common.error'), description });
     } finally {
       setInstallingId(null);
     }
@@ -304,8 +357,8 @@ export default function PluginsView({ serverId }: Readonly<PluginsViewProps>) {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
               type="search"
-              placeholder={t('servers.plugins.searchPlaceholder')}
-              aria-label={t('servers.plugins.searchPlaceholder')}
+              placeholder={t(searchPlaceholderKey(target))}
+              aria-label={t(searchPlaceholderKey(target))}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"

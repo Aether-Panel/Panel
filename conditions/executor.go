@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"github.com/google/cel-go/cel"
 	"reflect"
-	"regexp"
 	"runtime"
-	"strings"
 )
 
 var GlobalConstantValues = map[string]interface{}{
@@ -14,8 +12,10 @@ var GlobalConstantValues = map[string]interface{}{
 	VariableArch: runtime.GOARCH,
 }
 
+// ResolveIf evaluates a step's condition. ${name} in it is replaced with that variable
+// first, the way ${} works in the rest of the step (see SubstituteVariables).
 func ResolveIf(condition string, data map[string]interface{}, extraCels []cel.EnvOption) (bool, error) {
-	return Run[bool](condition, data, extraCels)
+	return Run[bool](SubstituteVariables(condition, data), data, extraCels)
 }
 
 func Run[T interface{}](statement string, data map[string]interface{}, extras []cel.EnvOption) (T, error) {
@@ -70,22 +70,4 @@ func Run[T interface{}](statement string, data map[string]interface{}, extras []
 	}
 
 	return res, fmt.Errorf("invalid return type, expected %s, got %s", reflect.TypeOf(res), reflect.TypeOf(val))
-}
-
-var conditionalStatementRegex = regexp.MustCompile("{{.*?}}")
-
-func ReplaceInString(str string, data map[string]interface{}, extras []cel.EnvOption) (string, error) {
-	var err error
-
-	result := conditionalStatementRegex.ReplaceAllStringFunc(str, func(part string) string {
-		part = strings.TrimSuffix(strings.TrimPrefix(part, "{{"), "}}")
-		result, innErr := Run[string](part, data, extras)
-		if innErr != nil {
-			err = innErr
-			return err.Error()
-		}
-		return result
-	})
-
-	return result, err
 }

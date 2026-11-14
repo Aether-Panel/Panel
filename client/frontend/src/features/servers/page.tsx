@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useTranslations } from '@/contexts/translations-context';
 import { useServers } from '@/hooks/use-servers';
 import { CreateServerStepper } from './create-server-stepper';
+import { describeLeftovers, takeLeftovers } from './delete-leftovers';
+import { sileo } from '@/lib/toast';
 
 import { ServerCard } from '@/components/server-card';
 import { cn } from '@/lib/utils';
@@ -32,6 +34,15 @@ export default function ServersPage() {
 
   useEffect(() => {
     setIsMounted(true);
+
+    // a server deleted just before: what its database host could not drop
+    const leftovers = takeLeftovers();
+    if (leftovers.length > 0) {
+      sileo.warning({
+        title: t('servers.admin.delete.leftoversTitle'),
+        description: t('servers.admin.delete.leftovers', { databases: describeLeftovers(leftovers) }),
+      });
+    }
 
     // Check if we should automatically open the create dialog
     const searchParams = new URLSearchParams(window.location.search);
@@ -81,7 +92,7 @@ export default function ServersPage() {
     if (statusFilter === 'online' && server.status !== 'online') return false;
     if (statusFilter === 'offline' && server.status === 'online') return false;
     if (!normalizedQuery) return true;
-    return [server.name, server.ipAddress, server.id, String(server.port)]
+    return [server.name, server.ipAddress, server.subdomain, server.id, String(server.port)]
       .some((value) => value?.toLowerCase().includes(normalizedQuery));
   });
 
@@ -91,7 +102,10 @@ export default function ServersPage() {
     setStatusFilter('all');
   };
 
-  if (!isMounted || !hasScope('server.view') || serversLoading) {
+  // the gate is `login`, like the sidebar entry and the redirect above: /api/servers only
+  // returns the servers the user owns or was added to, so a user whose role lacks the global
+  // server.view (most server owners and sub-users) must still get their list, not a skeleton
+  if (!isMounted || !hasScope('login') || serversLoading) {
     return (
       <div className="flex flex-col gap-6" aria-busy="true">
         <span className="sr-only">{t('common.loading')}</span>

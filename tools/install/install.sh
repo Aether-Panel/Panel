@@ -2,7 +2,7 @@
 
 ###############################################################################
 # Aether Panel - Script de Instalación Automática (Docker)
-# Versión: 4.2.1
+# Versión: 4.3.0
 # Repositorio: https://github.com/Aether-Panel/Panel.git
 # Nota: Aether Panel es el nombre oficial. SkyPanel es el nombre en clave.
 # Soporte: Solo instalación vía Docker. No existe modo nativo.
@@ -12,7 +12,7 @@
 #   /opt/skypanel/.env                 contraseñas de la base de datos (solo root)
 #   /opt/skypanel/docker-compose.override.yml
 #                                      solo si cambias puertos o usas BD externa
-#   /opt/skypanel/storage/             TODOS los datos (MariaDB, servidores,
+#   /opt/skypanel/storage/             todos los datos (MariaDB, servidores,
 #                                      backups, extensiones, logs, llave SFTP,
 #                                      config.json del panel)
 #   /etc/SkyPanel/installer.conf       opciones de esta instalación (sin secretos)
@@ -29,8 +29,8 @@ umask 022
 # CONFIGURACIÓN Y VARIABLES GLOBALES
 # =============================================================================
 
-readonly SCRIPT_VERSION="4.2.1"
-readonly SCRIPT_BUILD="20261026-hardening"
+readonly SCRIPT_VERSION="4.3.0"
+readonly SCRIPT_BUILD="20261105-menu"
 readonly PROJECT_NAME="Aether Panel"
 readonly PROJECT_CODENAME="SkyPanel"
 readonly INSTALL_URL="https://install.aetherpanel.es/install.sh"
@@ -63,6 +63,21 @@ readonly DEFAULT_SFTP_PORT="5657"
 readonly DEFAULT_MYSQL_HOST_PORT="3307"
 readonly PANEL_INTERNAL_PORT="8080"
 
+# El puerto web escucha en todas las IP del host (valor por defecto de --bind)
+readonly BIND_ALL_ADDRESS="0.0.0.0"
+
+# Valor de --db-mode para una base de datos externa
+readonly DB_MODE_EXTERNAL="external"
+
+# Debian: ID de os-release, familia de paquetes y ruta del repositorio de Docker
+readonly OS_DEBIAN="debian"
+
+# curl --proto: las descargas solo se permiten por HTTPS
+readonly CURL_HTTPS_ONLY="=https"
+
+# Línea de separación de los mensajes del instalador
+readonly BANNER_LINE="============================================================"
+
 # "ports: !override" en docker-compose.override.yml necesita Compose >= 2.24.4
 readonly MIN_COMPOSE_FOR_OVERRIDE="2.24.4"
 readonly OVERRIDE_MARKER="# Generado por el instalador de Aether Panel"
@@ -76,11 +91,16 @@ readonly KNOWN_DEFAULT_DB_PASSWORDS=" secreto_root_super_seguro secreto_base_de_
 # Colores (solo si la salida es una terminal y no se pidió NO_COLOR)
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
     RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; YELLOW=$'\033[1;33m'
-    BLUE=$'\033[0;34m'; CYAN=$'\033[0;36m'; BOLD=$'\033[1m'; NC=$'\033[0m'
+    BLUE=$'\033[0;34m'; CYAN=$'\033[0;36m'; BOLD=$'\033[1m'; DIM=$'\033[2m'; NC=$'\033[0m'
 else
-    RED=""; GREEN=""; YELLOW=""; BLUE=""; CYAN=""; BOLD=""; NC=""
+    RED=""; GREEN=""; YELLOW=""; BLUE=""; CYAN=""; BOLD=""; DIM=""; NC=""
 fi
-readonly RED GREEN YELLOW BLUE CYAN BOLD NC
+readonly RED GREEN YELLOW BLUE CYAN BOLD DIM NC
+
+# La dirección de un panel para unir un nodo: https://panel.ejemplo.com o http://IP:puerto
+readonly NODE_PANEL_URL_RE='^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$'
+# Email de la cuenta admin que genera la instalación automática cuando no hay dominio
+readonly AUTO_ADMIN_EMAIL_DOMAIN="aether.local"
 
 INSTALL_DIR="$DEFAULT_INSTALL_DIR"
 DATA_DIR="$DEFAULT_DATA_DIR"
@@ -88,6 +108,8 @@ CONFIG_DIR="$DEFAULT_CONFIG_DIR"
 LOG_DIR="$DEFAULT_LOG_DIR"
 WEB_DIR="$DEFAULT_WEB_DIR"
 STATE_FILE="$CONFIG_DIR/installer.conf"
+# Lo que el panel dio a cambio del código de unión (incluye el secreto del nodo: solo root)
+NODE_FILE="$CONFIG_DIR/node.json"
 CREDENTIALS_FILE="$CONFIG_DIR/credenciales.txt"
 LOCK_FILE="/run/aetherpanel-install.lock"
 
@@ -159,7 +181,15 @@ NON_INTERACTIVE=$(truthy_env "${AETHER_NONINTERACTIVE:-}")
 DRY_RUN=$(truthy_env "${AETHER_DRY_RUN:-}")
 UPDATE_MODE=false
 APPLY_PANEL_URL=false
+# Nodo (solo daemon) con un código de unión: --node --panel URL --join CÓDIGO
+NODE_MODE=false
+NODE_PANEL_URL="${AETHER_NODE_PANEL:-}"
+NODE_JOIN_CODE="${AETHER_NODE_JOIN:-}"
+NODE_ID=""; NODE_NAME=""; NODE_CLIENT_ID=""; NODE_CLIENT_SECRET=""
 REINSTALL_MODE=false
+FROM_MENU=false                 # la acción se eligió en el menú principal
+AUTO_ADMIN=false                # instalación automática del menú: la cuenta admin se genera sola
+BUILD_FRESH=false               # reinstalar conservando datos: la imagen se construye sin caché
 SKIP_BACKUP=false
 DB_ADMIN_USER="${AETHER_DB_ADMIN_USER:-}"
 DB_ADMIN_PASSWORD="${AETHER_DB_ADMIN_PASSWORD:-}"
@@ -171,6 +201,7 @@ PRE_UPDATE_COMMIT=""
 LAST_DB_BACKUP=""
 ROLLBACK_IMAGE=""
 DBS_MODE=""; DBS_NAME=""; DBS_USER=""; DBS_HOST=""; DBS_PORT=""
+EXT_DB_NET=()
 ROTATE_DB_PASSWORDS=false
 UNINSTALL_MODE=""
 DEBUG=$(truthy_env "${AETHER_DEBUG:-}")
@@ -240,6 +271,8 @@ log_debug() {
     return 0
 }
 die() { log_error "$*"; exit 1; }
+# El usuario canceló: sale sin error y sin cambiar nada
+cancel_exit() { echo "Cancelado."; exit 0; }
 
 print_banner() {
     # Solo se limpia la pantalla en una sesión interactiva real (clear falla sin TERM)
@@ -247,14 +280,14 @@ print_banner() {
         clear 2>/dev/null || true
     fi
     printf '%s' "$BOLD"
-    echo "============================================================"
-    echo "  $PROJECT_NAME - Instalador Automático (Docker)"
+    echo "$BANNER_LINE"
+    echo "  $PROJECT_NAME - Instalador (Docker)"
     echo "  ($PROJECT_CODENAME - nombre en clave)"
     echo "  Versión: $SCRIPT_VERSION (build: $SCRIPT_BUILD)"
     if [[ "$DRY_RUN" == "true" ]]; then
         echo "  MODO SIMULACIÓN (--dry-run): no se cambiará nada"
     fi
-    echo "============================================================"
+    echo "$BANNER_LINE"
     printf '%s\n' "$NC"
 }
 
@@ -330,13 +363,13 @@ gen_secret() {
 
 # version_ge A B -> A >= B
 version_ge() {
-    local lowest
-    lowest=$(printf '%s\n%s\n' "$2" "$1" | sort -V)
+    local version=$1 minimum=$2 lowest
+    lowest=$(printf '%s\n%s\n' "$minimum" "$version" | sort -V)
     lowest=${lowest%%$'\n'*}
-    [[ "$lowest" == "$2" ]]
+    [[ "$lowest" == "$minimum" ]]
 }
 
-contains_word() { [[ " $1 " == *" $2 "* ]]; }
+contains_word() { local list=$1 word=$2; [[ " $list " == *" $word "* ]]; }
 
 # Longitud en bytes (bcrypt, y por tanto el panel, limita la contraseña a 72 bytes)
 byte_len() {
@@ -449,21 +482,25 @@ validate_ip() {
 }
 
 validate_domain() {
-    [[ "$1" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$ ]]
+    local domain=$1
+    [[ "$domain" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$ ]]
 }
 
 validate_email() {
-    [[ "$1" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]]
+    local email=$1
+    [[ "$email" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]]
 }
 
 # Contraseñas de la BD local: se usan en la URL de conexión, en la interpolación de
 # docker compose y en el healthcheck de MariaDB (sh), así que solo caracteres seguros.
 validate_local_db_password() {
-    [[ "$1" =~ ^[A-Za-z0-9._+=,-]{8,}$ ]]
+    local password=$1
+    [[ "$password" =~ ^[A-Za-z0-9._+=,-]{8,}$ ]]
 }
 # BD externa: se permite casi todo menos lo que rompe .env / docker compose
 validate_external_db_password() {
-    [[ -n "$1" && ! "$1" =~ [[:space:]\$\"\'\\\`#] ]]
+    local password=$1
+    [[ -n "$password" && ! "$password" =~ [[:space:]\$\"\'\\\`#] ]]
 }
 
 is_private_ip() {
@@ -568,7 +605,7 @@ detect_os() {
         OS_VERSION=$(sed -n 's/[^0-9]*\([0-9][0-9]*\(\.[0-9]*\)\?\).*/\1/p' /etc/redhat-release)
         OS_PRETTY=$(cat /etc/redhat-release)
     elif [[ -f /etc/debian_version ]]; then
-        OS_TYPE="debian"
+        OS_TYPE="$OS_DEBIAN"
         OS_VERSION=$(cat /etc/debian_version)
     else
         die "No se pudo detectar el sistema operativo"
@@ -576,10 +613,10 @@ detect_os() {
 
     case "$OS_TYPE" in
         ubuntu|linuxmint|pop|elementary|zorin|neon)
-            OS_FAMILY="debian"; DOCKER_DISTRO="ubuntu"
+            OS_FAMILY="$OS_DEBIAN"; DOCKER_DISTRO="ubuntu"
             DOCKER_CODENAME="${OS_UBUNTU_CODENAME:-$OS_CODENAME}" ;;
         debian|raspbian)
-            OS_FAMILY="debian"; DOCKER_DISTRO="debian"; DOCKER_CODENAME="$OS_CODENAME" ;;
+            OS_FAMILY="$OS_DEBIAN"; DOCKER_DISTRO="$OS_DEBIAN"; DOCKER_CODENAME="$OS_CODENAME" ;;
         fedora)
             OS_FAMILY="fedora"; DOCKER_DISTRO="fedora" ;;
         rhel)
@@ -593,9 +630,9 @@ detect_os() {
             OS_FAMILY="suse"; DOCKER_DISTRO="suse" ;;
         *)
             if contains_word "$OS_LIKE" ubuntu; then
-                OS_FAMILY="debian"; DOCKER_DISTRO="ubuntu"; DOCKER_CODENAME="${OS_UBUNTU_CODENAME:-$OS_CODENAME}"
+                OS_FAMILY="$OS_DEBIAN"; DOCKER_DISTRO="ubuntu"; DOCKER_CODENAME="${OS_UBUNTU_CODENAME:-$OS_CODENAME}"
             elif contains_word "$OS_LIKE" debian; then
-                OS_FAMILY="debian"; DOCKER_DISTRO="debian"; DOCKER_CODENAME="$OS_CODENAME"
+                OS_FAMILY="$OS_DEBIAN"; DOCKER_DISTRO="$OS_DEBIAN"; DOCKER_CODENAME="$OS_CODENAME"
             elif contains_word "$OS_LIKE" rhel || contains_word "$OS_LIKE" centos || contains_word "$OS_LIKE" fedora; then
                 OS_FAMILY="rhel"; DOCKER_DISTRO="centos"
             elif contains_word "$OS_LIKE" arch; then
@@ -609,7 +646,7 @@ detect_os() {
             ;;
     esac
 
-    if [[ "$OS_FAMILY" == "debian" && -z "$DOCKER_CODENAME" ]] && command -v lsb_release >/dev/null 2>&1; then
+    if [[ "$OS_FAMILY" == "$OS_DEBIAN" && -z "$DOCKER_CODENAME" ]] && command -v lsb_release >/dev/null 2>&1; then
         DOCKER_CODENAME=$(lsb_release -cs 2>/dev/null || true)
     fi
 
@@ -621,6 +658,7 @@ detect_os() {
             ubuntu) (( major >= 22 )) || log_warning "Ubuntu $OS_VERSION ya no tiene soporte; usa 22.04 o posterior" ;;
             debian) (( major >= 12 )) || log_warning "Debian $OS_VERSION ya no tiene soporte; usa Debian 12 o posterior" ;;
             rhel|centos|rocky|alma|almalinux) (( major >= 8 )) || log_warning "$OS_TYPE $OS_VERSION es anterior a 8 (no soportado)" ;;
+            *) ;; # otras distribuciones: sin versión mínima documentada
         esac
     fi
 
@@ -664,6 +702,7 @@ check_resources() {
             case "$key" in
                 MemTotal:) mem_mb=$((value / 1024)) ;;
                 SwapTotal:) swap_mb=$((value / 1024)) ;;
+                *) ;;
             esac
         done </proc/meminfo
     fi
@@ -700,9 +739,9 @@ check_resources() {
 
 # En modo manual pregunta; en automático solo avisa y continúa
 confirm_or_exit() {
-    local ans
+    local question=$1 ans
     if interactive_manual; then
-        ask_yes_no ans "$1" "no"
+        ask_yes_no ans "$question" "no"
         if [[ "$ans" != "yes" ]]; then exit 1; fi
     fi
     return 0
@@ -821,6 +860,7 @@ ask_port() {
                 free|ours|unknown) ;;
                 docker:*) reason="lo usa el contenedor ${owner#docker:}" ;;
                 proc:*) reason="lo usa el proceso ${owner#proc:}" ;;
+                *) ;;
             esac
         fi
         if [[ -z "$reason" ]]; then
@@ -923,7 +963,7 @@ fetch_public_ip() {
     local s ip
     command -v curl >/dev/null 2>&1 || return 1
     for s in https://ifconfig.me https://ipinfo.io/ip https://icanhazip.com https://checkip.amazonaws.com; do
-        ip=$(curl --proto '=https' -4 -fsS --max-time 5 "$s" 2>/dev/null | tr -d '[:space:]') || continue
+        ip=$(curl --proto "$CURL_HTTPS_ONLY" -4 -fsS --max-time 5 "$s" 2>/dev/null | tr -d '[:space:]') || continue
         if validate_ip "$ip" && ! is_private_ip "$ip"; then
             printf '%s' "$ip"
             return 0
@@ -985,6 +1025,7 @@ load_state() {
         case "$key" in
             DOMAIN|USE_SSL|SSL_EMAIL|PANEL_PORT|SFTP_PORT|PANEL_BIND|SERVER_IP|MASTER_URL|GIT_BRANCH|DB_MODE|MYSQL_HOST_PORT)
                 printf -v "PREV_$key" '%s' "$value" ;;
+            *) ;; # claves desconocidas: se ignoran
         esac
     done <"$STATE_FILE"
     log_debug "Estado previo cargado de $STATE_FILE"
@@ -1025,7 +1066,7 @@ save_state() {
     run chmod 700 "$CONFIG_DIR"
 }
 
-container_exists() { docker inspect "$1" >/dev/null 2>&1; }
+container_exists() { local name=$1; docker inspect "$name" >/dev/null 2>&1; }
 container_running() {
     local s
     s=$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null || true)
@@ -1069,6 +1110,7 @@ show_install_state() {
         absent) log_info "Estado: $PROJECT_NAME no está instalado en este servidor" ;;
         stopped) log_warning "Estado: instalado en $INSTALL_DIR, pero el panel está detenido" ;;
         running) log_success "Estado: instalado en $INSTALL_DIR y funcionando" ;;
+        *) ;;
     esac
     if [[ -d "$INSTALL_DIR/.git" ]]; then
         log_info "Rama $(git_in rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?'), versión $(git_in log -1 --format='%h del %cs' 2>/dev/null || echo '?')"
@@ -1087,6 +1129,11 @@ existing_installation_menu() {
     fi
     if [[ "$FORCE" == "true" ]]; then
         log_info "Modo forzado: se recrearán los contenedores (los datos se conservan)"
+        return 0
+    fi
+    # en el menú principal ya se eligió qué hacer: instalar de nuevo sobre lo que hay
+    if [[ "$FROM_MENU" == "true" ]]; then
+        log_info "Ya está instalado: se vuelve a configurar conservando los datos, contraseñas y cuentas"
         return 0
     fi
     if ! interactive_manual; then
@@ -1109,7 +1156,7 @@ existing_installation_menu() {
         2) log_info "Iniciando reconfiguración..." ;;
         3) REINSTALL_MODE=true; reinstall_prepare ;;
         4) UNINSTALL_MODE=""; uninstall; exit 0 ;;
-        *) echo "Cancelado."; exit 0 ;;
+        *) cancel_exit ;;
     esac
 }
 
@@ -1121,6 +1168,24 @@ existing_installation_menu() {
 # =============================================================================
 
 db_is_initialized() { [[ -d "$INSTALL_DIR/storage/mysql-data/mysql" ]]; }
+
+# Rama del código y cortafuegos: solo se preguntan en la instalación paso a paso
+# (panel y nodo extra). Después de load_state, para proponer la rama ya instalada.
+ask_branch_and_firewall() {
+    interactive_manual || return 0
+    local ans i branch
+    resolve_branch
+    echo ""
+    for i in 1 2 3; do
+        ask_input branch "Rama del código ($DEFAULT_GIT_BRANCH = estable)" "$GIT_BRANCH"
+        if [[ "$branch" =~ ^[A-Za-z0-9._/-]+$ ]]; then GIT_BRANCH="$branch"; break; fi
+        log_error "Nombre de rama inválido: '$branch'"
+    done
+    if [[ "$SKIP_FIREWALL" != "true" ]]; then
+        ask_yes_no ans "¿Abrir los puertos necesarios en el cortafuegos (ufw o firewalld)?" "yes"
+        if [[ "$ans" != "yes" ]]; then SKIP_FIREWALL=true; fi
+    fi
+}
 
 ask_configuration() {
     print_step "Configuración de instalación"
@@ -1190,7 +1255,7 @@ ask_configuration() {
         prompt_read db_choice "Selecciona [1-2]" "1"
         case "$db_choice" in
             2)
-                DB_MODE="external"
+                DB_MODE="$DB_MODE_EXTERNAL"
                 echo ""
                 ask_input DB_HOST "Host MySQL" "${DB_HOST:-localhost}"
                 ask_input DB_PORT "Puerto MySQL" "${DB_PORT:-3306}"
@@ -1224,6 +1289,8 @@ ask_configuration() {
         esac
     fi
 
+    ask_branch_and_firewall
+
     # --- Cuenta administrador -------------------------------------------------------
     if [[ "$IS_NODE_ONLY" == "true" ]]; then
         CREATE_ADMIN=false
@@ -1247,11 +1314,15 @@ ask_configuration() {
     fi
 
     if [[ "$CREATE_ADMIN" == "true" ]]; then
-        if [[ "$CAN_PROMPT" == "true" ]]; then
+        if [[ "$AUTO_ADMIN" == "true" ]]; then
+            # instalación automática del menú: ni una pregunta; la contraseña se genera
+            # al crear la cuenta y el resumen final la muestra
+            if [[ -z "$ADMIN_EMAIL" ]]; then ADMIN_EMAIL="admin@${DOMAIN:-$AUTO_ADMIN_EMAIL_DOMAIN}"; fi
+        elif [[ "$CAN_PROMPT" == "true" ]]; then
             echo ""
-            echo "============================================================"
+            echo "$BANNER_LINE"
             echo "  Cuenta administrador inicial"
-            echo "============================================================"
+            echo "$BANNER_LINE"
             if [[ -z "$ADMIN_EMAIL" ]]; then
                 local i def_email="${SSL_EMAIL:-}"
                 if [[ -z "$def_email" && -n "$DOMAIN" ]]; then def_email="admin@$DOMAIN"; fi
@@ -1281,8 +1352,8 @@ ask_configuration() {
 # puertos por delante del cortafuegos. --bind 0.0.0.0 lo deja abierto a propósito.
 resolve_panel_bind() {
     if [[ -n "$PANEL_BIND" ]]; then return; fi
-    PANEL_BIND="${PREV_PANEL_BIND:-0.0.0.0}"
-    if [[ "$PANEL_BIND" == "0.0.0.0" && -n "$DOMAIN" && "$SKIP_NGINX" != "true" && "$IS_NODE_ONLY" != "true" ]]; then
+    PANEL_BIND="${PREV_PANEL_BIND:-$BIND_ALL_ADDRESS}"
+    if [[ "$PANEL_BIND" == "$BIND_ALL_ADDRESS" && -n "$DOMAIN" && "$SKIP_NGINX" != "true" && "$IS_NODE_ONLY" != "true" ]]; then
         PANEL_BIND=127.0.0.1
         log_info "El panel se sirve por $DOMAIN: el puerto $PANEL_PORT queda solo en 127.0.0.1 (--bind 0.0.0.0 para abrirlo)"
     fi
@@ -1305,7 +1376,7 @@ validate_configuration() {
     if [[ "$PANEL_PORT" == "$SFTP_PORT" ]]; then
         log_error "El puerto del panel y el de SFTP no pueden ser el mismo"; errors=$((errors + 1))
     fi
-    if [[ "$PANEL_BIND" != "0.0.0.0" ]] && ! validate_ip "$PANEL_BIND"; then
+    if [[ "$PANEL_BIND" != "$BIND_ALL_ADDRESS" ]] && ! validate_ip "$PANEL_BIND"; then
         log_error "--bind debe ser una IPv4 (ej. 127.0.0.1): $PANEL_BIND"; errors=$((errors + 1))
     fi
     if [[ -n "$SERVER_IP" ]] && ! validate_ip "$SERVER_IP"; then
@@ -1487,7 +1558,7 @@ fetch_docker_gpg_key() {
     local dest="$1" tmp fpr
     tmp=$(mktemp)
     TMP_FILES+=("$tmp")
-    curl --proto '=https' --tlsv1.2 -fsSL "https://download.docker.com/linux/$DOCKER_DISTRO/gpg" -o "$tmp"
+    curl --proto "$CURL_HTTPS_ONLY" --tlsv1.2 -fsSL "https://download.docker.com/linux/$DOCKER_DISTRO/gpg" -o "$tmp"
     if command -v gpg >/dev/null 2>&1; then
         fpr=$(gpg --show-keys --with-colons "$tmp" 2>/dev/null | awk -F: '$1 == "fpr" {print $10}')
         if [[ "$fpr" != *"$DOCKER_GPG_FINGERPRINT"* ]]; then
@@ -1515,7 +1586,7 @@ install_docker() {
             # Instalaciones de 4.0.0 usaban docker.gpg: se respeta si ya existe
             if [[ -f /etc/apt/keyrings/docker.gpg ]]; then keyring="/etc/apt/keyrings/docker.gpg"; fi
             if [[ "$DRY_RUN" == "true" ]]; then
-                run curl --proto '=https' --tlsv1.2 -fsSL "https://download.docker.com/linux/$DOCKER_DISTRO/gpg" -o "$keyring"
+                run curl --proto "$CURL_HTTPS_ONLY" --tlsv1.2 -fsSL "https://download.docker.com/linux/$DOCKER_DISTRO/gpg" -o "$keyring"
             elif [[ ! -f "$keyring" ]]; then
                 install -m 0755 -d /etc/apt/keyrings
                 fetch_docker_gpg_key "$keyring"
@@ -1542,6 +1613,7 @@ install_docker() {
         suse)
             zypper_install docker docker-compose docker-buildx iptables-backend-nft nftables
             ;;
+        *) ;; # detect_os ya rechaza las demás familias
     esac
 
     svc enable --now docker
@@ -1549,15 +1621,16 @@ install_docker() {
 }
 
 curl_to_file() {
+    local url=$1 dest=$2
     if [[ "$DRY_RUN" == "true" ]]; then
-        run curl --proto '=https' --tlsv1.2 -fsSL "$1" -o "$2"
+        run curl --proto "$CURL_HTTPS_ONLY" --tlsv1.2 -fsSL "$url" -o "$dest"
         return 0
     fi
     local tmp
     tmp=$(mktemp)
     TMP_FILES+=("$tmp")
-    curl --proto '=https' --tlsv1.2 -fsSL "$1" -o "$tmp"
-    install -m 0644 "$tmp" "$2"
+    curl --proto "$CURL_HTTPS_ONLY" --tlsv1.2 -fsSL "$url" -o "$tmp"
+    install -m 0644 "$tmp" "$dest"
 }
 
 install_compose_plugin() {
@@ -1576,6 +1649,7 @@ install_compose_plugin() {
         suse)
             zypper_install docker-compose || log_warning "No se pudo instalar Docker Compose v2 automáticamente"
             ;;
+        *) ;; # detect_os ya rechaza las demás familias
     esac
 }
 
@@ -1649,12 +1723,18 @@ sync_repository() {
     # Nodo esclavo: panelUpdate.sh re-aplica esta configuración tras el pull; aquí igual
     local slave_token=""
     if [[ "$IS_NODE_ONLY" == "true" ]]; then
-        slave_token=$(sed -n 's/.*SKYPANEL_TOKEN_PUBLIC=\([^ ]*\).*/\1/p' "$INSTALL_DIR/docker-compose.yml" | head -n1)
+        # solo una línea activa: la comentada del repositorio es un ejemplo (http://<MASTER-IP>:8080/...)
+        # y activarla dejaría al nodo sin la clave del panel (la variable gana a config.json)
+        slave_token=$(sed -n 's/^[[:space:]]*- SKYPANEL_TOKEN_PUBLIC=\([^ ]*\).*/\1/p' "$INSTALL_DIR/docker-compose.yml" | head -n1)
+        if [[ "$slave_token" == *"<"* ]]; then slave_token=""; fi
     fi
 
     # Cambios locales en archivos del repositorio (salvo .env): se guardan antes de descartarlos
     local changes
-    changes=$(git_in diff -- . ':(exclude).env' 2>/dev/null || true)
+    # En un nodo, la línea SKYPANEL_PANEL_ENABLE=false de docker-compose.yml es la esperada (se vuelve a poner abajo)
+    local -a not_local=(':(exclude).env')
+    if [[ "$IS_NODE_ONLY" == "true" ]]; then not_local+=(':(exclude)docker-compose.yml'); fi
+    changes=$(git_in diff -- . "${not_local[@]}" 2>/dev/null || true)
     if [[ -n "$changes" ]]; then
         local patch
         patch="$CONFIG_DIR/backups/cambios-locales-$(date +%Y%m%d-%H%M%S).patch"
@@ -1776,13 +1856,13 @@ configure_env_file() {
         log_success "Contraseñas propias de la base de datos guardadas en $env_file (solo root)"
     fi
 
-    if [[ "$DB_MODE" == "external" ]]; then
-        local host="$DB_HOST"
+    if [[ "$DB_MODE" == "$DB_MODE_EXTERNAL" ]]; then
+        local host
+        host=$(container_db_host "$DB_HOST")
         if [[ -n "$host" ]]; then
-            if [[ "$host" == "localhost" || "$host" == "127.0.0.1" ]]; then
-                log_warning "Dentro del contenedor 'localhost' es el propio contenedor: se usa host.docker.internal"
+            if [[ "$host" != "$DB_HOST" ]]; then
+                log_warning "Dentro del contenedor '$DB_HOST' es el propio contenedor: se usa host.docker.internal"
                 log_warning "Asegúrate de que MySQL del host escucha en la IP del puente Docker (bind-address)"
-                host="host.docker.internal"
             fi
             env_set DB_HOST "$host"
             env_set DB_PORT "${DB_PORT:-3306}"
@@ -1853,19 +1933,22 @@ configure_compose_override() {
     local file="$INSTALL_DIR/docker-compose.override.yml"
     local need_ports=false need_mysql=false need_external=false
 
-    if [[ "$PANEL_PORT" != "$DEFAULT_PANEL_PORT" || "$SFTP_PORT" != "$DEFAULT_SFTP_PORT" || "$PANEL_BIND" != "0.0.0.0" ]]; then
+    if [[ "$PANEL_PORT" != "$DEFAULT_PANEL_PORT" || "$SFTP_PORT" != "$DEFAULT_SFTP_PORT" || "$PANEL_BIND" != "$BIND_ALL_ADDRESS" ]]; then
         need_ports=true
     fi
     MYSQL_HOST_PORT="${MYSQL_HOST_PORT:-$DEFAULT_MYSQL_HOST_PORT}"
     if [[ "$DB_MODE" == "local" && "$MYSQL_HOST_PORT" != "$DEFAULT_MYSQL_HOST_PORT" ]]; then
         need_mysql=true
     fi
-    if [[ "$DB_MODE" == "external" ]]; then need_external=true; fi
+    if [[ "$DB_MODE" == "$DB_MODE_EXTERNAL" ]]; then need_external=true; fi
+    # Un nodo solo ejecuta el daemon: sin MariaDB ni Adminer (el panel apagado no usa base de datos)
+    local need_node=false
+    if [[ "$IS_NODE_ONLY" == "true" ]]; then need_node=true; need_mysql=false; need_external=false; fi
 
     local ours=false
     if [[ -f "$file" ]] && grep -qF "$OVERRIDE_MARKER" "$file"; then ours=true; fi
 
-    if [[ "$need_ports$need_mysql$need_external" == "falsefalsefalse" ]]; then
+    if [[ "$need_ports$need_mysql$need_external$need_node" == "falsefalsefalsefalse" ]]; then
         if [[ "$ours" == "true" ]]; then
             run rm -f "$file"
             log_info "Ya no hace falta docker-compose.override.yml (valores por defecto); eliminado"
@@ -1877,10 +1960,9 @@ configure_compose_override() {
 
     print_step "Configurando puertos y conexión (docker-compose.override.yml)"
 
-    if [[ "$need_ports" == "true" || "$need_mysql" == "true" ]] && [[ "$DRY_RUN" != "true" ]]; then
-        if [[ -z "$COMPOSE_VERSION" ]] || ! version_ge "$COMPOSE_VERSION" "$MIN_COMPOSE_FOR_OVERRIDE"; then
-            die "Cambiar puertos necesita Docker Compose >= $MIN_COMPOSE_FOR_OVERRIDE (tienes ${COMPOSE_VERSION:-?}). Actualiza Docker o usa los puertos por defecto"
-        fi
+    if [[ "$need_ports" == "true" || "$need_mysql" == "true" || "$need_node" == "true" ]] && [[ "$DRY_RUN" != "true" ]] \
+        && { [[ -z "$COMPOSE_VERSION" ]] || ! version_ge "$COMPOSE_VERSION" "$MIN_COMPOSE_FOR_OVERRIDE"; }; then
+        die "Cambiar puertos necesita Docker Compose >= $MIN_COMPOSE_FOR_OVERRIDE (tienes ${COMPOSE_VERSION:-?}). Actualiza Docker o usa los puertos por defecto"
     fi
 
     if [[ -f "$file" && "$ours" != "true" ]]; then
@@ -1891,15 +1973,21 @@ configure_compose_override() {
     fi
 
     local web_mapping="$PANEL_PORT:$PANEL_INTERNAL_PORT"
-    if [[ "$PANEL_BIND" != "0.0.0.0" ]]; then web_mapping="$PANEL_BIND:$web_mapping"; fi
+    if [[ "$PANEL_BIND" != "$BIND_ALL_ADDRESS" ]]; then web_mapping="$PANEL_BIND:$web_mapping"; fi
 
     {
         echo "$OVERRIDE_MARKER (install.sh $SCRIPT_VERSION)."
         echo "# Docker Compose lo combina con docker-compose.yml. Se regenera al volver a"
         echo "# ejecutar el instalador (usa --port / --sftp-port / --bind para cambiarlo)."
         echo "services:"
-        if [[ "$need_ports" == "true" || "$need_external" == "true" ]]; then
+        if [[ "$need_ports" == "true" || "$need_external" == "true" || "$need_node" == "true" ]]; then
             echo "  skypanel:"
+        fi
+        if [[ "$need_node" == "true" ]]; then
+            echo "    depends_on: !reset {}"
+            # sin panel web "/" da 404: la comprobación usa el estado del daemon
+            echo "    healthcheck:"
+            echo "      test: !override [\"CMD\", \"wget\", \"--quiet\", \"--tries=1\", \"--spider\", \"http://localhost:$PANEL_INTERNAL_PORT/daemon\"]"
         fi
         if [[ "$need_ports" == "true" ]]; then
             echo "    ports: !override"
@@ -1914,6 +2002,13 @@ configure_compose_override() {
             echo "    extra_hosts:"
             echo "      - \"host.docker.internal:host-gateway\""
         fi
+        if [[ "$need_node" == "true" ]]; then
+            # En un perfil que nadie activa: docker compose up (también el de panelUpdate.sh) no los arranca
+            echo "  mysql:"
+            echo "    profiles: [\"panel-database\"]"
+            echo "  adminer:"
+            echo "    profiles: [\"panel-database\"]"
+        fi
         if [[ "$need_mysql" == "true" ]]; then
             echo "  mysql:"
             echo "    ports: !override"
@@ -1922,10 +2017,8 @@ configure_compose_override() {
         fi
     } | write_file "$file" 644 show
 
-    if [[ "$DRY_RUN" != "true" && -d "$INSTALL_DIR" ]]; then
-        if ! (cd "$INSTALL_DIR" && "${DC[@]}" config -q); then
-            die "docker compose rechaza la configuración generada en $file"
-        fi
+    if [[ "$DRY_RUN" != "true" && -d "$INSTALL_DIR" ]] && ! (cd "$INSTALL_DIR" && "${DC[@]}" config -q); then
+        die "docker compose rechaza la configuración generada en $file"
     fi
     log_success "docker-compose.override.yml listo"
 }
@@ -1950,10 +2043,10 @@ panel_config_file() {
 
 # cfg_get CLAVE (sin distinguir mayúsculas, como viper)
 cfg_get() {
-    local file
+    local key=$1 file
     file=$(panel_config_file)
     [[ -r "$file" ]] && command -v jq >/dev/null 2>&1 || return 0
-    jq -r --arg k "$1" '
+    jq -r --arg k "$key" '
         def g($p): reduce $p[] as $s (.;
             if type == "object" then (to_entries | map(select(.key | ascii_downcase == $s)) | (.[0].value // null)) else null end);
         g($k | ascii_downcase | split(".")) // empty | if type == "array" then join(",") else tostring end' "$file" 2>/dev/null || true
@@ -2012,8 +2105,8 @@ queue_panel_config() {
     # SFTP: el panel escucha en daemon.sftp.host y anuncia ese puerto a los usuarios
     local sftp_cur
     sftp_cur=$(cfg_get daemon.sftp.host)
-    if [[ "$SFTP_PORT" != "$DEFAULT_SFTP_PORT" || ( -n "$sftp_cur" && "$sftp_cur" != "0.0.0.0:$SFTP_PORT" ) ]]; then
-        cfg_set daemon.sftp.host string "0.0.0.0:$SFTP_PORT"
+    if [[ "$SFTP_PORT" != "$DEFAULT_SFTP_PORT" || ( -n "$sftp_cur" && "$sftp_cur" != "$BIND_ALL_ADDRESS:$SFTP_PORT" ) ]]; then
+        cfg_set daemon.sftp.host string "$BIND_ALL_ADDRESS:$SFTP_PORT"
     fi
 
     # Cloudflare Turnstile (sustituye al captcha integrado, que viene activado por defecto)
@@ -2161,7 +2254,12 @@ build_images() {
     check_build_platform
     print_step "Construyendo la imagen Docker"
     log_info "Esto puede tardar 5-15 minutos la primera vez. El panel actual (si existe) sigue funcionando mientras tanto."
-    if ! dc build; then
+    local -a fresh=()
+    if [[ "$BUILD_FRESH" == "true" ]]; then
+        fresh=(--pull --no-cache)
+        log_info "Reinstalación: la imagen se construye desde cero, sin reutilizar nada de la anterior"
+    fi
+    if ! dc build "${fresh[@]+"${fresh[@]}"}"; then
         log_error "La construcción de la imagen falló."
         log_error "Causas habituales: poca memoria (añade swap), poco disco (docker system prune) o sin red."
         die "Revisa los mensajes anteriores y vuelve a ejecutar el instalador"
@@ -2170,7 +2268,7 @@ build_images() {
 }
 
 panel_local_host() {
-    if [[ "$PANEL_BIND" == "0.0.0.0" ]]; then echo 127.0.0.1; else echo "$PANEL_BIND"; fi
+    if [[ "$PANEL_BIND" == "$BIND_ALL_ADDRESS" ]]; then echo 127.0.0.1; else echo "$PANEL_BIND"; fi
 }
 
 # pull_images: descarga las imágenes que no se construyen aquí (MariaDB, Adminer), con
@@ -2290,7 +2388,7 @@ configure_firewall() {
     detect_ssh_ports
 
     local -a tcp_ports=()
-    if [[ "$PANEL_BIND" == "0.0.0.0" ]]; then tcp_ports+=("$PANEL_PORT"); fi
+    if [[ "$PANEL_BIND" == "$BIND_ALL_ADDRESS" ]]; then tcp_ports+=("$PANEL_PORT"); fi
     tcp_ports+=("$SFTP_PORT")
     # Nginx atiende el puerto 80 también sin dominio (proxy por IP), y con dominio el 443.
     # Sin abrir el 80, un dominio con el proxy de Cloudflare da 522: no llega al servidor.
@@ -2340,6 +2438,7 @@ configure_firewall() {
                 svc restart docker
             fi
             ;;
+        *) ;; # detect_os ya rechaza las demás familias
     esac
 
     log_success "Firewall: SSH (${SSH_PORTS[*]}) y ${tcp_ports[*]} permitidos"
@@ -2350,7 +2449,7 @@ configure_firewall() {
 # =============================================================================
 
 nginx_paths() {
-    if [[ -d /etc/nginx/sites-available || "$OS_FAMILY" == "debian" ]]; then
+    if [[ -d /etc/nginx/sites-available || "$OS_FAMILY" == "$OS_DEBIAN" ]]; then
         NGINX_CONF="/etc/nginx/sites-available/skypanel"
         NGINX_LINK="/etc/nginx/sites-enabled/skypanel"
     else
@@ -2597,6 +2696,7 @@ configure_nginx() {
         case "$OS_FAMILY" in
             debian) apt_install nginx ;;
             fedora|rhel) dnf_install nginx ;;
+            *) ;; # arch/suse: se comprueba justo abajo si Nginx está disponible
         esac
     fi
     if ! command -v nginx >/dev/null 2>&1 && [[ "$DRY_RUN" != "true" ]]; then
@@ -2744,16 +2844,16 @@ print_summary() {
     print_step "$title"
 
     echo ""
-    echo "============================================================"
+    echo "$BANNER_LINE"
     printf '  %s✓ %s%s\n' "$GREEN" "$title" "$NC"
-    echo "============================================================"
+    echo "$BANNER_LINE"
     echo ""
 
     if [[ "$IS_NODE_ONLY" == "true" ]]; then
         echo "📍 Nodo (solo daemon) escuchando en el puerto $PANEL_PORT"
     else
         printf '📍 Accede al panel: %s%s%s\n' "$GREEN" "$MASTER_URL" "$NC"
-        if [[ "$NGINX_CONFIGURED" == "true" && -n "$DOMAIN" && "$PANEL_BIND" == "0.0.0.0" ]]; then
+        if [[ "$NGINX_CONFIGURED" == "true" && -n "$DOMAIN" && "$PANEL_BIND" == "$BIND_ALL_ADDRESS" ]]; then
             echo "   (también directo en http://$SERVER_IP:$PANEL_PORT)" # NOSONAR: la dirección directa del panel es http
         fi
         if [[ "$MASTER_URL_WRITTEN" == "true" ]]; then
@@ -2767,14 +2867,14 @@ print_summary() {
 
     echo ""
     echo "📋 Puertos:"
-    echo "   • Panel web: $PANEL_PORT$([[ "$PANEL_BIND" != "0.0.0.0" ]] && echo " (solo en $PANEL_BIND)")"
+    echo "   • Panel web: $PANEL_PORT$([[ "$PANEL_BIND" != "$BIND_ALL_ADDRESS" ]] && echo " (solo en $PANEL_BIND)")"
     echo "   • SFTP: $SFTP_PORT (contraseña o llave SSH)"
     if [[ "$NGINX_CONFIGURED" == "true" ]]; then
         echo "   • Nginx: 80$([[ -n "$DOMAIN" ]] && echo " y 443")"
     fi
     echo "   • Adminer (BD): 127.0.0.1:8081 (solo local; usa un túnel SSH: ssh -L 8081:127.0.0.1:8081 ...)"
     local fw_ports="${SSH_PORTS[*]:-22}"
-    if [[ "$PANEL_BIND" == "0.0.0.0" ]]; then fw_ports+=" $PANEL_PORT"; fi
+    if [[ "$PANEL_BIND" == "$BIND_ALL_ADDRESS" ]]; then fw_ports+=" $PANEL_PORT"; fi
     fw_ports+=" $SFTP_PORT"
     if [[ "$NGINX_CONFIGURED" == "true" ]]; then fw_ports+=" 80"; [[ -n "$DOMAIN" ]] && fw_ports+=" 443"; fi
     echo "   Abre en el firewall de tu proveedor (Hetzner, OVH, AWS…) los TCP: ${fw_ports// /, }"
@@ -2792,7 +2892,7 @@ print_summary() {
     if [[ "$IS_NODE_ONLY" != "true" ]]; then
         db_settings
         echo ""
-        if [[ "$DBS_MODE" == "external" ]]; then
+        if [[ "$DBS_MODE" == "$DB_MODE_EXTERNAL" ]]; then
             echo "🗄  Base de datos externa: $DBS_HOST:$DBS_PORT, base de datos $DBS_NAME, usuario $DBS_USER"
         else
             echo "🗄  Base de datos: MariaDB en Docker ($MYSQL_CONTAINER), base de datos $DBS_NAME, usuario $DBS_USER"
@@ -2820,12 +2920,16 @@ print_summary() {
 
     echo ""
     if [[ "$ADMIN_CREATED" == "true" ]]; then
-        echo "============================================================"
+        echo "$BANNER_LINE"
         printf '  %s✓ Cuenta administrador creada%s\n' "$GREEN" "$NC"
-        echo "============================================================"
+        echo "$BANNER_LINE"
         printf '  Usuario:    %s%s%s\n' "$GREEN" "$ADMIN_NAME" "$NC"
         printf '  Email:      %s%s%s\n' "$GREEN" "$ADMIN_EMAIL" "$NC"
-        if [[ "$ADMIN_PASSWORD_GENERATED" == "true" ]]; then
+        if [[ "$ADMIN_PASSWORD_GENERATED" == "true" && "$AUTO_ADMIN" == "true" ]]; then
+            # la instalación automática no preguntó nada: la contraseña se enseña aquí
+            printf '  Contraseña: %s%s%s\n' "$GREEN" "$ADMIN_PASSWORD" "$NC"
+            echo "              (copia en $CREDENTIALS_FILE, solo root)"
+        elif [[ "$ADMIN_PASSWORD_GENERATED" == "true" ]]; then
             echo "  Contraseña: generada; está en $CREDENTIALS_FILE (solo root):"
             echo "              sudo cat $CREDENTIALS_FILE"
         else
@@ -2837,9 +2941,9 @@ print_summary() {
             printf '  %s   Borra %s cuando la tengas a salvo.%s\n' "$YELLOW" "$CREDENTIALS_FILE" "$NC"
         fi
     elif [[ "$IS_NODE_ONLY" != "true" ]] && { [[ "$EXISTING_INSTALL" != "true" ]] || [[ "$CREATE_ADMIN" == "true" ]]; }; then
-        echo "============================================================"
+        echo "$BANNER_LINE"
         printf '  %s⚠  Crea tu cuenta administrador%s\n' "$YELLOW" "$NC"
-        echo "============================================================"
+        echo "$BANNER_LINE"
         echo "  Ejecuta (te pedirá la contraseña, que así no queda en el historial):"
         echo "   docker exec -it $PANEL_CONTAINER /SkyPanel/bin/SkyPanel user add --name admin --email tu@email.com --admin"
         echo "  O con este instalador:"
@@ -2847,9 +2951,9 @@ print_summary() {
     fi
 
     echo ""
-    echo "============================================================"
+    echo "$BANNER_LINE"
     echo "  ⚡ Próximos pasos"
-    echo "============================================================"
+    echo "$BANNER_LINE"
     echo "1. Entra en $MASTER_URL e inicia sesión."
     echo "2. Configura el correo (Ajustes) para que funcione la recuperación de contraseñas."
     echo "3. Opcional en Ajustes: Turnstile, subdominios con Cloudflare, copias en S3, CurseForge."
@@ -2960,7 +3064,7 @@ update_panel() {
 # db_settings: modo, host, puerto, nombre y usuario de la base de datos del panel (sin contraseñas)
 db_settings() {
     DBS_MODE="${DB_MODE:-${PREV_DB_MODE:-local}}"
-    if [[ -n "$(env_get DB_HOST)" ]]; then DBS_MODE="external"; fi
+    if [[ -n "$(env_get DB_HOST)" ]]; then DBS_MODE="$DB_MODE_EXTERNAL"; fi
     DBS_NAME="$(env_get DB_DATABASE)"; DBS_NAME="${DBS_NAME:-${DB_NAME:-skypanel}}"
     DBS_USER="$(env_get DB_USER)"; DBS_USER="${DBS_USER:-${DB_USER:-skypanel}}"
     DBS_HOST="$(env_get DB_HOST)"; DBS_HOST="${DBS_HOST:-$DB_HOST}"
@@ -2995,7 +3099,8 @@ backup_database() {
             MYSQL_PWD="$(env_get DB_ROOT_PASSWORD)" docker exec -i -e MYSQL_PWD "$MYSQL_CONTAINER" \
                 mariadb-dump -uroot --single-transaction --routines --triggers --databases "$DBS_NAME" | gzip >"$file"
         else
-            MYSQL_PWD="$(env_get DB_PASSWORD)" docker run --rm -i --network host -e MYSQL_PWD mariadb:10.11 \
+            external_db_net_args
+            MYSQL_PWD="$(env_get DB_PASSWORD)" docker run --rm -i "${EXT_DB_NET[@]}" -e MYSQL_PWD mariadb:10.11 \
                 mariadb-dump -h "$DBS_HOST" -P "$DBS_PORT" -u "$DBS_USER" --single-transaction --routines --triggers --databases "$DBS_NAME" | gzip >"$file"
         fi
     ) && ok=true
@@ -3083,28 +3188,48 @@ rollback_update() {
 # BASE DE DATOS EXTERNA: se comprueba antes de construir nada
 # =============================================================================
 
+# container_db_host HOST: el host de la BD tal como lo ve el contenedor del panel. Dentro del
+# contenedor 'localhost' es el propio contenedor: el MySQL de este servidor se alcanza por
+# host.docker.internal (host-gateway en docker-compose.override.yml)
+container_db_host() {
+    local host="$1"
+    case "$host" in
+        localhost|127.*|::1|"[::1]") echo "host.docker.internal" ;;
+        *) echo "$host" ;;
+    esac
+}
+
+# external_db_net_args: opciones de red de "docker run" para llegar a la BD externa ($DBS_HOST)
+# en EXT_DB_NET. host.docker.internal solo existe dentro de los contenedores, así que se crea
+# igual que en el del panel; el resto se alcanza desde la red del host
+external_db_net_args() {
+    EXT_DB_NET=(--network host)
+    if [[ "$DBS_HOST" == "host.docker.internal" ]]; then
+        EXT_DB_NET=(--add-host host.docker.internal:host-gateway)
+    fi
+}
+
 # mysql_external SQL [usuario]: ejecuta SQL contra la BD externa (contraseña en MYSQL_PWD)
 mysql_external() {
     local sql="$1" user="${2:-$DBS_USER}" db="${3:-}"
     local -a args=(-h "$DBS_HOST" -P "$DBS_PORT" -u "$user" --connect-timeout=10)
     if [[ -n "$db" ]]; then args+=("$db"); fi
-    printf '%s\n' "$sql" | docker run --rm -i --network host -e MYSQL_PWD mariadb:10.11 mariadb "${args[@]}"
+    external_db_net_args
+    printf '%s\n' "$sql" | docker run --rm -i "${EXT_DB_NET[@]}" -e MYSQL_PWD mariadb:10.11 mariadb "${args[@]}"
 }
 
 check_external_db() {
-    [[ "$DB_MODE" == "external" ]] || return 0
+    [[ "$DB_MODE" == "$DB_MODE_EXTERNAL" ]] || return 0
     if [[ "$DRY_RUN" == "true" ]]; then
         log_info "[dry-run] Se comprobaría la conexión a la base de datos externa"
         return 0
     fi
     print_step "Comprobando la base de datos externa"
     db_settings
-    DBS_HOST="${DB_HOST:-$DBS_HOST}"; DBS_PORT="${DB_PORT:-$DBS_PORT}"; DBS_NAME="${DB_NAME:-$DBS_NAME}"; DBS_USER="${DB_USER:-$DBS_USER}"
+    # se comprueba el host que usará el panel: 'localhost' pasa a ser host.docker.internal,
+    # como en el .env (configure_env_file)
+    DBS_HOST=$(container_db_host "${DB_HOST:-$DBS_HOST}"); DBS_PORT="${DB_PORT:-$DBS_PORT}"; DBS_NAME="${DB_NAME:-$DBS_NAME}"; DBS_USER="${DB_USER:-$DBS_USER}"
     local pass="${DB_PASSWORD:-$(env_get DB_PASSWORD)}"
-    case "$DBS_HOST" in
-        localhost|127.*|::1)
-            die "La base de datos externa no puede ser '$DBS_HOST': dentro del contenedor del panel eso es el propio contenedor. Usa la IP privada de este servidor o el hostname del servidor de base de datos." ;;
-    esac
 
     if MYSQL_PWD="$pass" mysql_external "SELECT 1;" "$DBS_USER" "$DBS_NAME" >/dev/null 2>&1; then
         log_success "Conexión correcta: $DBS_USER@$DBS_HOST:$DBS_PORT/$DBS_NAME"
@@ -3175,17 +3300,18 @@ domain_proxy_check() {
 
 # write_domain_status ESTADO(working|ok|error) URL MENSAJE
 write_domain_status() {
+    local state=$1 url=$2 message=$3
     local file tmp https=false proxied=false
     file=$(domain_status_file)
     [[ -d "$(dirname "$file")" ]] || return 0
     if [[ "$DRY_RUN" == "true" ]]; then
-        printf '%s[dry-run]%s estado del dominio: %s (%s)\n' "$CYAN" "$NC" "$1" "$3"
+        printf '%s[dry-run]%s estado del dominio: %s (%s)\n' "$CYAN" "$NC" "$state" "$message"
         return 0
     fi
     if [[ "$USE_SSL" == "true" ]]; then https=true; fi
     if [[ "$DOMAIN_PROXIED" == "true" ]]; then proxied=true; fi
     tmp=$(mktemp "$file.XXXXXX")
-    jq -n --arg state "$1" --arg url "$2" --arg message "$3" \
+    jq -n --arg state "$state" --arg url "$url" --arg message "$message" \
         --arg domain "$DOMAIN" --argjson https "$https" \
         --argjson proxied "$proxied" --arg serverIp "${DOMAIN_SERVER_IP:-}" \
         --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -3262,7 +3388,7 @@ apply_panel_url() {
     SSL_EMAIL="${SSL_EMAIL:-${PREV_SSL_EMAIL:-}}"
     if [[ -z "$PANEL_PORT" ]]; then PANEL_PORT="${PREV_PANEL_PORT:-$DEFAULT_PANEL_PORT}"; fi
     if [[ -z "$SFTP_PORT" ]]; then SFTP_PORT="${PREV_SFTP_PORT:-$DEFAULT_SFTP_PORT}"; fi
-    if [[ -z "$PANEL_BIND" ]]; then PANEL_BIND="${PREV_PANEL_BIND:-0.0.0.0}"; fi
+    if [[ -z "$PANEL_BIND" ]]; then PANEL_BIND="${PREV_PANEL_BIND:-$BIND_ALL_ADDRESS}"; fi
     if [[ -z "$SERVER_IP" ]]; then SERVER_IP="${PREV_SERVER_IP:-}"; fi
     if [[ -z "$SERVER_IP" ]]; then
         LOCAL_IP=$(detect_local_ip)
@@ -3348,7 +3474,7 @@ remove_domain_service() {
 # =============================================================================
 # DESINSTALACIÓN
 #   basic: para y elimina los contenedores y el sitio de Nginx. Conserva el
-#          código, .env y TODOS los datos (storage/).
+#          código, .env y todos los datos (storage/).
 #   data:  además borra los datos (BD, servidores, backups). Conserva .env,
 #          override y opciones.
 #   full:  borra todo lo instalado (incluido $INSTALL_DIR y el certificado del
@@ -3404,17 +3530,17 @@ uninstall() {
             1) UNINSTALL_MODE="basic" ;;
             2) UNINSTALL_MODE="data" ;;
             3) UNINSTALL_MODE="full" ;;
-            *) echo "Cancelado."; exit 0 ;;
+            *) cancel_exit ;;
         esac
         if [[ "$UNINSTALL_MODE" != "basic" ]]; then
             db_settings
             echo ""
             printf '%s⚠  Esto es irreversible: se borran la base de datos%s y los servidores de juego.%s
 ' "$RED" \
-                "$([[ "$DBS_MODE" == "external" ]] && echo " local (la externa $DBS_HOST no se toca)")" "$NC"
+                "$([[ "$DBS_MODE" == "$DB_MODE_EXTERNAL" ]] && echo " local (la externa $DBS_HOST no se toca)")" "$NC"
             local confirm
             prompt_read confirm "Escribe BORRAR para confirmar" ""
-            [[ "$confirm" == "BORRAR" ]] || { echo "Cancelado."; exit 0; }
+            [[ "$confirm" == "BORRAR" ]] || cancel_exit
         fi
     else
         if [[ -z "$UNINSTALL_MODE" ]]; then UNINSTALL_MODE="basic"; fi
@@ -3438,9 +3564,9 @@ uninstall() {
     # ============================================
     print_step "Desinstalación completada"
     echo ""
-    echo "============================================================"
+    echo "$BANNER_LINE"
     printf '  %s✓ %s desinstalado%s\n' "$GREEN" "$PROJECT_NAME" "$NC"
-    echo "============================================================"
+    echo "$BANNER_LINE"
     echo ""
     case "$UNINSTALL_MODE" in
         full)
@@ -3452,7 +3578,7 @@ uninstall() {
             echo "   • Reglas del firewall del panel y del SFTP"
             echo ""
             echo "   Siguen instalados Docker, Nginx y certbot, y las reglas de SSH, 80 y 443."
-            if [[ "${DBS_MODE:-}" == "external" ]]; then
+            if [[ "${DBS_MODE:-}" == "$DB_MODE_EXTERNAL" ]]; then
                 echo "   La base de datos externa ${DBS_HOST:-} no se ha tocado."
             fi
             ;;
@@ -3663,7 +3789,7 @@ reinstall_prepare() {
     fi
     echo "   • $CONFIG_DIR (opciones y credenciales guardadas), el sitio de Nginx y el servicio $DOMAIN_SERVICE"
     echo "No se tocará:"
-    if [[ "$DBS_MODE" == "external" ]]; then
+    if [[ "$DBS_MODE" == "$DB_MODE_EXTERNAL" ]]; then
         echo "   • La base de datos externa $DBS_HOST:$DBS_PORT/$DBS_NAME: sus datos siguen ahí; si la"
         echo "     vuelves a indicar, el panel nuevo los usará. Bórrala tú si quieres empezar de cero."
     fi
@@ -3677,7 +3803,7 @@ reinstall_prepare() {
         [[ "$ans" == "yes" ]] || backup=false
         local confirm
         prompt_read confirm "Escribe REINSTALAR para borrar y reinstalar" ""
-        [[ "$confirm" == "REINSTALAR" ]] || { echo "Cancelado."; exit 0; }
+        [[ "$confirm" == "REINSTALAR" ]] || cancel_exit
     else
         [[ "$AUTO_CONFIRMED" == "true" ]] || die "Reinstalar sin terminal borra datos: confirma con --yes"
         [[ "$SKIP_BACKUP" == "true" ]] && backup=false
@@ -3709,9 +3835,16 @@ Uso:
 
 Nota: Este script requiere permisos de root (usa sudo)
 
-Modos de instalación:
-  Manual:   sudo bash install.sh                    (pregunta todo paso a paso)
+Menú:     sudo bash install.sh                    (en una terminal y sin opciones)
+  1) Instalación automática   sin preguntas: solo panel o nodo extra
+  2) Instalación              paso a paso: dominio, HTTPS, puertos, BD, rama…
+  3) Reinstalar               conservando los datos o desde cero
+  4) Desinstalar   5) Actualizar   6) Crear cuenta administrador
+
+Modos de instalación con opciones:
+  Manual:   sudo bash install.sh -d DOMINIO …       (pregunta lo que falte paso a paso)
   Auto:     sudo bash install.sh -y                 (pregunta solo la cuenta admin)
+  Nodo:     … --node --panel URL --join CÓDIGO      (Nodos → nodo → Desplegar nodo)
   Sin preguntas: sudo bash install.sh --non-interactive [opciones]
   Simulación:    sudo bash install.sh --dry-run [opciones]  (no cambia nada)
 
@@ -3772,6 +3905,12 @@ Opciones de Desinstalación:
       --uninstall-data       Desinstalar + eliminar datos (requiere -y sin terminal)
       --uninstall-all        Desinstalar + eliminar todo (requiere -y sin terminal)
 
+Nodo (otra máquina que ejecuta servidores para un panel; solo daemon):
+      --node                 Instalar esta máquina como nodo del panel (sin panel web ni base de datos)
+      --panel URL            Dirección del panel, como https://panel.ejemplo.com
+      --join CÓDIGO          Código de un solo uso (dura una hora) de Nodos → nodo → Desplegar nodo.
+                             El panel da el comando completo; repetirlo tras un fallo no necesita otro código.
+
 Opciones de Cuenta:
       --create-admin         Crear cuenta administrador (solo)
 
@@ -3804,7 +3943,7 @@ no quedan en el historial ni en la lista de procesos):
   Valores que empiezan por '-': usa --opcion=valor.
 
 Ejemplos:
-  # Instalar (wizard manual)
+  # Menú: instalación automática o paso a paso, reinstalar, desinstalar…
   sudo bash install.sh
 
   # Instalar automático
@@ -3843,25 +3982,26 @@ HAS_INSTALL_ARGS=false
 
 # need_value OPCIÓN HAS_EQ VALOR_EQ SIGUIENTE -> REPLY, SHIFT_N
 need_value() {
-    if [[ "$2" == "true" ]]; then
-        REPLY="$3"; SHIFT_N=1
+    local option=$1 has_inline_value=$2 inline_value=$3 next_arg=${4:-}
+    if [[ "$has_inline_value" == "true" ]]; then
+        REPLY="$inline_value"; SHIFT_N=1
     else
-        if [[ -z "${4:-}" || "${4:-}" == -* ]]; then
-            log_error "La opción $1 necesita un valor (ejemplo: $1 VALOR o $1=VALOR)"
+        if [[ -z "$next_arg" || "$next_arg" == -* ]]; then
+            log_error "La opción $option necesita un valor (ejemplo: $option VALOR o $option=VALOR)"
             exit 1
         fi
-        REPLY="$4"; SHIFT_N=2
+        REPLY="$next_arg"; SHIFT_N=2
     fi
     if [[ -z "$REPLY" ]]; then
-        log_error "La opción $1 necesita un valor"
+        log_error "La opción $option necesita un valor"
         exit 1
     fi
 }
 
 parse_args() {
-    local opt eqval has_eq
+    local opt eqval has_eq arg
     while (( $# > 0 )); do
-        opt="$1"; eqval=""; has_eq=false; SHIFT_N=1
+        arg="$1"; opt="$arg"; eqval=""; has_eq=false; SHIFT_N=1
         if [[ "$opt" == --*=* ]]; then
             eqval="${opt#*=}"; opt="${opt%%=*}"; has_eq=true
         fi
@@ -3923,11 +4063,14 @@ parse_args() {
             --db-admin-user) need_value "$opt" "$has_eq" "$eqval" "${2:-}"; DB_ADMIN_USER="$REPLY"; HAS_INSTALL_ARGS=true ;;
             --db-admin-pass) need_value "$opt" "$has_eq" "$eqval" "${2:-}"; DB_ADMIN_PASSWORD="$REPLY"; HAS_INSTALL_ARGS=true ;;
             --apply-panel-url) APPLY_PANEL_URL=true; HAS_INSTALL_ARGS=true; NON_INTERACTIVE=true ;;
+            --node) NODE_MODE=true; HAS_INSTALL_ARGS=true ;;
+            --panel) need_value "$opt" "$has_eq" "$eqval" "${2:-}"; NODE_PANEL_URL="$REPLY"; HAS_INSTALL_ARGS=true ;;
+            --join) need_value "$opt" "$has_eq" "$eqval" "${2:-}"; NODE_JOIN_CODE="$REPLY"; HAS_INSTALL_ARGS=true ;;
             -b|--branch) need_value "$opt" "$has_eq" "$eqval" "${2:-}"; GIT_BRANCH="$REPLY" ;;
             --debug) DEBUG=true ;;
             -V|--version) echo "$SCRIPT_VERSION ($SCRIPT_BUILD)"; exit 0 ;;
             -h|--help) show_help; exit 0 ;;
-            *) log_error "Opción desconocida: $1"; echo "Usa --help para ver las opciones." >&2; exit 1 ;;
+            *) log_error "Opción desconocida: $arg"; echo "Usa --help para ver las opciones." >&2; exit 1 ;;
         esac
         if [[ "$has_eq" == "true" && "$SHIFT_N" == "1" && "$REPLY" != "$eqval" ]]; then
             log_error "La opción $opt no admite valor"
@@ -3948,6 +4091,355 @@ parse_args() {
         log_warning "Has pasado contraseñas como argumentos: quedan en el historial y en 'ps'."
         log_warning "Mejor usa AETHER_ADMIN_PASSWORD / AETHER_DB_PASSWORD / AETHER_DB_ROOT_PASSWORD."
     fi
+}
+
+# =============================================================================
+# NODO (SOLO DAEMON) CON UN CÓDIGO DE UNIÓN
+#   El panel da el comando en Nodos → nodo → Desplegar nodo:
+#     curl -fsSL .../install.sh | sudo bash -s -- --node --panel https://panel --join CÓDIGO
+#   El código (un solo uso, dura una hora) se cambia en el panel por el ID y el secreto
+#   del nodo y sus puertos. Se guardan en $NODE_FILE (solo root): repetir el comando
+#   tras un fallo (red, compilación) no necesita otro código.
+#   La configuración del daemon va al config.json del nodo, que sobrevive a las
+#   actualizaciones; docker-compose.yml solo lleva SKYPANEL_PANEL_ENABLE=false, que
+#   panelUpdate.sh conserva.
+# =============================================================================
+
+# El panel al que ya se unió esta máquina (lo guardó node_join en $NODE_FILE)
+saved_node_panel() {
+    [[ -r "$NODE_FILE" ]] || return 0
+    sed -n 's/.*"panel"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$NODE_FILE" 2>/dev/null | head -n1
+}
+
+# parse_join_command "TEXTO": saca --panel y --join del comando que da el panel
+# (curl … | sudo bash -s -- --node --panel URL --join CÓDIGO), pegado tal cual
+parse_join_command() {
+    local text=$1 i word value
+    local -a words=()
+    read -r -a words <<<"$text"
+    for ((i = 0; i < ${#words[@]}; i++)); do
+        word=${words[i]}
+        value=""
+        case "$word" in
+            --panel=*|--join=*) value=${word#*=} ;;
+            --panel|--join) value=${words[i + 1]:-} ;;
+            *) continue ;;
+        esac
+        value=${value//[\"\']/}
+        case "$word" in
+            --panel*) NODE_PANEL_URL="$value" ;;
+            *) NODE_JOIN_CODE="$value" ;;
+        esac
+    done
+}
+
+# ask_node_join: la dirección del panel y el código de unión de un nodo extra. Se puede
+# pegar el comando entero de «Generar comando». Un nodo que ya se unió a ese panel no
+# necesita código (node_join reutiliza lo que guardó); en la instalación automática ni
+# siquiera se pregunta la dirección.
+ask_node_join() {
+    local saved input i
+    saved=$(saved_node_panel)
+    if [[ -z "$NODE_PANEL_URL" ]]; then NODE_PANEL_URL="$saved"; fi
+
+    echo ""
+    printf '  %sNodo extra%s\n' "$BOLD" "$NC"
+    if interactive_manual || [[ ! "$NODE_PANEL_URL" =~ $NODE_PANEL_URL_RE ]]; then
+        echo "  En el panel: Nodos → (el nodo) → Desplegar nodo → Generar comando."
+        echo "  Pega aquí ese comando entero, o escribe la dirección del panel y después el código."
+        echo ""
+        for i in 1 2 3; do
+            prompt_read input "Comando o dirección del panel" "$NODE_PANEL_URL"
+            if [[ "$input" == *--panel* || "$input" == *--join* ]]; then
+                parse_join_command "$input"
+            else
+                NODE_PANEL_URL="$input"
+            fi
+            NODE_PANEL_URL="${NODE_PANEL_URL%/}"
+            if [[ "$NODE_PANEL_URL" =~ $NODE_PANEL_URL_RE ]]; then break; fi
+            log_error "Hace falta la dirección del panel, como https://panel.ejemplo.com (recibido: '$NODE_PANEL_URL')"
+            NODE_PANEL_URL=""
+        done
+        [[ -n "$NODE_PANEL_URL" ]] || die "No se indicó la dirección del panel"
+    fi
+
+    if [[ -n "$saved" && "$saved" == "$NODE_PANEL_URL" ]]; then
+        log_info "Esta máquina ya se unió a $NODE_PANEL_URL: no hace falta código"
+        return 0
+    fi
+    for i in 1 2 3; do
+        if [[ -n "$NODE_JOIN_CODE" ]]; then return 0; fi
+        prompt_read NODE_JOIN_CODE "Código de unión (dura una hora)" ""
+    done
+    die "Falta el código de unión: genéralo en el panel (Nodos → nodo → Desplegar nodo)"
+}
+
+node_join() {
+    print_step "Uniendo esta máquina al panel"
+    NODE_PANEL_URL="${NODE_PANEL_URL%/}"
+    if [[ ! "$NODE_PANEL_URL" =~ $NODE_PANEL_URL_RE ]]; then
+        die "--panel debe ser la dirección del panel, como https://panel.ejemplo.com (recibido: '${NODE_PANEL_URL}')"
+    fi
+    if [[ "$NODE_PANEL_URL" == http://* ]]; then # NOSONAR: se avisa de que http no cifra
+        log_warning "El panel va por http: el secreto del nodo viaja sin cifrar. Usa https cuando puedas."
+    fi
+
+    local data=""
+    if [[ -r "$NODE_FILE" ]] && [[ "$(jq -r '.panel // empty' "$NODE_FILE" 2>/dev/null)" == "$NODE_PANEL_URL" ]]; then
+        data=$(cat "$NODE_FILE")
+        log_info "Se usan los datos del nodo obtenidos antes ($NODE_FILE): el código no hace falta"
+    elif [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[dry-run] Se canjearía el código en $NODE_PANEL_URL/api/node-join"
+        data='{"nodeId":0,"name":"(dry-run)","clientId":".node_0","clientSecret":"x","port":8080,"sftpPort":5657}'
+    else
+        [[ -n "$NODE_JOIN_CODE" ]] || die "Falta el código: --join CÓDIGO (en el panel: Nodos → nodo → Desplegar nodo)"
+        local out status
+        out=$(mktemp)
+        TMP_FILES+=("$out")
+        status=$(jq -n --arg c "$NODE_JOIN_CODE" '{code: $c}' \
+            | curl -sS --max-time 20 -o "$out" -w '%{http_code}' -H 'Content-Type: application/json' \
+                --data-binary @- "$NODE_PANEL_URL/api/node-join" 2>/dev/null) || status="000"
+        case "$status" in
+            200) ;;
+            404) die "El panel no reconoce el código: ya se usó o caducó (dura una hora). Genera otro en Nodos → nodo → Desplegar nodo" ;;
+            429) die "Demasiados intentos desde esta IP: espera 15 minutos y vuelve a probar" ;;
+            000) die "No se pudo conectar con el panel en $NODE_PANEL_URL: comprueba la dirección y que esta máquina llegue a él" ;;
+            *) die "El panel respondió $status al canjear el código: $(head -c 300 "$out")" ;;
+        esac
+        data=$(jq -c --arg p "$NODE_PANEL_URL" '. + {panel: $p}' "$out" 2>/dev/null) || die "El panel dio una respuesta que no se entiende"
+        printf '%s\n' "$data" | write_file "$NODE_FILE" 600
+        run chmod 700 "$CONFIG_DIR"
+        log_success "Código aceptado por el panel"
+    fi
+
+    NODE_ID=$(jq -r '.nodeId // empty' <<<"$data")
+    NODE_NAME=$(jq -r '.name // empty' <<<"$data")
+    NODE_CLIENT_ID=$(jq -r '.clientId // empty' <<<"$data")
+    NODE_CLIENT_SECRET=$(jq -r '.clientSecret // empty' <<<"$data")
+    PANEL_PORT=$(jq -r '.port // empty' <<<"$data")
+    SFTP_PORT=$(jq -r '.sftpPort // empty' <<<"$data")
+    if [[ -z "$NODE_CLIENT_ID" || -z "$NODE_CLIENT_SECRET" ]] || ! validate_port "$PANEL_PORT" || ! validate_port "$SFTP_PORT"; then
+        die "Faltan datos del nodo en la respuesta del panel; borra $NODE_FILE y genera otro código"
+    fi
+    PANEL_BIND="$BIND_ALL_ADDRESS"
+    log_success "Nodo «$NODE_NAME»: daemon en el puerto $PANEL_PORT, SFTP en el $SFTP_PORT"
+}
+
+# La configuración del daemon: dónde está el panel y con qué credenciales le habla
+queue_node_config() {
+    CFG_KEYS=(); CFG_TYPES=(); CFG_VALS=(); CFG_SECRET=()
+    cfg_set panel.enable bool false
+    cfg_set panel.settings.masterurl string "$NODE_PANEL_URL"
+    cfg_set token.public string "$NODE_PANEL_URL/auth/publickey"
+    cfg_set daemon.auth.url string "$NODE_PANEL_URL/oauth2/token"
+    cfg_set daemon.auth.clientid string "$NODE_CLIENT_ID"
+    cfg_set daemon.auth.clientsecret string "$NODE_CLIENT_SECRET" secret
+    cfg_set daemon.sftp.host string "$BIND_ALL_ADDRESS:$SFTP_PORT"
+}
+
+# El docker-compose.yml del repositorio trae la línea comentada; panelUpdate.sh la conserva.
+# Una línea SKYPANEL_TOKEN_PUBLIC activa (de un nodo montado a mano) gana a config.json: con
+# una dirección vieja del panel, el nodo no leía su clave y rechazaba todas sus peticiones.
+# La dirección buena va en config.json (token.public), así que la línea se vuelve a comentar.
+enable_node_compose() {
+    local file="$INSTALL_DIR/docker-compose.yml"
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[dry-run] Se activaría SKYPANEL_PANEL_ENABLE=false en $file"
+        return 0
+    fi
+    run sed -i 's|^[[:space:]]*# - SKYPANEL_PANEL_ENABLE=false|      - SKYPANEL_PANEL_ENABLE=false|' "$file"
+    if grep -qE '^[[:space:]]*- SKYPANEL_TOKEN_PUBLIC=' "$file"; then
+        run sed -i 's|^\([[:space:]]*\)- SKYPANEL_TOKEN_PUBLIC=|\1# - SKYPANEL_TOKEN_PUBLIC=|' "$file"
+        log_info "Quitada la dirección de la clave del panel que fijaba docker-compose.yml: ahora sale de --panel"
+    fi
+    grep -qE '^[[:space:]]*- SKYPANEL_PANEL_ENABLE=false' "$file" \
+        || die "No se pudo activar el modo nodo en $file"
+    log_success "docker-compose.yml en modo nodo (solo daemon)"
+}
+
+print_node_summary() {
+    echo ""
+    echo "$BANNER_LINE"
+    printf '  %s✓ Nodo «%s» (ID %s) instalado%s\n' "$GREEN" "$NODE_NAME" "$NODE_ID" "$NC"
+    echo "$BANNER_LINE"
+    echo ""
+    echo "📍 Daemon en el puerto $PANEL_PORT y SFTP en el $SFTP_PORT de esta máquina"
+    echo "🔗 Conectado al panel $NODE_PANEL_URL"
+    if [[ "$PANEL_NOT_READY" == "true" ]]; then
+        printf '   %s⚠  El daemon aún no responde: revisa docker logs %s%s\n' "$YELLOW" "$PANEL_CONTAINER" "$NC"
+    fi
+    echo ""
+    echo "  Comprueba en el panel: Nodos → $NODE_NAME (CPU, memoria y discos en vivo)."
+    echo "  Si el panel no llega al nodo, revisa que su host y el puerto $PANEL_PORT sean"
+    echo "  los de esta máquina y que un firewall externo (el del proveedor) los deje pasar."
+    echo "  Se actualiza junto con el panel (Ajustes → Actualizaciones)."
+    echo ""
+}
+
+install_node() {
+    require_root
+    acquire_lock
+    detect_os
+    load_state
+    detect_existing_installation
+    if [[ "$EXISTING_INSTALL" == "true" && "$IS_NODE_ONLY" != "true" ]]; then
+        die "Esta máquina ya tiene el panel instalado en $INSTALL_DIR: un nodo va en otra máquina"
+    fi
+    # Reinstalar desde cero (menú): se borra el nodo anterior y se une otra vez con un código nuevo
+    if [[ "$REINSTALL_MODE" == "true" ]]; then reinstall_prepare; fi
+    if [[ "$CAN_PROMPT" == "true" ]] && { [[ -z "$NODE_PANEL_URL" || -z "$NODE_JOIN_CODE" ]]; }; then
+        ask_node_join
+    fi
+    if [[ "$FROM_MENU" == "true" ]]; then ask_branch_and_firewall; fi
+    IS_NODE_ONLY=true
+    CREATE_ADMIN=false
+    SKIP_NGINX=true
+    AUTO_MODE=true
+    AUTO_CONFIRMED=true
+    DB_MODE=local
+
+    check_resources
+    resolve_branch
+    install_dependencies
+    node_join
+    ensure_docker_running
+    check_ports
+    sync_repository
+    enable_node_compose
+    configure_compose_override
+    build_images
+    configure_firewall
+    queue_node_config
+    start_stack
+    save_state
+    print_node_summary
+}
+
+# =============================================================================
+# MENÚ PRINCIPAL
+#   sudo bash install.sh sin opciones y en una terminal. Cada opción solo deja
+#   preparadas las variables de los modos de siempre (los mismos que las opciones
+#   de la línea de comandos), y main sigue con su flujo.
+# =============================================================================
+
+# menu_option NÚMERO "texto" ["detalle"] [disponible]: una línea del menú; sin instalación,
+# las opciones que la necesitan salen apagadas
+menu_option() {
+    local number=$1 text=$2 detail=${3:-} available=${4:-true}
+    if [[ "$available" != "true" ]]; then
+        printf '   %s%s) %s  (no hay instalación)%s\n' "$DIM" "$number" "$text" "$NC"
+        return 0
+    fi
+    printf '   %s%s)%s %s%s%s' "$CYAN$BOLD" "$number" "$NC" "$BOLD" "$text" "$NC"
+    if [[ -n "$detail" ]]; then printf '  %s%s%s' "$DIM" "$detail" "$NC"; fi
+    printf '\n'
+}
+
+# menu_choice VAR "opciones válidas (regex)" "rango para el texto" defecto
+menu_choice() {
+    local __var=$1 __valid=$2 __range=$3 __def=$4 __c=""
+    echo ""
+    while true; do
+        prompt_read __c "Selecciona [$__range]" "$__def"
+        if [[ "$__c" =~ ^($__valid)$ ]]; then break; fi
+        log_warning "Elige una de las opciones: $__range"
+    done
+    printf -v "$__var" '%s' "$__c"
+}
+
+main_menu() {
+    require_root
+    detect_existing_installation
+    show_install_state
+
+    local installed=$EXISTING_INSTALL choice def=1 can_admin=$EXISTING_INSTALL
+    if [[ "$installed" == "true" ]]; then def=5; fi
+    if [[ "$IS_NODE_ONLY" == "true" ]]; then can_admin=false; fi
+
+    echo ""
+    printf '  %s¿Qué quieres hacer?%s\n\n' "$BOLD" "$NC"
+    menu_option 1 "Instalación automática" "sin preguntas: solo eliges panel o nodo extra"
+    menu_option 2 "Instalación" "paso a paso: dominio, HTTPS, puertos, base de datos…"
+    menu_option 3 "Reinstalar" "conservando los datos o desde cero" "$installed"
+    menu_option 4 "Desinstalar" "conservando los datos o borrándolo todo" "$installed"
+    menu_option 5 "Actualizar" "a la última versión; conserva los datos" "$installed"
+    menu_option 6 "Crear cuenta administrador" "" "$can_admin"
+    menu_option 0 "Salir"
+
+    while true; do
+        menu_choice choice '[0-6]' "0-6" "$def"
+        if [[ "$choice" =~ ^[3-6]$ && "$installed" != "true" ]]; then
+            log_warning "No hay ninguna instalación de $PROJECT_NAME: elige 1 o 2 para instalar"
+        elif [[ "$choice" == 6 && "$can_admin" != "true" ]]; then
+            log_warning "Esta máquina es un nodo extra: las cuentas se crean en el panel"
+        else
+            break
+        fi
+    done
+
+    FROM_MENU=true
+    case "$choice" in
+        1) menu_install auto ;;
+        2) menu_install manual ;;
+        3) menu_reinstall ;;
+        4) UNINSTALL_MODE=""; uninstall; exit 0 ;;
+        5) UPDATE_MODE=true ;;
+        6) CREATE_ADMIN=true; CREATE_ADMIN_ONLY=true ;;
+        *) echo "¡Hasta luego!"; exit 0 ;;
+    esac
+}
+
+# menu_install auto|manual: panel o nodo extra. En automático no se pregunta nada más
+# (el nodo solo necesita la dirección del panel y su código); en manual, todo.
+menu_install() {
+    local mode=$1 target
+    if [[ "$mode" == "auto" ]]; then
+        AUTO_MODE=true
+        AUTO_CONFIRMED=true
+    fi
+
+    if [[ "$EXISTING_INSTALL" == "true" ]]; then
+        # lo que ya hay manda: se vuelve a instalar encima conservando los datos
+        if [[ "$IS_NODE_ONLY" == "true" ]]; then target=node; else target=panel; fi
+    else
+        local c
+        echo ""
+        printf '  %s¿Qué vas a instalar en esta máquina?%s\n\n' "$BOLD" "$NC"
+        menu_option 1 "Panel" "la web, la base de datos y su propio nodo"
+        menu_option 2 "Nodo extra" "solo el daemon, unido a un panel que ya tienes"
+        menu_choice c '[12]' "1-2" "1"
+        if [[ "$c" == 2 ]]; then target=node; else target=panel; fi
+    fi
+
+    if [[ "$target" == "node" ]]; then
+        NODE_MODE=true
+    elif [[ "$mode" == "auto" ]]; then
+        AUTO_ADMIN=true
+    fi
+}
+
+# Reinstalar: conservando los datos (código, imagen y contenedores nuevos; los mismos datos,
+# contraseñas y cuentas) o desde cero (borra todo, con copia antes, e instala paso a paso)
+menu_reinstall() {
+    local c
+    echo ""
+    printf '  %sReinstalar%s\n\n' "$BOLD" "$NC"
+    menu_option 1 "Conservando los datos" "código e imagen nuevos; servidores, usuarios y contraseñas se quedan"
+    menu_option 2 "Desde cero" "BORRA todo (ofrece copia antes) e instala de nuevo"
+    menu_option 0 "Cancelar"
+    menu_choice c '[0-2]' "0-2" "1"
+    case "$c" in
+        1)
+            FORCE=true
+            BUILD_FRESH=true
+            AUTO_MODE=true
+            AUTO_CONFIRMED=true
+            ;;
+        2) REINSTALL_MODE=true ;;
+        *) cancel_exit ;;
+    esac
+    # un nodo extra se reinstala con su propio flujo (y, desde cero, con un código nuevo)
+    if [[ "$IS_NODE_ONLY" == "true" ]]; then NODE_MODE=true; fi
 }
 
 # =============================================================================
@@ -4003,42 +4495,15 @@ main() {
     # Banner inicial
     print_banner
 
-    # Menú principal interactivo (solo si no se pasó ningún argumento)
+    # Menú principal (sudo bash install.sh sin opciones, en una terminal)
     if [[ "$HAS_INSTALL_ARGS" == "false" ]] && interactive_manual; then
-        require_root
-        detect_existing_installation
-        show_install_state
-        local main_choice def=1
-        if [[ "$EXISTING_INSTALL" == "true" ]]; then def=2; fi
-        echo ""
-        echo "============================================================"
-        echo "  Menú Principal"
-        echo "============================================================"
-        echo ""
-        echo "  1) Instalar"
-        echo "  2) Actualizar (conserva los datos)"
-        echo "  3) Reinstalar desde cero (borra los datos)"
-        echo "  4) Desinstalar"
-        echo "  5) Crear cuenta administrador"
-        echo "  6) Salir"
-        echo ""
-        while true; do
-            prompt_read main_choice "Selecciona [1-6]" "$def"
-            if [[ "$main_choice" =~ ^[2-5]$ && "$EXISTING_INSTALL" != "true" ]]; then
-                log_warning "No hay ninguna instalación de $PROJECT_NAME: elige 1 para instalar"
-                continue
-            fi
-            break
-        done
-        case "$main_choice" in
-            1) : ;;
-            2) UPDATE_MODE=true ;;
-            3) REINSTALL_MODE=true ;;
-            4) UNINSTALL_MODE=""; uninstall; exit 0 ;;
-            5) CREATE_ADMIN=true; CREATE_ADMIN_ONLY=true ;;
-            6) echo "¡Hasta luego!"; exit 0 ;;
-            *) echo "Opción inválida"; exit 1 ;;
-        esac
+        main_menu
+    fi
+
+    # Nodo con código de unión: un flujo propio, sin panel web, base de datos ni Nginx
+    if [[ "$NODE_MODE" == "true" ]]; then
+        install_node
+        exit 0
     fi
 
     # Modo solo crear cuenta administrador

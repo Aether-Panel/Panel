@@ -129,6 +129,29 @@ func TestValidateUserTask(t *testing.T) {
 			wantErr: "keep must be between",
 		},
 		{
+			name:    "backup with an off-site frequency and its own retention",
+			body:    `{"name":"x","operations":[{"type":"backup","keep":5,"offsite":"weekly","offsiteKeep":4}]}`,
+			granted: ownerScopes,
+		},
+		{
+			name:    "only the offered off-site frequencies",
+			body:    `{"name":"x","operations":[{"type":"backup","offsite":"daily"}]}`,
+			granted: ownerScopes,
+			wantErr: "invalid off-site frequency",
+		},
+		{
+			name:    "off-site retention has bounds",
+			body:    `{"name":"x","operations":[{"type":"backup","offsiteKeep":0}]}`,
+			granted: ownerScopes,
+			wantErr: "off-site keep must be between",
+		},
+		{
+			name:    "the task id is set by the scheduler, never by the user",
+			body:    `{"name":"x","operations":[{"type":"backup","taskId":"x"}]}`,
+			granted: ownerScopes,
+			wantErr: `"backup" steps do not take "taskId"`,
+		},
+		{
 			name:    "a task needs steps",
 			body:    `{"name":"x","operations":[]}`,
 			granted: ownerScopes,
@@ -172,4 +195,19 @@ func TestValidateStringSetting_DiscordWebhooks(t *testing.T) {
 		found = found || entry.Key() == config.DiscordWebhookExTransfer.Key()
 	}
 	assert.True(t, found, "the transfer webhook can be saved")
+}
+
+func TestValidateStringSetting_NotificationLanguage(t *testing.T) {
+	key := config.NotificationLanguage.Key()
+	assert.NoError(t, validateStringSetting(key, "es"))
+	assert.NoError(t, validateStringSetting(key, " en "), "saved trimmed")
+	for _, value := range []string{"", "fr", "EN", "english"} {
+		assert.ErrorIs(t, validateStringSetting(key, value), skypanel.ErrNotificationLanguage, "%q", value)
+	}
+
+	found := false
+	for _, entry := range editableStringEntries {
+		found = found || entry.Key() == key
+	}
+	assert.True(t, found, "the notification language can be saved from the settings page")
 }

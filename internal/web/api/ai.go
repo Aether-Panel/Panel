@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 )
 
@@ -54,6 +55,12 @@ type GeminiMessage struct {
 }
 
 func analyzeServerLogs(c *gin.Context) {
+	// the admin turned the analysis off: refuse it here too, not only hide its buttons
+	if config.HideAIAnalysis.Value() {
+		c.AbortWithStatusJSON(http.StatusForbidden, &skypanel.ErrorResponse{Error: skypanel.ErrAIAnalysisDisabled})
+		return
+	}
+
 	apiKey := config.GeminiAPIKey.Value()
 	if apiKey == "" {
 		c.JSON(400, gin.H{"error": "Gemini API Key is not configured. Please add it in Settings."})
@@ -119,7 +126,7 @@ func analyzeServerLogs(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), aiTimeout)
 	defer cancel()
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", bytes.NewBuffer(payloadBytes))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent", bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Failed to connect to AI API"})
 		return

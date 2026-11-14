@@ -79,6 +79,10 @@ func getAllDatabasesForServer(c *gin.Context) {
 		return
 	}
 
+	// the password is for whoever may manage the databases: a sub-user who may only look at
+	// the server gets the address and user name, not the credentials
+	showPassword := scopes.ContainsScope(callerScopes(c), scopes.ScopeServerEditData)
+
 	data := make([]*models.DatabaseView, len(databases))
 	for i, database := range databases {
 		var hostName string
@@ -97,7 +101,7 @@ func getAllDatabasesForServer(c *gin.Context) {
 			DatabaseHostID:   database.DatabaseHostID,
 			DatabaseName:     database.DatabaseName,
 			Username:         database.Username,
-			Password:         database.Password,
+			Password:         passwordFor(showPassword, database.Password),
 			RemoteConnection: database.RemoteConnection,
 			MaxConnections:   database.MaxConnections,
 			Host:             host,
@@ -226,4 +230,12 @@ func deleteDatabase(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+// passwordFor returns the database password only when the caller may manage the databases
+func passwordFor(show bool, password string) string {
+	if show {
+		return password
+	}
+	return ""
 }

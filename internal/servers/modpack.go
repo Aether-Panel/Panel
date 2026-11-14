@@ -339,6 +339,9 @@ func (p *Server) InstallModpack(req ModpackInstallRequest) error {
 	if p.versionState().running.Load() {
 		return ErrVersionChanging
 	}
+	if p.githubInstallRunning() {
+		return ErrGitHubInstalling
+	}
 	state := p.modpackState()
 	if !state.running.CompareAndSwap(false, true) {
 		return ErrModpackInstalling

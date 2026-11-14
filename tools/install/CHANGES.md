@@ -220,3 +220,25 @@ Instalaciones reales en contenedores con systemd:
 - **Rama `main` por defecto.** Una instalación nueva, y el actualizador del panel (`tools/panelUpdate/panelUpdate.sh`) cuando no hay otra rama indicada, usan `main`, la rama estable. Una instalación que ya está en otra rama sigue en la suya: se lee de `installer.conf` o del repositorio. Otra rama se elige con `-b RAMA` o `AETHER_BRANCH`.
 - El aviso de "actualización disponible" del panel compara con la rama instalada (la que lee de `/repo/.git/HEAD`), no con `dev2.0` fijo. Antes, una instalación en `main` veía avisos de cambios que su actualización no iba a traer.
 
+
+# install.sh 4.2.1 → 4.2.2
+
+- **Base de datos externa en el propio servidor.** Con `--db-mode external` y el host `localhost` (el valor por defecto de la pregunta), el `.env` recibía `host.docker.internal`, pero la comprobación de la conexión rechazaba `localhost`/`127.*` y paraba la instalación. Ahora las dos usan la misma regla: `localhost`, `127.*` y `::1` pasan a `host.docker.internal`, y la comprobación (y la copia de seguridad de `--update`) se conectan a ese nombre desde un contenedor con `host-gateway`, como el panel. MySQL tiene que escuchar en la IP del puente Docker (`bind-address`), y el instalador lo recuerda.
+
+
+# install.sh 4.2.2 → 4.2.3
+
+- **Nodo con un solo comando.** `--node --panel URL --join CÓDIGO` (el comando que da el panel en Nodos → nodo → Desplegar nodo) canjea el código por el ID, el secreto y los puertos del nodo, los guarda en `/etc/SkyPanel/node.json` (repetir el comando no necesita otro código) y deja la configuración del daemon en `config.json`. El nodo arranca sin MariaDB.
+- **La dirección de la clave del panel sale de `--panel`.** Una línea `SKYPANEL_TOKEN_PUBLIC` activa en `docker-compose.yml` (de un nodo montado a mano) ganaba a `config.json`: con una dirección vieja del panel (por ejemplo `http://IP:8080`, cerrada), el nodo no leía su clave y rechazaba todas las peticiones del panel, y el panel no mostraba sus métricas. Al unir el nodo con el comando, esa línea se vuelve a comentar.
+- Al leer la línea `SKYPANEL_TOKEN_PUBLIC` para conservarla en una actualización, se ignora la de ejemplo (`http://<MASTER-IP>:8080/...`).
+
+# install.sh 4.2.3 → 4.3.0
+
+Build `20261105-menu`. Sin opciones y en una terminal, el instalador abre un menú nuevo; las opciones de la línea de comandos siguen igual.
+
+- **Menú principal.** 1) Instalación automática, 2) Instalación paso a paso, 3) Reinstalar, 4) Desinstalar, 5) Actualizar, 6) Crear cuenta administrador, 0) Salir. Las opciones que necesitan una instalación salen apagadas si no la hay. Con el panel ya instalado, el menú propone Actualizar.
+- **Instalación automática.** Solo pregunta panel o nodo extra. El panel se instala con los valores por defecto y una cuenta de administrador generada (`admin@aether.local`, o `admin@` el dominio) cuya contraseña se muestra en el resumen final y se guarda en `/etc/SkyPanel/credenciales.txt`. El nodo extra solo pide la dirección del panel y el código de unión; si ya se unió a ese panel, ni eso.
+- **Instalación paso a paso.** Panel o nodo extra, y después todo: dominio y HTTPS, puertos, base de datos, **rama del código** y **cortafuegos** (preguntas nuevas, también en el modo manual con opciones). Para un nodo extra se puede pegar el comando entero de «Generar comando»: el instalador saca de él `--panel` y `--join`. `--node` sin `--panel`/`--join` en una terminal también los pregunta.
+- **Reinstalar** pregunta cómo: *conservando los datos* (código nuevo, imagen construida sin caché con `--pull --no-cache`, contenedores recreados; datos, contraseñas y cuentas se quedan) o *desde cero* (lo de `--reinstall`). Un nodo extra se reinstala con su propio flujo: conservando datos reutiliza `/etc/SkyPanel/node.json`; desde cero pide un código nuevo.
+- Elegir instalar sobre una instalación existente ya no muestra un segundo menú: se vuelve a configurar conservando los datos.
+- **`panelUpdate.sh` ya no vuelve a poner una dirección vieja de la clave del panel.** En un nodo, si `config.json` ya tiene `token.public` (nodo unido con `--join`), la línea `SKYPANEL_TOKEN_PUBLIC` guardada antes de la actualización no se re-aplica (se queda comentada, como hace `enable_node_compose`) si es la misma dirección o si la de `config.json` devuelve la clave del panel (`curl`, JSON con `keys`). Si esa dirección no responde, o no hay `curl`, o `config.json` no tiene `token.public` (nodos montados a mano), se re-aplica como siempre: en esos nodos la buena puede ser la de la línea. Se lee con `jq` o, si no está, con `sed`/`grep`.

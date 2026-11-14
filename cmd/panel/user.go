@@ -16,18 +16,22 @@ import (
 	"gorm.io/gorm"
 )
 
+// the errors are returned so the command exits non-zero (scripts and the installer check
+// it); the usage text is not printed for them, as the flags were not the problem
 var AddUserCmd = &cobra.Command{
-	Use:   "add",
-	Short: "Add user",
-	Run:   addUser,
-	Args:  cobra.NoArgs,
+	Use:          "add",
+	Short:        "Add user",
+	RunE:         addUser,
+	Args:         cobra.NoArgs,
+	SilenceUsage: true,
 }
 
 var EditUserCmd = &cobra.Command{
-	Use:   "edit",
-	Short: "Edit a user",
-	Run:   editUser,
-	Args:  cobra.NoArgs,
+	Use:          "edit",
+	Short:        "Edit a user",
+	RunE:         editUser,
+	Args:         cobra.NoArgs,
+	SilenceUsage: true,
 }
 
 var userCmd = &cobra.Command{
@@ -107,7 +111,7 @@ func promptForPassword(password *string, useFlags bool) {
 	}
 }
 
-func addUser(_ *cobra.Command, _ []string) {
+func addUser(_ *cobra.Command, _ []string) error {
 	answers := userCreate{
 		Username: addUsername,
 		Email:    addEmail,
@@ -130,8 +134,7 @@ func addUser(_ *cobra.Command, _ []string) {
 
 	db, err := database.GetConnection()
 	if err != nil {
-		pterm.Error.Printf("Failed to connect to database: %s\n", err.Error())
-		return
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 	defer database.Close()
 
@@ -142,8 +145,7 @@ func addUser(_ *cobra.Command, _ []string) {
 		existing, err := us.GetByEmail(answers.Email)
 		if err == nil && existing != nil {
 			if err := us.Delete(existing); err != nil {
-				pterm.Error.Printf("Failed to remove existing user: %s\n", err.Error())
-				return
+				return fmt.Errorf("failed to remove existing user: %w", err)
 			}
 			pterm.Warning.Printf("Existing user %s removed, recreating\n", existing.Email)
 		}
@@ -151,8 +153,7 @@ func addUser(_ *cobra.Command, _ []string) {
 		existingByName, err := us.Get(answers.Username)
 		if err == nil && existingByName != nil {
 			if err := us.Delete(existingByName); err != nil {
-				pterm.Error.Printf("Failed to remove existing user: %s\n", err.Error())
-				return
+				return fmt.Errorf("failed to remove existing user: %w", err)
 			}
 			pterm.Warning.Printf("Existing user %s removed, recreating\n", existingByName.Username)
 		}
@@ -164,24 +165,19 @@ func addUser(_ *cobra.Command, _ []string) {
 			Email:          answers.Email,
 			HashedPassword: "",
 		}
-		err = user.SetPassword(answers.Password)
-		if err != nil {
-			pterm.Error.Printf("Failed to set password: %s\n", err.Error())
-			return err
+		if err := user.SetPassword(answers.Password); err != nil {
+			return fmt.Errorf("failed to set password: %w", err)
 		}
 
 		us := &services.User{DB: tx}
-		err = us.Create(user)
-		if err != nil {
-			pterm.Error.Printf("Failed to create user: %s\n", err.Error())
-			return err
+		if err := us.Create(user); err != nil {
+			return fmt.Errorf("failed to create user: %w", err)
 		}
 
 		ps := &services.Permission{DB: tx}
 		perms, err := ps.GetForUserAndServer(user.ID, "")
 		if err != nil {
-			pterm.Error.Printf("Failed to get permissions: %s\n", err.Error())
-			return err
+			return fmt.Errorf("failed to get permissions: %w", err)
 		}
 
 		// Siempre agregar el permiso login para que el usuario pueda iniciar sesión
@@ -191,18 +187,17 @@ func addUser(_ *cobra.Command, _ []string) {
 			perms.Scopes = scopes.AddScope(perms.Scopes, scopes.ScopeAdmin)
 		}
 
-		err = ps.UpdatePermissions(perms)
-		if err != nil {
-			pterm.Error.Printf("Failed to apply permissions: %s\n", err.Error())
-			return err
+		if err := ps.UpdatePermissions(perms); err != nil {
+			return fmt.Errorf("failed to apply permissions: %w", err)
 		}
 
 		return nil
 	}); err != nil {
-		return
+		return err
 	}
 
 	pterm.Info.Printf("User added\n")
+	return nil
 }
 
 func validateEmail(val interface{}) error {
@@ -237,45 +232,77 @@ type userCreate struct {
 
 func handleEditUsername(user *models.User, us *services.User) {
 	oldValue := user.Username
-	user.Username, _ = pterm.DefaultInteractiveTextInput.WithDefaultText("Change username to").WithDefaultValue(oldValue).Show()
+	value, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("Change username to").WithDefaultValue(oldValue).Show()
 
-	err := us.Update(user)
-	if err != nil {
+	if err := changeUsername(user, us, value); err != nil {
 		pterm.Error.Printfln("Error updating username: %s", err.Error())
 	} else {
 		pterm.Info.Printfln("Username updated from %s to %s", oldValue, user.Username)
 	}
 }
 
+// changeUsername checks the new name with the same rule as the API before saving it, so the
+// CLI cannot leave a user with an empty or unprintable name. On any error the user keeps the
+// old name, which later edits in the same session would otherwise save.
+func changeUsername(user *models.User, us *services.User, value string) error {
+	if err := validateUsername(value); err != nil {
+		return err
+	}
+	oldValue := user.Username
+	user.Username = value
+	if err := us.Update(user); err != nil {
+		user.Username = oldValue
+		return err
+	}
+	return nil
+}
+
 func handleEditEmail(user *models.User, us *services.User) {
 	oldValue := user.Email
-	user.Email, _ = pterm.DefaultInteractiveTextInput.WithDefaultText("Change email to").WithDefaultValue(oldValue).Show()
+	value, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("Change email to").WithDefaultValue(oldValue).Show()
 
-	err := us.Update(user)
-	if err != nil {
+	if err := changeEmail(user, us, value); err != nil {
 		pterm.Error.Printfln("Error updating email: %s", err.Error())
 	} else {
 		pterm.Info.Printfln("Email updated from %s to %s", oldValue, user.Email)
 	}
 }
 
+// changeEmail checks the new address with the same rule as the API before saving it; on any
+// error the user keeps the old address
+func changeEmail(user *models.User, us *services.User, value string) error {
+	if err := validateEmail(value); err != nil {
+		return err
+	}
+	oldValue := user.Email
+	user.Email = value
+	if err := us.Update(user); err != nil {
+		user.Email = oldValue
+		return err
+	}
+	return nil
+}
+
+// errUpdatingPasswordFmt is the one message for every step of a password change that fails
+const errUpdatingPasswordFmt = "Error updating password: %s"
+
 func handleEditPassword(user *models.User, us *services.User) {
 	password, _ := pterm.DefaultInteractiveTextInput.WithMask("*").WithDefaultText("Change password to").Show()
 
 	// the same rule as the web, which also rejects what bcrypt cannot hash
 	if err := us.IsSecurePassword(password); err != nil {
-		pterm.Error.Printfln("Error updating password: %s", err.Error())
+		pterm.Error.Printfln(errUpdatingPasswordFmt, err.Error())
 		return
 	}
 
 	err := user.SetPassword(password)
 	if err != nil {
-		pterm.Error.Printfln("Error updating password: %s", err.Error())
+		pterm.Error.Printfln(errUpdatingPasswordFmt, err.Error())
 		return
 	}
 	err = us.Update(user)
 	if err != nil {
-		pterm.Error.Printfln("Error updating password: %s", err.Error())
+		pterm.Error.Printfln(errUpdatingPasswordFmt, err.Error())
 		return
 	}
 	// whoever knew the old password is signed out, as when it is changed on the web
@@ -340,16 +367,14 @@ func handleRemove2FA(user *models.User, db *gorm.DB) {
 	}
 }
 
-func editUser(_ *cobra.Command, _ []string) {
+func editUser(_ *cobra.Command, _ []string) error {
 	if !groups.IsUserIn(groups.SkyPanelGroup) {
-		fmt.Printf("You do not have permission to use this command")
-		return
+		return errors.New("you do not have permission to use this command")
 	}
 
 	db, err := database.GetConnection()
 	if err != nil {
-		fmt.Printf("Error connecting to database: %s", err.Error())
-		return
+		return fmt.Errorf("error connecting to database: %w", err)
 	}
 	defer database.Close()
 
@@ -359,11 +384,10 @@ func editUser(_ *cobra.Command, _ []string) {
 
 	user, err := us.Get(username)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		pterm.Error.Printfln("No user with username '%s'\n", username)
-		return
-	} else if err != nil {
-		pterm.Error.Printfln("Error getting user: %s\n", err.Error())
-		return
+		return fmt.Errorf("no user with username '%s'", username)
+	}
+	if err != nil {
+		return fmt.Errorf("error getting user: %w", err)
 	}
 
 	var usernameAction = "Username"
@@ -398,4 +422,5 @@ func editUser(_ *cobra.Command, _ []string) {
 			handleRemove2FA(user, db)
 		}
 	}
+	return nil
 }

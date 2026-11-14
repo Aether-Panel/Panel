@@ -51,4 +51,6 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	registerProvision(v1)
 
 	publicRg.GET("/config", panelConfig) // Public — no auth needed for config
+	// a new node's installer trades its one-time join code here: the code is the key
+	publicRg.POST(NodeJoinPath, joinNode)
 }

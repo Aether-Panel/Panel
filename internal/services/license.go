@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -76,9 +77,7 @@ func NewLicenseService() *LicenseService {
 
 // VerifyLicense verifica una licencia usando GET /api/public/licenses/verify
 func (ls *LicenseService) VerifyLicense(licenseKey string) (*LicenseVerifyResponse, error) {
-	url := fmt.Sprintf("%s/verify?licenseKey=%s", LicenseAPIBaseURL, licenseKey)
-
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", licenseVerifyURL(licenseKey), nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
@@ -109,9 +108,15 @@ func (ls *LicenseService) VerifyLicense(licenseKey string) (*LicenseVerifyRespon
 	return &licenseResp, nil
 }
 
+// licenseVerifyURL is the verify endpoint for the key. The key is escaped, so a key holding
+// '&', '#' or spaces is sent whole instead of being cut or turned into other parameters.
+func licenseVerifyURL(licenseKey string) string {
+	return fmt.Sprintf("%s/verify?licenseKey=%s", LicenseAPIBaseURL, url.QueryEscape(licenseKey))
+}
+
 // BindLicense vincula una licencia con un servidor usando POST /api/public/licenses/verify
 func (ls *LicenseService) BindLicense(licenseKey, serverID, serverIP string) (*LicenseBindResponse, error) {
-	url := fmt.Sprintf("%s/verify", LicenseAPIBaseURL)
+	bindURL := fmt.Sprintf("%s/verify", LicenseAPIBaseURL)
 
 	reqBody := LicenseBindRequest{
 		LicenseKey: licenseKey,
@@ -124,7 +129,7 @@ func (ls *LicenseService) BindLicense(licenseKey, serverID, serverIP string) (*L
 		return nil, fmt.Errorf("error marshaling request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", bindURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}

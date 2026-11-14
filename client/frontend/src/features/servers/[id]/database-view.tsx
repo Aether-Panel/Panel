@@ -268,16 +268,21 @@ export default function DatabaseView({ serverId }: Readonly<DatabaseViewProps>) 
               copied={copiedField === `user-${db.id}`}
               onCopy={() => copyToClipboard(db.username, `user-${db.id}`)}
             />
-            <CredentialRow
-              icon={Lock}
-              label={t('servers.database.password')}
-              value={db.password || ''}
-              secret
-              revealed={!!showPassword[db.id]}
-              onToggleReveal={() => togglePassword(db.id)}
-              copied={copiedField === `pass-${db.id}`}
-              onCopy={() => copyToClipboard(db.password || '', `pass-${db.id}`)}
-            />
+            {db.password ? (
+              <CredentialRow
+                icon={Lock}
+                label={t('servers.database.password')}
+                value={db.password}
+                secret
+                revealed={!!showPassword[db.id]}
+                onToggleReveal={() => togglePassword(db.id)}
+                copied={copiedField === `pass-${db.id}`}
+                onCopy={() => copyToClipboard(db.password || '', `pass-${db.id}`)}
+              />
+            ) : (
+              // the panel only sends the password to users who may manage the databases
+              <CredentialRow icon={Lock} label={t('servers.database.password')} value={t('servers.database.passwordHidden')} />
+            )}
             <CredentialRow
               icon={Globe}
               label={t('servers.database.hostPort')}

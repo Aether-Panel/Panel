@@ -109,62 +109,68 @@ function splitCapsAndSides(geometry: THREE.BufferGeometry): [THREE.BufferGeometr
     return [parts[0], parts[1]];
 }
 
-async function buildEmblem(isCancelled: () => boolean): Promise<{ group: THREE.Group; dispose: () => void } | null> {
-    const svg = await fetch('/img/emblem.svg').then((r) => r.text());
-    const next = yieldEvery();
-    await next();
-    const data = new SVGLoader().parse(svg);
-    const viewBox = /viewBox="0 0 (\d+) (\d+)"/.exec(svg);
-    const side = viewBox ? Number(viewBox[1]) : 2976;
-    const scale = SIZE / side;
-
-    const pieces: Record<Layer, THREE.BufferGeometry[]> = { black: [], gold: [], blue: [], ivory: [] };
-    const strokes: THREE.BufferGeometry[] = [];
-    const plateEdges: THREE.BufferGeometry[] = [];
-
-    let order = 0;
-    for (const path of data.paths) {
-        await next();
-        if (isCancelled()) {
-            return null;
-        }
-        const style = path.userData?.style as { fill?: string; stroke?: string } | undefined;
-        const layer = layerOf(style?.fill);
-        if (!layer) {
-            continue;
-        }
-        const depth = layer === 'black' ? PLATE : PIECE;
-        const z = layer === 'black' ? 0 : PLATE + order++ * LAYER_STEP;
-        for (const shape of path.toShapes()) {
-            await next();
-            const geometry = new THREE.ExtrudeGeometry(shape, { depth: depth / scale, bevelEnabled: false, curveSegments: 3 });
-            geometry.translate(0, 0, z / scale);
-            if (layer === 'black') {
-                const [face, edge] = splitCapsAndSides(geometry);
-                pieces.black.push(face);
-                plateEdges.push(edge);
-            } else {
-                pieces[layer].push(geometry);
-            }
-        }
-        // the black outline's 44-unit stroke widens the silhouette: draw it on the plate's face
-        if (layer === 'black' && style?.stroke && style.stroke !== 'none') {
-            for (const sub of path.subPaths) {
-                await next();
-                const geometry = SVGLoader.pointsToStroke(
-                    sub.getPoints(CURVE_DIVISIONS),
-                    path.userData!.style as Parameters<typeof SVGLoader.pointsToStroke>[1],
-                    CORNER_DIVISIONS,
-                    MIN_DISTANCE,
-                );
-                if (geometry) {
-                    geometry.translate(0, 0, PLATE / scale + 0.5);
-                    strokes.push(geometry);
-                }
-            }
-        }
+/**
+ * Runs `work` on each item in turn, letting `next` hand the thread back before each one. The
+ * items go strictly one after another: run together they would block the page in one go,
+ * which is what the slicing is there to avoid. Stops early, returning false, once `work`
+ * returns false.
+ */
+async function eachInSlices<T>(
+    items: readonly T[],
+    next: () => Promise<void>,
+    work: (item: T) => unknown,
+    from = 0,
+): Promise<boolean> {
+    if (from >= items.length) {
+        return true;
     }
+    await next();
+    if ((await work(items[from])) === false) {
+        return false;
+    }
+    return eachInSlices(items, next, work, from + 1);
+}
 
+type EmblemParts = {
+    pieces: Record<Layer, THREE.BufferGeometry[]>;
+    strokes: THREE.BufferGeometry[];
+    plateEdges: THREE.BufferGeometry[];
+};
+
+type SvgPath = ReturnType<SVGLoader['parse']>['paths'][number];
+
+function extrudePiece(path: SvgPath, layer: Layer, z: number, scale: number, parts: EmblemParts, next: () => Promise<void>) {
+    const depth = layer === 'black' ? PLATE : PIECE;
+    return eachInSlices(path.toShapes(), next, (shape) => {
+        const geometry = new THREE.ExtrudeGeometry(shape, { depth: depth / scale, bevelEnabled: false, curveSegments: 3 });
+        geometry.translate(0, 0, z / scale);
+        if (layer === 'black') {
+            const [face, edge] = splitCapsAndSides(geometry);
+            parts.pieces.black.push(face);
+            parts.plateEdges.push(edge);
+        } else {
+            parts.pieces[layer].push(geometry);
+        }
+    });
+}
+
+// the black outline's 44-unit stroke widens the silhouette: draw it on the plate's face
+function strokeOutline(path: SvgPath, scale: number, parts: EmblemParts, next: () => Promise<void>) {
+    return eachInSlices(path.subPaths, next, (sub) => {
+        const geometry = SVGLoader.pointsToStroke(
+            sub.getPoints(CURVE_DIVISIONS),
+            path.userData!.style as Parameters<typeof SVGLoader.pointsToStroke>[1],
+            CORNER_DIVISIONS,
+            MIN_DISTANCE,
+        );
+        if (geometry) {
+            geometry.translate(0, 0, PLATE / scale + 0.5);
+            parts.strokes.push(geometry);
+        }
+    });
+}
+
+function createMaterials() {
     const materials: Record<Layer, THREE.Material> = {
         // the face is ink, as in the drawing, so the outlines stay black seen from the front
         black: new THREE.MeshBasicMaterial({ color: 0x07090c }),
@@ -176,6 +182,42 @@ async function buildEmblem(isCancelled: () => boolean): Promise<{ group: THREE.G
 
     // the plate's edge is dark lacquered metal, lit, so its depth shows when the emblem turns
     const edgeMaterial = new THREE.MeshStandardMaterial({ color: 0x0b0e14, metalness: 0.3, roughness: 0.6, envMapIntensity: 0.18 });
+    return { materials, edgeMaterial };
+}
+
+async function buildEmblem(isCancelled: () => boolean): Promise<{ group: THREE.Group; dispose: () => void } | null> {
+    const svg = await fetch('/img/emblem.svg').then((r) => r.text());
+    const next = yieldEvery();
+    await next();
+    const data = new SVGLoader().parse(svg);
+    const viewBox = /viewBox="0 0 (\d+) (\d+)"/.exec(svg);
+    const side = viewBox ? Number(viewBox[1]) : 2976;
+    const scale = SIZE / side;
+
+    const parts: EmblemParts = { pieces: { black: [], gold: [], blue: [], ivory: [] }, strokes: [], plateEdges: [] };
+
+    let order = 0;
+    const finished = await eachInSlices(data.paths, next, async (path) => {
+        if (isCancelled()) {
+            return false;
+        }
+        const style = path.userData?.style as { fill?: string; stroke?: string } | undefined;
+        const layer = layerOf(style?.fill);
+        if (!layer) {
+            return true;
+        }
+        const z = layer === 'black' ? 0 : PLATE + order++ * LAYER_STEP;
+        await extrudePiece(path, layer, z, scale, parts, next);
+        if (layer === 'black' && style?.stroke && style.stroke !== 'none') {
+            await strokeOutline(path, scale, parts, next);
+        }
+        return true;
+    });
+    if (!finished) {
+        return null;
+    }
+
+    const { materials, edgeMaterial } = createMaterials();
 
     const group = new THREE.Group();
     const geometries: THREE.BufferGeometry[] = [];
@@ -188,33 +230,18 @@ async function buildEmblem(isCancelled: () => boolean): Promise<{ group: THREE.G
         return geometry;
     };
 
-    for (const layer of Object.keys(pieces) as Layer[]) {
-        if (pieces[layer].length === 0) {
-            continue;
-        }
-        await next();
-        const merged = mergeGeometries(pieces[layer], false);
-        pieces[layer].forEach((g) => g.dispose());
+    const meshes: [THREE.BufferGeometry[], THREE.Material][] = [
+        ...(Object.keys(parts.pieces) as Layer[]).map((layer): [THREE.BufferGeometry[], THREE.Material] => [parts.pieces[layer], materials[layer]]),
+        [parts.plateEdges, edgeMaterial],
+        [parts.strokes, materials.black],
+    ];
+    await eachInSlices(meshes.filter(([list]) => list.length > 0), next, ([list, material]) => {
+        const merged = mergeGeometries(list, false);
+        list.forEach((g) => g.dispose());
         if (merged) {
-            group.add(new THREE.Mesh(place(merged), materials[layer]));
+            group.add(new THREE.Mesh(place(merged), material));
         }
-    }
-    if (plateEdges.length > 0) {
-        await next();
-        const merged = mergeGeometries(plateEdges, false);
-        plateEdges.forEach((g) => g.dispose());
-        if (merged) {
-            group.add(new THREE.Mesh(place(merged), edgeMaterial));
-        }
-    }
-    if (strokes.length > 0) {
-        await next();
-        const merged = mergeGeometries(strokes, false);
-        strokes.forEach((g) => g.dispose());
-        if (merged) {
-            group.add(new THREE.Mesh(place(merged), materials.black));
-        }
-    }
+    });
 
     return {
         group,
@@ -244,7 +271,7 @@ export function mountEmblem({ canvas, onReady, onFail }: MountOptions): () => vo
     const cleanups: (() => void)[] = [];
     const unmount = () => {
         cancelled = true;
-        cleanups.reverse().forEach((fn) => fn());
+        cleanups.toReversed().forEach((fn) => fn());
         cleanups.length = 0;
     };
 

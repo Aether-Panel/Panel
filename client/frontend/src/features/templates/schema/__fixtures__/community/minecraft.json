@@ -1,0 +1,518 @@
+{
+  "type": "minecraft-java",
+  "display": "Minecraft: Java Edition",
+  "icon": "minecraft-java",
+  "data": {
+    "eula": {
+      "type": "boolean",
+      "value": false,
+      "display": "EULA Agreement (true/false)",
+      "desc": "Do you (or the server owner) agree to the <a href='https://account.mojang.com/documents/minecraft_eula'>Minecraft EULA?</a>",
+      "required": true,
+      "userEdit": true
+    },
+    "forgebuild": {
+      "type": "string",
+      "value": "",
+      "display": "Forge Version",
+      "desc": "<a href='http://files.minecraftforge.net/#Downloads'>Version of Forge</a> to install. Example: `1.21.8-58.1.0`",
+      "required": false,
+      "userEdit": true
+    },
+    "neoforgebuild": {
+      "type": "string",
+      "value": "",
+      "display": "NeoForge Version",
+      "desc": "<a href='https://projects.neoforged.net/neoforged/neoforge'>Version of NeoForge</a> to install. Example: `21.4.150`. Empty installs the newest NeoForge for the Minecraft version",
+      "required": false,
+      "userEdit": true
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "javaversion": {
+      "type": "option",
+      "value": "25",
+      "display": "Java Version",
+      "desc": "Version of Java to use. Minecraft 26.1 and newer need Java 25, 1.20.5 to 1.21.x need 21, 1.18 to 1.20.4 need 17 and 1.16 and older need 8",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "8",
+          "display": "Java 8"
+        },
+        {
+          "value": "11",
+          "display": "Java 11"
+        },
+        {
+          "value": "17",
+          "display": "Java 17"
+        },
+        {
+          "value": "21",
+          "display": "Java 21"
+        },
+        {
+          "value": "25",
+          "display": "Java 25"
+        }
+      ]
+    },
+    "jvmArgs": {
+      "type": "string",
+      "value": "",
+      "display": "JVM Arguments",
+      "desc": "Extra JVM arguments to pass",
+      "required": false,
+      "userEdit": false
+    },
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 2048,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate to the Java Heap",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "modlauncher": {
+      "type": "string",
+      "value": "",
+      "display": "Mod/Plugin Launcher",
+      "desc": "What mod or plugin launcher should be installed with Minecraft",
+      "required": false,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "",
+          "display": "None/Vanilla"
+        },
+        {
+          "value": "fabric",
+          "display": "Fabric"
+        },
+        {
+          "value": "forge",
+          "display": "MinecraftForge"
+        },
+        {
+          "value": "neoforge",
+          "display": "NeoForge"
+        },
+        {
+          "value": "paper",
+          "display": "Paper"
+        },
+        {
+          "value": "purpur",
+          "display": "Purpur"
+        },
+        {
+          "value": "spigot",
+          "display": "Spigot"
+        }
+      ]
+    },
+    "motd": {
+      "type": "string",
+      "value": "A Minecraft Server\\n\\u00A79 hosted on SkyPanel",
+      "display": "MOTD message of the day",
+      "desc": "This is the message that is displayed in the server list of the client, below the name. The MOTD does support <a href='https://minecraft.gamepedia.com/Formatting_codes' target='_blank'>color and formatting codes</a>.",
+      "required": true,
+      "userEdit": true
+    },
+    "paperbuild": {
+      "type": "string",
+      "value": "latest",
+      "display": "build",
+      "desc": "Build of Paper to install (<a href='https://papermc.io/downloads'>Paper version build</a>). Must be specified as a build number, e.g. `484`, or `latest`",
+      "required": false,
+      "userEdit": true
+    },
+    "purpurbuild": {
+      "type": "string",
+      "value": "latest",
+      "display": "build",
+      "desc": "Build of Purpur to install (<a href='https://purpurmc.org/downloads'>Purpur builds</a>). Must be a build number, e.g. `2416`, or `latest`",
+      "required": false,
+      "userEdit": true
+    },
+    "port": {
+      "type": "integer",
+      "value": 25565,
+      "display": "Port",
+      "desc": "What port to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "version": {
+      "type": "string",
+      "value": "latest",
+      "display": "Version",
+      "desc": "Version of Minecraft you wish to install. It is best to put a version in, as latest may not work with all server software.",
+      "required": true,
+      "userEdit": true
+    },
+    "resolvedForgeVersion": {
+      "type": "string",
+      "value": "",
+      "display": "Resolved Forge Version",
+      "desc": "Internal, resolved version of Forge",
+      "required": true,
+      "userEdit": true,
+      "internal": true
+    },
+    "resolvedNeoForgeVersion": {
+      "type": "string",
+      "value": "",
+      "display": "Resolved NeoForge Version",
+      "desc": "Internal, resolved version of NeoForge",
+      "required": true,
+      "userEdit": true,
+      "internal": true
+    }
+  },
+  "groups": [
+    {
+      "display": "General",
+      "description": "General settings for all servers",
+      "variables": [
+        "eula",
+        "cpu",
+        "memory",
+        "disk",
+        "ip",
+        "port",
+        "motd",
+        "version",
+        "javaversion",
+        "modlauncher",
+        "jvmArgs"
+      ],
+      "order": 1
+    },
+    {
+      "if": "modlauncher == 'forge'",
+      "display": "Forge",
+      "description": "Settings if using MinecraftForge",
+      "variables": [
+        "forgebuild"
+      ],
+      "order": 2
+    },
+    {
+      "if": "modlauncher == 'neoforge'",
+      "display": "NeoForge",
+      "description": "Settings if using NeoForge",
+      "variables": [
+        "neoforgebuild"
+      ],
+      "order": 3
+    },
+    {
+      "if": "modlauncher == 'paper'",
+      "display": "Paper",
+      "description": "Settings specific if using Paper",
+      "variables": [
+        "paperbuild"
+      ],
+      "order": 4
+    },
+    {
+      "if": "modlauncher == 'purpur'",
+      "display": "Purpur",
+      "description": "Settings specific if using Purpur",
+      "variables": [
+        "purpurbuild"
+      ],
+      "order": 5
+    }
+  ],
+  "install": [
+    {
+      "if": "javaversion != '' && env == 'host'",
+      "type": "javadl",
+      "version": "${javaversion}"
+    },
+    {
+      "if": "modlauncher == ''",
+      "type": "mojangdl",
+      "version": "${version}",
+      "target": "server.jar"
+    },
+    {
+      "if": "modlauncher == 'fabric'",
+      "type": "fabricdl"
+    },
+    {
+      "if": "modlauncher == 'fabric' && env == 'host'",
+      "type": "command",
+      "commands": [
+        "java${javaversion} -jar fabric-installer.jar server -mcversion ${version} -downloadMinecraft -noprofile -loader latest"
+      ]
+    },
+    {
+      "if": "modlauncher == 'fabric' && env != 'host'",
+      "type": "command",
+      "commands": [
+        "java -jar fabric-installer.jar server -mcversion ${version} -downloadMinecraft -noprofile -loader latest"
+      ]
+    },
+    {
+      "if": "modlauncher == 'fabric'",
+      "type": "mojangdl",
+      "version": "${version}",
+      "target": "server.jar"
+    },
+    {
+      "if": "modlauncher == 'forge'",
+      "type": "forgedl",
+      "target": "installer.jar",
+      "version": "${forgebuild}",
+      "minecraftVersion": "${version}",
+      "outputVariable": "resolvedForgeVersion"
+    },
+    {
+      "if": "modlauncher == 'forge' && env == 'host'",
+      "type": "command",
+      "commands": [
+        "java${javaversion} -jar installer.jar --installServer"
+      ]
+    },
+    {
+      "if": "modlauncher == 'forge' && env != 'host'",
+      "type": "command",
+      "commands": [
+        "java -jar installer.jar --installServer"
+      ]
+    },
+    {
+      "if": "modlauncher == 'forge' && file_exists('forge-' + resolvedForgeVersion + '-shim.jar')",
+      "type": "move",
+      "source": "forge-${resolvedForgeVersion}-shim.jar",
+      "target": "server.jar"
+    },
+    {
+      "if": "modlauncher == 'forge' && file_exists('forge-' + resolvedForgeVersion + '.jar')",
+      "type": "move",
+      "source": "forge-${resolvedForgeVersion}.jar",
+      "target": "server.jar"
+    },
+    {
+      "if": "modlauncher == 'neoforge' && version != 'latest'",
+      "type": "neoforgedl",
+      "target": "installer.jar",
+      "version": "${neoforgebuild}",
+      "minecraftVersion": "${version}",
+      "outputVariable": "resolvedNeoForgeVersion"
+    },
+    {
+      "if": "modlauncher == 'neoforge' && version == 'latest'",
+      "type": "scraperdl",
+      "url": "https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml",
+      "regex": "<release>([^<]+)</release>",
+      "downloadUrl": "https://maven.neoforged.net/releases/net/neoforged/neoforge/${match}/neoforge-${match}-installer.jar",
+      "outputVariable": "resolvedNeoForgeVersion"
+    },
+    {
+      "if": "modlauncher == 'neoforge' && version == 'latest'",
+      "type": "move",
+      "source": "neoforge-*-installer.jar",
+      "target": "installer.jar"
+    },
+    {
+      "if": "modlauncher == 'neoforge' && env == 'host'",
+      "type": "command",
+      "commands": [
+        "java${javaversion} -jar installer.jar --installServer"
+      ]
+    },
+    {
+      "if": "modlauncher == 'neoforge' && env != 'host'",
+      "type": "command",
+      "commands": [
+        "java -jar installer.jar --installServer"
+      ]
+    },
+    {
+      "if": "modlauncher == 'paper'",
+      "type": "paperdl",
+      "build": "${paperbuild}",
+      "minecraftVersion": "${version}",
+      "target": "server.jar"
+    },
+    {
+      "if": "modlauncher == 'purpur' && version != 'latest'",
+      "type": "download",
+      "files": [
+        "https://api.purpurmc.org/v2/purpur/${version}/${purpurbuild}/download"
+      ]
+    },
+    {
+      "if": "modlauncher == 'purpur' && version == 'latest'",
+      "type": "scraperdl",
+      "url": "https://api.purpurmc.org/v2/purpur",
+      "regex": "\"current\":\"([^\"]+)\"",
+      "downloadUrl": "https://api.purpurmc.org/v2/purpur/${match}/latest/download"
+    },
+    {
+      "if": "modlauncher == 'purpur'",
+      "type": "move",
+      "source": "purpur-*.jar",
+      "target": "server.jar"
+    },
+    {
+      "if": "modlauncher == 'spigot'",
+      "type": "download",
+      "files": [
+        "https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar"
+      ]
+    },
+    {
+      "if": "modlauncher == 'spigot' && env == 'host'",
+      "type": "command",
+      "commands": [
+        "java${javaversion} -jar BuildTools.jar --rev ${version}"
+      ]
+    },
+    {
+      "if": "modlauncher == 'spigot' && env != 'host'",
+      "type": "command",
+      "commands": [
+        "java -jar BuildTools.jar --rev ${version}"
+      ]
+    },
+    {
+      "if": "modlauncher == 'spigot'",
+      "type": "move",
+      "source": "spigot-*.jar",
+      "target": "server.jar"
+    },
+    {
+      "if": "!file_exists(\"server.properties\")",
+      "type": "writefile",
+      "text": "server-ip=${ip}\nserver-port=${port}\nmotd=${motd}\n",
+      "target": "server.properties"
+    },
+    {
+      "type": "writefile",
+      "text": "eula=${eula}",
+      "target": "eula.txt"
+    }
+  ],
+  "run": {
+    "command": [
+      {
+        "command": "java${javaversion} -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} @libraries/net/neoforged/neoforge/${resolvedNeoForgeVersion}/win_args.txt nogui",
+        "if": "env == 'host' && modlauncher == 'neoforge' && os == 'windows' && file_exists('libraries/net/neoforged/neoforge/' + resolvedNeoForgeVersion + '/win_args.txt')"
+      },
+      {
+        "command": "java${javaversion} -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} @libraries/net/neoforged/neoforge/${resolvedNeoForgeVersion}/unix_args.txt nogui",
+        "if": "env == 'host' && modlauncher == 'neoforge' && file_exists('libraries/net/neoforged/neoforge/' + resolvedNeoForgeVersion + '/unix_args.txt')"
+      },
+      {
+        "command": "java -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} @libraries/net/neoforged/neoforge/${resolvedNeoForgeVersion}/win_args.txt nogui",
+        "if": "env != 'host' && modlauncher == 'neoforge' && os == 'windows' && file_exists('libraries/net/neoforged/neoforge/' + resolvedNeoForgeVersion + '/win_args.txt')"
+      },
+      {
+        "command": "java -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} @libraries/net/neoforged/neoforge/${resolvedNeoForgeVersion}/unix_args.txt nogui",
+        "if": "env != 'host' && modlauncher == 'neoforge' && file_exists('libraries/net/neoforged/neoforge/' + resolvedNeoForgeVersion + '/unix_args.txt')"
+      },
+      {
+        "command": "java${javaversion} -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} -jar fabric-server-launch.jar nogui",
+        "if": "env == 'host' && file_exists('fabric-server-launch.jar')"
+      },
+      {
+        "command": "java -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} -jar fabric-server-launch.jar nogui",
+        "if": "env != 'host' && file_exists('fabric-server-launch.jar')"
+      },
+      {
+        "command": "java${javaversion} -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} -jar server.jar nogui",
+        "if": "env == 'host' && file_exists('server.jar')"
+      },
+      {
+        "command": "java -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} -jar server.jar nogui",
+        "if": "env != 'host' && file_exists('server.jar')"
+      },
+      {
+        "command": "java${javaversion} -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} @libraries/net/minecraftforge/forge/${resolvedForgeVersion}/win_args.txt nogui",
+        "if": "env == 'host' && modlauncher == 'forge' && os == 'windows' && file_exists('libraries/net/minecraftforge/forge/' + resolvedForgeVersion + '/win_args.txt')"
+      },
+      {
+        "command": "java${javaversion} -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} @libraries/net/minecraftforge/forge/${resolvedForgeVersion}/unix_args.txt nogui",
+        "if": "env == 'host' && modlauncher == 'forge' && file_exists('libraries/net/minecraftforge/forge/' + resolvedForgeVersion + '/unix_args.txt')"
+      },
+      {
+        "command": "java -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} @libraries/net/minecraftforge/forge/${resolvedForgeVersion}/win_args.txt nogui",
+        "if": "env != 'host' && modlauncher == 'forge' && os == 'windows' && file_exists('libraries/net/minecraftforge/forge/' + resolvedForgeVersion + '/win_args.txt')"
+      },
+      {
+        "command": "java -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} @libraries/net/minecraftforge/forge/${resolvedForgeVersion}/unix_args.txt nogui",
+        "if": "env != 'host' && modlauncher == 'forge' && file_exists('libraries/net/minecraftforge/forge/' + resolvedForgeVersion+ '/unix_args.txt')"
+      },
+      {
+        "command": "java -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} -jar server.jar nogui"
+      }
+    ],
+    "pre": [
+      {
+        "if": "modlauncher == 'forge'",
+        "type": "resolveforgeversion",
+        "minecraftVersion": "${version}",
+        "version": "${forgebuild}",
+        "outputVariable": "resolvedForgeVersion"
+      }
+    ],
+    "stop": "stop",
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "eclipse-temurin:${javaversion}",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp"
+      ]
+    }
+  ],
+  "requirements": {},
+  "stats": {
+    "type": "jcmd"
+  },
+  "query": {
+    "type": "minecraft"
+  }
+}

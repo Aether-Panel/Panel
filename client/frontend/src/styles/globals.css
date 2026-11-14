@@ -542,7 +542,12 @@ body::after {
   inset: 0;
   border-radius: inherit;
   background: inherit;
-  animation: dot-pulse 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+/* the ring only moves for people who have not asked for less motion */
+@media (prefers-reduced-motion: no-preference) {
+  .pulse-dot::after {
+    animation: dot-pulse 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
 }
 @keyframes dot-pulse {
   from { transform: scale(1); opacity: 0.6; }
@@ -631,13 +636,19 @@ body::after {
   to { --auth-angle: 360deg; }
 }
 
+/* These rules must outrank every animation and transition in the panel and in Sileo's
+   stylesheet, including Tailwind's variants (data-[state=open]:duration-500) and Sileo's
+   three-attribute toast rules, which come later or weigh more than a plain class.
+   `:not(#\#)` matches every element (none has the id "#") and adds an id's weight, which
+   no class or attribute selector reaches, so they win without !important. Only an inline
+   style would still beat them, and the panel sets no inline animation or transition. */
 @media (prefers-reduced-motion: reduce) {
-  .ambient *,
-  .skeleton-shimmer::after,
-  .meter-grow,
-  .auth-glow::before,
-  .pulse-dot::after {
-    animation: none !important;
+  .ambient *:not(#\#),
+  .skeleton-shimmer:not(#\#)::after,
+  .meter-grow:not(#\#),
+  .auth-glow:not(#\#)::before,
+  .pulse-dot:not(#\#)::after {
+    animation: none;
   }
   /* Panels light up on hover without the pointer-tracking glow. */
   [data-spotlight]::before,
@@ -649,13 +660,13 @@ body::after {
      at once. The durations are near zero rather than none so components that wait
      for animationend/transitionend still finish. Spinners keep turning: they tell
      the user something is loading. */
-  *:not(.animate-spin),
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+  *:not(.animate-spin):not(#\#),
+  *:not(#\#)::before,
+  *:not(#\#)::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+    scroll-behavior: auto;
   }
 }
 
@@ -697,4 +708,11 @@ body::after {
   .dash-fit [data-fit="hide-short"] {
     display: none;
   }
+}
+
+/* Toasts sit above dialogs and side panels (z-50) and the expanded console (z-[70]): Sileo
+   gives its viewport z-index 50, so a toast sent while one was open was drawn under its
+   overlay and never seen. Outside any layer and more specific than Sileo's own rule. */
+:root [data-sileo-viewport] {
+  z-index: 110;
 }

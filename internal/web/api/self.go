@@ -2,20 +2,25 @@ package api
 
 import (
 	"errors"
-	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
-	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"net/http"
+	"strings"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
+	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 	uuid "github.com/gofrs/uuid/v5"
 	"github.com/spf13/cast"
+	"gorm.io/gorm"
 )
+
+// errClientScopes refuses a client limited to something other than server permissions
+var errClientScopes = skypanel.CreateError("a client can only be limited to server permissions it can hold", "ErrClientScopes")
 
 // emailSendErrorFmt logs a mail that could not be sent
 const emailSendErrorFmt = "Error sending email: %s\n"
@@ -47,6 +52,8 @@ func registerSelf(g *gin.RouterGroup) {
 
 	g.Handle("DELETE", "/sshkeys/:id", middleware.RequiresPermission(scopes.ScopeSelfEdit), deleteSSHKey)
 	g.Handle("OPTIONS", "/sshkeys/:id", response.CreateOptions("DELETE"))
+
+	registerGitHub(g.Group("/github"))
 }
 
 // @Summary Get your user info
@@ -308,7 +315,80 @@ func getPersonalOAuth2Clients(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, &clients)
+	views := make([]personalClientView, 0, len(clients))
+	for _, client := range clients {
+		views = append(views, viewPersonalClient(db, client))
+	}
+	c.JSON(http.StatusOK, views)
+}
+
+// personalClientView is an account client as the profile lists it: with the server and the
+// permissions it is limited to, when it is
+type personalClientView struct {
+	ClientID    string   `json:"client_id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	ServerID    string   `json:"serverId,omitempty"`
+	ServerName  string   `json:"serverName,omitempty"`
+	Scopes      []string `json:"scopes,omitempty"`
+	// ClientSecret is only in the answer that creates the client
+	ClientSecret string `json:"client_secret,omitempty"`
+} // @name PersonalClient
+
+func viewPersonalClient(db *gorm.DB, client *models.Client) personalClientView {
+	view := personalClientView{ClientID: client.ClientID, Name: client.Name, Description: client.Description, Scopes: strings.Fields(client.Scopes)}
+	if client.ServerID != nil && *client.ServerID != "" {
+		view.ServerID = *client.ServerID
+		var server models.Server
+		if db.Select("name").Where("identifier = ?", view.ServerID).First(&server).Error == nil {
+			view.ServerName = server.Name
+		}
+	}
+	return view
+}
+
+// personalClientRequest creates an account client, optionally limited to one server and to
+// some of the permissions its user has there
+type personalClientRequest struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	ServerID    string   `json:"serverId"`
+	Scopes      []string `json:"scopes"`
+}
+
+// clientLimits checks what a new client asks to be limited to: a server the user can see, and
+// server permissions the user holds (there, or panel-wide without a server). A limit can only
+// narrow the client; nothing here grants more than the user already has.
+func clientLimits(db *gorm.DB, user *models.User, request personalClientRequest) (*string, string, error) {
+	serverID := strings.TrimSpace(request.ServerID)
+	held, err := middleware.UserScopesOn(db, user, serverID)
+	if err != nil {
+		return nil, "", err
+	}
+	if serverID != "" && !scopes.ContainsScope(held, scopes.ScopeServerView) {
+		return nil, "", skypanel.ErrServerNotFound
+	}
+	var wanted []string
+	for _, name := range request.Scopes {
+		scope := scopes.GetScope(strings.TrimSpace(name))
+		if scope == nil || !scope.ForServer {
+			return nil, "", errClientScopes
+		}
+		if serverID != "" && !scopes.ContainsScope(held, scope) {
+			return nil, "", skypanel.ErrNoPermission
+		}
+		if !containsString(wanted, scope.String()) {
+			wanted = append(wanted, scope.String())
+		}
+	}
+	// a client for one server still needs to see it to do anything there
+	if serverID != "" && len(wanted) > 0 && !containsString(wanted, scopes.ScopeServerView.String()) {
+		wanted = append(wanted, scopes.ScopeServerView.String())
+	}
+	if serverID == "" {
+		return nil, strings.Join(wanted, " "), nil
+	}
+	return &serverID, strings.Join(wanted, " "), nil
 }
 
 // @Summary Create an account-level OAuth2 client
@@ -327,9 +407,20 @@ func createPersonalOAuth2Client(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	os := &services.OAuth2{DB: db}
 
-	var request models.Client
+	var request personalClientRequest
 	err := c.BindJSON(&request)
 	if response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+	serverID, limitedTo, err := clientLimits(db, user, request)
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, skypanel.ErrServerNotFound) {
+			status = http.StatusNotFound
+		} else if errors.Is(err, skypanel.ErrNoPermission) {
+			status = http.StatusForbidden
+		}
+		response.HandleError(c, err, status)
 		return
 	}
 
@@ -342,6 +433,8 @@ func createPersonalOAuth2Client(c *gin.Context) {
 		UserID:      user.ID,
 		Name:        request.Name,
 		Description: request.Description,
+		ServerID:    serverID,
+		Scopes:      limitedTo,
 	}
 
 	secret, err := utils.GenerateRandomString(36)
@@ -366,7 +459,10 @@ func createPersonalOAuth2Client(c *gin.Context) {
 		logging.Error.Printf(emailSendErrorFmt, err)
 	}
 
-	c.JSON(http.StatusOK, client)
+	// the secret only travels in this answer
+	view := viewPersonalClient(db, client)
+	view.ClientSecret = client.ClientSecret
+	c.JSON(http.StatusOK, view)
 }
 
 // @Summary Deletes an account-level OAuth2 client

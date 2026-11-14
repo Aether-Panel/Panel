@@ -184,6 +184,9 @@ func (p *Server) ChangeVersion(target string) error {
 	if p.IsBackingUp() || p.IsRestoring() {
 		return errBackupBusy
 	}
+	if p.githubInstallRunning() {
+		return ErrGitHubInstalling
+	}
 	state := p.versionState()
 	if !state.running.CompareAndSwap(false, true) {
 		return ErrVersionChanging

@@ -24,9 +24,12 @@ import (
 // extensionPageSandbox is the Content-Security-Policy of every extension file: its scripts
 // run in an opaque origin, so a page cannot read the panel's cookies or call its API with
 // the viewer's session, whoever wrote it
-const extensionPageSandbox = "sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads"
+const extensionPageSandbox = "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads"
 
 const extensionFilesPath = "/api/extension-files/"
+
+// extensionIDQuery picks an extension by the id from its manifest
+const extensionIDQuery = "id = ?"
 
 func registerExtensions(g *gin.RouterGroup) {
 	g.Handle("GET", "", middleware.RequiresPermission(scopes.ScopeAdmin), getExtensions)
@@ -71,6 +74,8 @@ type ActiveExtension struct {
 	ID    string              `json:"id"`
 	Name  string              `json:"name"`
 	Pages []ExtensionPageView `json:"pages"`
+	// Servers, when set, are the only servers the extension's server pages show on
+	Servers *extensions.ServerFilter `json:"servers,omitempty"`
 } // @name ActiveExtension
 
 func pageViews(ext *models.Extension, m *extensions.Manifest, include func(extensions.Page) bool) []ExtensionPageView {
@@ -139,7 +144,7 @@ func getActiveExtensions(c *gin.Context) {
 			return p.Placement == extensions.PlacementServer || isAdmin
 		})
 		if len(pages) > 0 {
-			active = append(active, ActiveExtension{ID: list[i].ID, Name: list[i].Name, Pages: pages})
+			active = append(active, ActiveExtension{ID: list[i].ID, Name: list[i].Name, Pages: pages, Servers: m.Servers})
 		}
 	}
 	c.JSON(http.StatusOK, active)
@@ -199,7 +204,7 @@ func updateExtension(c *gin.Context) {
 	}
 
 	var ext models.Extension
-	if err := db.First(&ext, "id = ?", c.Param("id")).Error; response.HandleError(c, err, http.StatusNotFound) {
+	if err := db.First(&ext, extensionIDQuery, c.Param("id")).Error; response.HandleError(c, err, http.StatusNotFound) {
 		return
 	}
 	if req.WebhookURL != nil {
@@ -250,7 +255,7 @@ func uninstallExtension(c *gin.Context) {
 func testExtension(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	var ext models.Extension
-	if err := db.First(&ext, "id = ?", c.Param("id")).Error; response.HandleError(c, err, http.StatusNotFound) {
+	if err := db.First(&ext, extensionIDQuery, c.Param("id")).Error; response.HandleError(c, err, http.StatusNotFound) {
 		return
 	}
 	if ext.WebhookURL == "" {
@@ -275,7 +280,7 @@ func serveExtensionFile(c *gin.Context) {
 	}
 
 	var ext models.Extension
-	err := db.Select("id", "enabled").First(&ext, "id = ?", id).Error
+	err := db.Select("id", "enabled").First(&ext, extensionIDQuery, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && !ext.Enabled) {
 		c.AbortWithStatus(http.StatusNotFound)
 		return

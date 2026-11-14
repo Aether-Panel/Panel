@@ -10,6 +10,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// userFingerprintQuery finds one key of a user by its fingerprint
+const userFingerprintQuery = "user_id = ? AND fingerprint = ?"
+
 // MaxSSHKeysPerUser keeps one account from storing an unbounded number of keys
 const MaxSSHKeysPerUser = 25
 
@@ -58,7 +61,7 @@ func (s *SSHKey) Add(userID uint, name, line string) (*models.SSHKey, error) {
 		Type:        key.Type(),
 	}
 	var existing int64
-	err = s.DB.Model(&models.SSHKey{}).Where("user_id = ? AND fingerprint = ?", userID, model.Fingerprint).Count(&existing).Error
+	err = s.DB.Model(&models.SSHKey{}).Where(userFingerprintQuery, userID, model.Fingerprint).Count(&existing).Error
 	if err != nil {
 		return nil, err
 	}
@@ -80,10 +83,21 @@ func (s *SSHKey) Delete(userID, id uint) error {
 	return nil
 }
 
+// HasFingerprint says whether the key with that SHA256 fingerprint is still on the user's
+// account: an SFTP connection opened with a key ends when the key is removed
+func (s *SSHKey) HasFingerprint(userID uint, fingerprint string) (bool, error) {
+	if fingerprint == "" {
+		return false, nil
+	}
+	var count int64
+	err := s.DB.Model(&models.SSHKey{}).Where(userFingerprintQuery, userID, fingerprint).Count(&count).Error
+	return count > 0, err
+}
+
 // FindForLogin returns the user's stored key matching the one offered, or nil.
 func (s *SSHKey) FindForLogin(userID uint, offered ssh.PublicKey) (*models.SSHKey, error) {
 	var key models.SSHKey
-	err := s.DB.Where("user_id = ? AND fingerprint = ?", userID, ssh.FingerprintSHA256(offered)).First(&key).Error
+	err := s.DB.Where(userFingerprintQuery, userID, ssh.FingerprintSHA256(offered)).First(&key).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -128,8 +142,8 @@ func rsaBits(key ssh.PublicKey) (int, bool) {
 	if !ok {
 		return 0, false
 	}
-	type sized interface{ Size() int }
-	rsa, ok := crypto.CryptoPublicKey().(sized)
+	type sizer interface{ Size() int }
+	rsa, ok := crypto.CryptoPublicKey().(sizer)
 	if !ok {
 		return 0, false
 	}

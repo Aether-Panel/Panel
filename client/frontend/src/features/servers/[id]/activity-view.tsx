@@ -52,7 +52,8 @@ const POWER_ACTIONS = new Set(['server.start', 'server.stop', 'server.restart', 
 function familyOf(action: string): Family {
   if (POWER_ACTIONS.has(action)) return 'power';
   if (action.startsWith('console.')) return 'console';
-  if (action.startsWith('file.') || action.startsWith('plugin.') || action.startsWith('modpack.') || action.startsWith('map.')) return 'files';
+  // ai.* are the file changes the assistant made for the user (ai.edit_file, ai.delete_path, …)
+  if (action.startsWith('file.') || action.startsWith('ai.') || action.startsWith('plugin.') || action.startsWith('modpack.') || action.startsWith('map.')) return 'files';
   if (action.startsWith('backup.')) return 'backups';
   if (action.startsWith('user.')) return 'users';
   if (action.startsWith('task.')) return 'tasks';
@@ -73,8 +74,10 @@ const FAMILY_ICONS: Record<Family, AppIcon> = {
 type DetailStyle = 'code' | 'name' | 'none';
 
 function detailStyleOf(action: string): DetailStyle {
-  if (action.startsWith('console.') || action.startsWith('file.') || action.startsWith('plugin.')) return 'code';
+  if (action.startsWith('console.') || action.startsWith('file.') || action.startsWith('ai.') || action.startsWith('plugin.')) return 'code';
   if (action === 'task.delete' || action === 'task.run' || action === 'server.change' || action === 'server.version') return 'code';
+  // a transfer that failed after it was accepted says at which step and why
+  if (action === 'server.transferFailed' || action === 'server.transferStartFailed') return 'code';
   if (action.startsWith('backup.') || action.startsWith('user.') || action === 'task.save' || action === 'server.rename') return 'name';
   if (action === 'modpack.install' || action === 'map.install' || action === 'server.clone') return 'name';
   return 'none';

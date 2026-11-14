@@ -3,6 +3,7 @@ package skypanel
 import (
 	"errors"
 	"runtime/debug"
+	"strconv"
 	"strings"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
@@ -18,14 +19,20 @@ var ErrInvalidCredentials = CreateError("invalid credentials", "ErrInvalidCreden
 var ErrTooManyAttempts = CreateError("too many failed attempts, wait a few minutes and try again", "ErrTooManyAttempts")
 var ErrServiceNotAvailable = CreateError("service not available", "ErrServiceNotAvailable")
 var ErrFeatureDisabled = CreateError("this experimental feature is turned off in the panel settings", "ErrFeatureDisabled")
+var ErrAIAnalysisDisabled = CreateError("the AI log analysis is turned off in the panel settings", "ErrAIAnalysisDisabled")
+var ErrAIConfirmationInvalid = CreateError("this request expired, was already answered or belongs to someone else: ask again", "ErrAIConfirmationInvalid")
 var ErrEmailNotConfigured = CreateError("email not configured", "ErrEmailNotConfigured")
 var ErrTokenInvalid = CreateError("token is invalid", "ErrTokenInvalid")
 var ErrClientNotFound = CreateError("client not found", "ErrClientNotFound")
 var ErrUserNotFound = CreateError("user not found", "ErrUserNotFound")
 var ErrLoginNotPermitted = CreateError("login not permitted", "ErrLoginNotPermitted")
+
+// ErrAccountPending is a registered account an administrator has not approved yet
+var ErrAccountPending = CreateError("your account is waiting for an administrator to approve it", "ErrAccountPending")
 var ErrOtpAlreadyEnabled = CreateError("2FA is already enabled, disable it before enrolling again", "ErrOtpAlreadyEnabled")
 var ErrDatabaseHostFull = CreateError("this database host has reached its database limit", "ErrDatabaseHostFull")
 var ErrDatabaseHostOtherNode = CreateError("this database host serves another node", "ErrDatabaseHostOtherNode")
+var ErrDatabaseHostInUse = CreateError("this database host still has databases, delete them first", "ErrDatabaseHostInUse")
 var ErrDatabaseNameTaken = CreateError("a database with that name already exists on this host", "ErrDatabaseNameTaken")
 var ErrInvalidDatabaseName = CreateError("database name may only use letters, digits, '_' and '-', within the length limit", "ErrInvalidDatabaseName")
 var ErrInvalidTokenState = CreateError("invalid token state", "ErrInvalidTokenState")
@@ -50,6 +57,44 @@ var ErrNotBearerToken = CreateError("access token must be a Bearer token", "ErrN
 var ErrKeyNotECDSA = CreateError("key is not ECDSA key", "ErrKeyNotECDSA")
 var ErrMissingScope = CreateError("missing scope", "ErrMissingScope")
 var ErrNodeHasServers = CreateError("node has servers associated", "ErrNodeHasServers")
+
+// ErrNodeHasProducts, ErrTemplateInUse and ErrTemplateRepoInUse refuse a delete that would leave
+// store products unable to create their servers. The message names the products by their id,
+// filled in here (the error response sends it as written); the metadata lists them too, for
+// the panel's own translation.
+var ErrNodeHasProducts = func(products []string) *Error {
+	return productsInUse("the products "+strings.Join(products, ", ")+" create their servers on this node: point them at another node or delete them first", "ErrNodeHasProducts", products)
+}
+
+var ErrTemplateInUse = func(products []string) *Error {
+	return productsInUse("the products "+strings.Join(products, ", ")+" create their servers with this template: point them at another template or delete them first", "ErrTemplateInUse", products)
+}
+
+var ErrTemplateRepoInUse = func(products []string) *Error {
+	return productsInUse("the products "+strings.Join(products, ", ")+" create their servers with templates only this repo has: point them at other templates or delete them first", "ErrTemplateRepoInUse", products)
+}
+
+func productsInUse(message, code string, products []string) *Error {
+	return CreateError(message, code).Metadata(map[string]interface{}{"products": products})
+}
+
+// ErrProductTemplateRequired, ErrProductTemplateNotFound, ErrProductTemplateUnreadable and
+// ErrProductNodeNotFound refuse a store product provisioning could not use; their messages are
+// filled in for the same reason
+var ErrProductTemplateRequired = CreateError("a product needs a template", "ErrProductTemplateRequired")
+
+var ErrProductTemplateNotFound = func(template string) *Error {
+	return CreateError("no template repository has a template named "+template+": check the name or add the template first", "ErrProductTemplateNotFound").Metadata(map[string]interface{}{"template": template})
+}
+
+var ErrProductTemplateUnreadable = func(template, repo string) *Error {
+	return CreateError("the template "+template+" could not be looked up: the template repository "+repo+" could not be read, try again later", "ErrProductTemplateUnreadable").Metadata(map[string]interface{}{"template": template, "repo": repo})
+}
+
+var ErrProductNodeNotFound = func(node uint) *Error {
+	return CreateError("node "+strconv.FormatUint(uint64(node), 10)+" does not exist: pick another node", "ErrProductNodeNotFound").Metadata(map[string]interface{}{"node": node})
+}
+
 var ErrInvalidSession = CreateError("invalid session", "ErrInvalidSession")
 var ErrSessionExpired = CreateError("session expired", "ErrSessionExpired")
 var ErrTaskNotFound = CreateError("task not found", "ErrTaskNotFound")
@@ -70,6 +115,7 @@ var ErrAPIKeyNotAllowed = CreateError("this API key is not allowed to do that", 
 var ErrAPIKeyPermissions = CreateError("pick at least one action, from: create, terminate, suspend, change-package, sso", "ErrAPIKeyPermissions")
 var ErrDiskLimitExceeded = CreateError("the server has used all of its disk space, delete files to free some", "ErrDiskLimitExceeded")
 var ErrNodeDiskFull = CreateError("the node is almost out of disk space, free some before installing", "ErrNodeDiskFull")
+var ErrNodeAuthFailed = CreateError("the node refused the panel's credentials: check that the node reaches the panel's address (it reads the panel's key there), that its secret matches the panel and that both clocks are right", "ErrNodeAuthFailed")
 var ErrNoCommand = CreateError("command could not be determined", "ErrNoCommand")
 var ErrRepoExists = CreateError("repo already exists with given name", "ErrRepoExists")
 var ErrEnvironmentNotSupported = CreateError("environment not supported", "ErrEnvironmentNotSupported")
@@ -97,6 +143,85 @@ var ErrNoTemplate = func(template string) *Error {
 
 var ErrServiceInvalidProvider = func(service, provider string) *Error {
 	return CreateError("${service} does not support ${provider}", "ErrServiceInvalidProvider").Metadata(map[string]interface{}{"service": service, "provider": provider})
+}
+
+var ErrTransferRunning = CreateError("this server is already being transferred: wait for that transfer to end", "ErrTransferRunning")
+var ErrTransferBackupRunning = CreateError("a backup or restore of this server is being written: transfer it once it is done", "ErrTransferBackupRunning")
+var ErrTransferSubServer = CreateError("a sub-server stays on its parent's node: transfer the parent server and its sub-servers go with it", "ErrTransferSubServer")
+
+var ErrTransferPortsTaken = func(ports []uint16) *Error {
+	return CreateError("ports ${ports} of this server are already used on the target node: free them or pick another node", "ErrTransferPortsTaken").Metadata(map[string]interface{}{"ports": ports})
+}
+
+// The port errors take the port as text: the number, or the number and the template variable
+// it comes from, such as "27015 (queryport)"
+var ErrPortOutOfRange = func(port string) *Error {
+	return CreateError("port ${port} is outside the allowed range (1024-65535)", "ErrPortOutOfRange").Metadata(map[string]interface{}{"port": port})
+}
+
+var ErrPortDuplicated = func(port string) *Error {
+	return CreateError("port ${port} is listed more than once", "ErrPortDuplicated").Metadata(map[string]interface{}{"port": port})
+}
+
+var ErrPortUsedByPanel = func(port string) *Error {
+	return CreateError("port ${port} is used by the panel itself on this node", "ErrPortUsedByPanel").Metadata(map[string]interface{}{"port": port})
+}
+
+var ErrPortTaken = func(port string) *Error {
+	return CreateError("port ${port} is already used by another server on this node", "ErrPortTaken").Metadata(map[string]interface{}{"port": port})
+}
+
+var ErrPortBusy = func(port uint16) *Error {
+	return CreateError("port ${port} is already in use by another server or process on this node: stop whatever is using it or change the server's port before starting it", "ErrPortBusy").Metadata(map[string]interface{}{"port": port})
+}
+
+var ErrCloudflareRecordID = func(id string) *Error {
+	return CreateError("invalid DNS record ID: ${id}", "ErrCloudflareRecordID").Metadata(map[string]interface{}{"id": id})
+}
+
+var ErrCloudflareDomainNotInZone = func(domain, zone string) *Error {
+	return CreateError("the domain ${domain} does not belong to the zone ${zone}", "ErrCloudflareDomainNotInZone").Metadata(map[string]interface{}{"domain": domain, "zone": zone})
+}
+
+var ErrCloudflareUnreachable = func(reason string) *Error {
+	return CreateError("could not reach Cloudflare: ${reason}", "ErrCloudflareUnreachable").Metadata(map[string]interface{}{"reason": reason})
+}
+
+var ErrCloudflareBadAnswer = func(reason string) *Error {
+	return CreateError("Cloudflare's answer could not be read: ${reason}", "ErrCloudflareBadAnswer").Metadata(map[string]interface{}{"reason": reason})
+}
+
+// ErrCloudflareRefused and ErrCloudflareRefusedCode carry Cloudflare's own message, and its
+// error code when it gave one
+var ErrCloudflareRefused = func(message string) *Error {
+	return CreateError("Cloudflare answered: ${message}", "ErrCloudflareRefused").Metadata(map[string]interface{}{"message": message})
+}
+
+var ErrCloudflareRefusedCode = func(message string, code int) *Error {
+	return CreateError("Cloudflare answered: ${message} (code ${cloudflareCode})", "ErrCloudflareRefusedCode").Metadata(map[string]interface{}{"message": message, "cloudflareCode": code})
+}
+
+var ErrDNSBaseDomainInvalid = CreateError("the base domain is not a valid domain name", "ErrDNSBaseDomainInvalid")
+var ErrDiscordNoWebhooks = CreateError("there are no Discord webhooks configured", "ErrDiscordNoWebhooks")
+
+// ErrDiscordTestFailed names the webhooks the test message did not reach: alerts, reports,
+// status or transfers, which the page shows with the names of its own sections
+var ErrDiscordTestFailed = func(webhooks []string) *Error {
+	return CreateError("the test message did not reach the ${webhooks} webhook; check that it still exists in Discord", "ErrDiscordTestFailed").Metadata(map[string]interface{}{"webhooks": webhooks})
+}
+
+var ErrNotificationLanguage = CreateError("the notification language must be es or en", "ErrNotificationLanguage")
+
+// ErrOffsitePeriodicHours and ErrOffsiteKeep refuse a periodic off-site copy setting the panel
+// does not offer, globally or for one server
+var ErrOffsitePeriodicHours = CreateError("the periodic off-site copy must be every 0 (never), 12, 24, 48, 72, 168, 336 or 720 hours", "ErrOffsitePeriodicHours")
+var ErrOffsiteKeep = CreateError("the off-site copies to keep must be between 1 and 50", "ErrOffsiteKeep")
+
+// ErrNodeSettingInvalid refuses the settings the panel hands a node: a key the node does not
+// take, one missing, or a value of the wrong type. It names the key, never the value, which
+// may be a secret.
+var ErrNodeSettingInvalid = func(key, problem string) *Error {
+	return CreateError("node setting ${key} ${problem}", "ErrNodeSettingInvalid").Metadata(map[string]interface{}{"key": key, "problem": problem})
 }
 
 var ErrFieldRequired = func(fieldName string) *Error {

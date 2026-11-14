@@ -166,7 +166,7 @@ func cloneServer(c *gin.Context) {
 		return
 	}
 	if server.ParentServerID != nil && *server.ParentServerID != "" {
-		updateParentServerLimitsOnNode(c, db, ns, node, server, parentCPU, parentMemory, parentDisk)
+		updateParentServerLimitsOnNode(c, db, ns, node, server, parentLimits{CPU: parentCPU, Memory: parentMemory, Disk: parentDisk})
 	}
 
 	if copyFiles {

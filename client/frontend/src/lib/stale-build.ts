@@ -6,9 +6,18 @@
 const STALE_BUILD_ERROR = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Unable to preload CSS/i;
 const RELOADED_AT_KEY = 'aether:stale-build-reload';
 
+/** The error's text. An Error from another frame is not `instanceof Error`, hence the duck check. */
+function errorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    if (typeof error === 'string') return error;
+    if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') {
+        return error.message;
+    }
+    return '';
+}
+
 export function isStaleBuildError(error: unknown): boolean {
-    const message = error instanceof Error ? error.message : String(error ?? '');
-    return STALE_BUILD_ERROR.test(message);
+    return STALE_BUILD_ERROR.test(errorMessage(error));
 }
 
 /**

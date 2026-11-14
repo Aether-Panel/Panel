@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -94,6 +95,20 @@ type serverState struct {
 	offlineSince time.Time
 }
 
+// forgetServerState drops what is kept in memory for a deleted server: its alert state and
+// its last game query. Nothing removes them otherwise, and a server created again with the
+// id would inherit them.
+func forgetServerState(serverID string) {
+	stateTrackingLock.Lock()
+	delete(serverStateTracking, serverID)
+	stateTrackingLock.Unlock()
+
+	queryLock.Lock()
+	delete(queryCache, serverID)
+	delete(sourceQueryMisses, serverID)
+	queryLock.Unlock()
+}
+
 // offlineAlertDelay gives afterExit time to explain an exit before the admin is told
 const offlineAlertDelay = 15 * time.Second
 
@@ -107,6 +122,8 @@ func InitService() {
 	go processStats()
 	go processPlayers()
 	go processSystemStatus()
+	// remote nodes run without the panel, so the panel asks them for their servers' states
+	go processRemoteStatus()
 	// servers that kept running while the daemon was down get their console back
 	go reattachRunningServers()
 	// Trackear uptime inicialmente para todos los servidores
@@ -227,11 +244,12 @@ func sendSystemStatusToDiscord() {
 	if ds == nil {
 		return
 	}
-
-	allServers := GetAll()
-	if len(allServers) == 0 {
+	if config.DiscordWebhookSystem.Value() == "" && config.DiscordWebhookNode.Value() == "" {
 		return
 	}
+
+	// a panel without servers of its own still reports its remote nodes
+	allServers := GetAll()
 
 	// Obtener información de los nodos y servidores desde la base de datos
 	db, err := database.GetConnection()
@@ -271,7 +289,7 @@ func sendSystemStatusToDiscord() {
 
 	// Enviar estado de cada nodo a Discord
 	for _, node := range nodes {
-		sendNodeStatusToDiscord(ds, node, nodeServerMap[node.ID])
+		sendNodeStatusToDiscord(ds, ns, node, nodeServerMap[node.ID])
 	}
 }
 
@@ -327,43 +345,163 @@ func systemStatusInfo(server *Server) services.ServerInfo {
 	return serverInfo
 }
 
-func sendNodeStatusToDiscord(ds *services.DiscordService, node *models.Node, serversForNode []services.ServerInfo) {
-	totalServers := len(serversForNode)
-	onlineServers := 0
-	offlineServers := 0
-
-	for _, info := range serversForNode {
-		if info.IsRunning {
-			onlineServers++
-		} else {
-			offlineServers++
-		}
+// sendNodeStatusToDiscord reports one node. serversForNode are the servers this process runs
+// there, which is only the panel's own node: a remote node's come from the status poller.
+func sendNodeStatusToDiscord(ds *services.DiscordService, ns *services.Node, node *models.Node, serversForNode []services.ServerInfo) {
+	// without a node webhook there is nothing to send, so remote nodes are not asked either
+	if config.DiscordWebhookNode.Value() == "" {
+		return
 	}
 
 	nodeName := node.Name
 	if nodeName == "" || node.IsLocal() {
-		nodeName = "Nodo Local"
+		nodeName = services.NotificationText("nodeStatus.localNode")
 	}
 
-	// Obtener información del sistema
-	cpuModel, cpuCores, cpuThreads, cpuGhz := hostCPUSummary()
-
-	// Obtener información de memoria
-	memInfo, err := mem.VirtualMemory()
-	memTotal := uint64(0)
-	memUsed := uint64(0)
-	if err == nil {
-		memTotal = memInfo.Total
-		memUsed = memInfo.Used
+	var err error
+	if node.IsLocal() {
+		// the panel's own machine is only right for the panel's node
+		online, offline := countRunning(serversForNode)
+		err = sendNodeReport(ds, node, nodeName, len(serversForNode), online, offline, localNodeHardware())
+	} else {
+		err = sendRemoteNodeReport(ds, ns, node, nodeName)
 	}
-
-	// Sistema operativo - obtener información detallada como neofetch/fastfetch
-	osName := getOSName()
-
-	err = ds.SendNodeStatus(totalServers, onlineServers, offlineServers, nodeName, node.PublicHost, node.PublicPort, cpuModel, cpuCores, cpuThreads, cpuGhz, memTotal, memUsed, osName)
 	if err != nil {
 		logging.Error.Printf("Error sending node status to Discord for node %s: %s", nodeName, err)
 	}
+}
+
+// sendRemoteNodeReport reports a remote node from the status poller's last answer. A node that
+// did not answer is reported as such: its servers' states and its machine are unknown, only how
+// many servers the panel places there is shown.
+func sendRemoteNodeReport(ds *services.DiscordService, ns *services.Node, node *models.Node, nodeName string) error {
+	status := remoteNodeStatus(ns, node)
+	if !status.reachable {
+		return ds.SendNodeUnreachable(status.total, nodeName, node.PublicHost, node.PublicPort)
+	}
+	online, offline := status.onlineOffline()
+	return sendNodeReport(ds, node, nodeName, len(status.running), online, offline, remoteNodeHardware(ns, node))
+}
+
+// sendNodeReport sends the report of a node that answered
+func sendNodeReport(ds *services.DiscordService, node *models.Node, nodeName string, total, online, offline int, hw nodeHardware) error {
+	return ds.SendNodeStatus(services.NodeStatus{
+		NodeName:       nodeName,
+		PublicHost:     node.PublicHost,
+		PublicPort:     node.PublicPort,
+		TotalServers:   total,
+		OnlineServers:  online,
+		OfflineServers: offline,
+		CPUModel:       hw.cpuModel,
+		CPUCores:       hw.cpuCores,
+		CPUThreads:     hw.cpuThreads,
+		CPUGhz:         hw.cpuGhz,
+		MemTotal:       hw.memTotal,
+		MemUsed:        hw.memUsed,
+		OSName:         hw.osName,
+	})
+}
+
+// countRunning counts the servers by state
+func countRunning(infos []services.ServerInfo) (online, offline int) {
+	for _, info := range infos {
+		if info.IsRunning {
+			online++
+		} else {
+			offline++
+		}
+	}
+	return
+}
+
+// nodeHardware is the machine part of a node's Discord report. Fields left empty or zero
+// are left out of the message.
+type nodeHardware struct {
+	cpuModel   string
+	cpuCores   int
+	cpuThreads int
+	cpuGhz     float64
+	memTotal   uint64
+	memUsed    uint64
+	osName     string
+}
+
+// unknownCPUModel is what SendNodeStatus takes as "no CPU model to show"
+const unknownCPUModel = "Desconocido"
+
+// localNodeHardware describes the machine this process runs on
+func localNodeHardware() nodeHardware {
+	hw := nodeHardware{}
+	hw.cpuModel, hw.cpuCores, hw.cpuThreads, hw.cpuGhz = hostCPUSummary()
+	if memInfo, err := mem.VirtualMemory(); err == nil {
+		hw.memTotal = memInfo.Total
+		hw.memUsed = memInfo.Used
+	}
+	// Sistema operativo - obtener información detallada como neofetch/fastfetch
+	hw.osName = getOSName()
+	return hw
+}
+
+// nodeSystemTimeout bounds the call to a remote node, so one that does not answer cannot
+// hold up the reports of the others
+const nodeSystemTimeout = 10 * time.Second
+
+// nodeSystemInfo is the part of a daemon's /daemon/system answer the node report uses
+type nodeSystemInfo struct {
+	OS          string `json:"os"`
+	Platform    string `json:"platform"`
+	PlatformVer string `json:"platformVersion"`
+	CPUModel    string `json:"cpuModel"`
+	CPUCores    int    `json:"cpuCores"`
+	CPUThreads  int    `json:"cpuThreads"`
+	MemoryTotal uint64 `json:"memoryTotal"`
+	MemoryUsed  uint64 `json:"memoryUsed"`
+}
+
+// remoteNodeHardware asks the node's daemon for its machine, as the node page does. When the
+// node does not answer the hardware is left out of the report rather than filled with the
+// panel's own machine.
+func remoteNodeHardware(ns *services.Node, node *models.Node) nodeHardware {
+	ctx, cancel := context.WithTimeout(context.Background(), nodeSystemTimeout)
+	defer cancel()
+
+	res, err := ns.CallNodeContext(ctx, node, "GET", "/daemon/system", nil, nil)
+	if err != nil {
+		logging.Error.Printf("Error getting system info of node %s for Discord: %s", node.Name, err)
+		return nodeHardware{cpuModel: unknownCPUModel}
+	}
+	defer utils.CloseResponse(res)
+
+	var info nodeSystemInfo
+	if res.StatusCode != http.StatusOK {
+		logging.Error.Printf("Error getting system info of node %s for Discord: status %d", node.Name, res.StatusCode)
+		return nodeHardware{cpuModel: unknownCPUModel}
+	}
+	if err := json.NewDecoder(res.Body).Decode(&info); err != nil {
+		logging.Error.Printf("Error reading system info of node %s for Discord: %s", node.Name, err)
+		return nodeHardware{cpuModel: unknownCPUModel}
+	}
+	return info.hardware()
+}
+
+// hardware turns the daemon's answer into the report's fields. The daemon does not send the
+// CPU frequency, so that field is left out for remote nodes.
+func (info nodeSystemInfo) hardware() nodeHardware {
+	hw := nodeHardware{
+		cpuModel:   info.CPUModel,
+		cpuCores:   info.CPUCores,
+		cpuThreads: info.CPUThreads,
+		memTotal:   info.MemoryTotal,
+		memUsed:    info.MemoryUsed,
+		osName:     strings.TrimSpace(info.Platform + " " + info.PlatformVer),
+	}
+	if hw.cpuModel == "" {
+		hw.cpuModel = unknownCPUModel
+	}
+	if hw.osName == "" {
+		hw.osName = info.OS
+	}
+	return hw
 }
 
 // hostCPUSummary returns the CPU model, physical cores, threads and GHz of this machine
@@ -384,7 +522,7 @@ func hostCPUSummary() (string, int, int, float64) {
 	}
 
 	// Obtener modelo y frecuencia del CPU
-	cpuModel := "Desconocido"
+	cpuModel := unknownCPUModel
 	cpuGhz := 0.0
 	if haveInfo {
 		cpuModel = cpuInfo[0].ModelName
@@ -687,7 +825,7 @@ func checkDiskLimit(server *Server, stats *skypanel.ServerStats) {
 		isRunning, _ := server.IsRunning()
 		if isRunning {
 			logging.Info.Printf("[%s] Server exceeded disk limit (%.2f MB > %.2f MB). Stopping server...", server.ID(), stats.Disk/1024/1024, stats.MaxStorage/1024/1024)
-			server.RunningEnvironment.DisplayToConsole(true, fmt.Sprintf("\n[CRÍTICO] El servidor ha superado el límite de disco asignado (%.2f MB / %.2f MB).\n[CRÍTICO] Deteniendo el servidor por seguridad...\n", stats.Disk/1024/1024, stats.MaxStorage/1024/1024))
+			server.RunningEnvironment.DisplayToConsole(true, fmt.Sprintf("\n[CRITICAL] The server has gone over its disk limit (%.2f MB / %.2f MB).\n[CRITICAL] Stopping the server to protect the node...\n", stats.Disk/1024/1024, stats.MaxStorage/1024/1024))
 
 			// Detener el servidor
 			err := server.Stop()
@@ -797,7 +935,7 @@ func sendResourceAlert(server *Server, state *serverState, now time.Time, server
 		return
 	}
 	ds := services.GetDiscordService()
-	_ = ds.SendResourceAlert(serverName, server.ID(), alert.resource, alert.value, alert.limit)
+	_ = ds.SendResourceAlert(serverName, server.ID(), resourceLabel(alert.resource, false), alert.value, alert.limit)
 	server.notifyResource(alert.resource, alert.value, alert.limit)
 	state.lastAlert[alert.key] = now
 }
@@ -1132,18 +1270,11 @@ func (p *Server) Destroy() (err error) {
 	}
 
 	p.Log(logging.Debug, "Starting uninstall processes")
-	process, err := GenerateProcess(p.Uninstallation, p.RunningEnvironment, p.DataToMap(), p.Execution.EnvironmentVariables)
-	if err != nil {
-		p.Log(logging.Error, uninstallErrorFmt, err)
+	// the server is deleted either way: a failed uninstall step is logged and the environment
+	// still goes, or a broken template would leave a server that can never be deleted
+	if uninstallErr := p.runUninstall(); uninstallErr != nil {
+		p.Log(logging.Error, uninstallErrorFmt, uninstallErr)
 		p.RunningEnvironment.DisplayToConsole(true, uninstallFailedMsg)
-		return
-	}
-
-	err = process.Run(p)
-	if err != nil {
-		p.Log(logging.Error, uninstallErrorFmt, err)
-		p.RunningEnvironment.DisplayToConsole(true, uninstallFailedMsg)
-		return
 	}
 
 	p.Log(logging.Debug, "Deleting environment")
@@ -1156,11 +1287,24 @@ func (p *Server) Destroy() (err error) {
 	return
 }
 
+// runUninstall runs the template's uninstall steps
+func (p *Server) runUninstall() error {
+	process, err := GenerateProcess(p.Uninstallation, p.RunningEnvironment, p.DataToMap(), p.Execution.EnvironmentVariables)
+	if err != nil {
+		return err
+	}
+	return process.Run(p)
+}
+
 func (p *Server) Install() error {
 	if !p.installRunning.CompareAndSwap(false, true) {
 		return skypanel.ErrServerRunning
 	}
 	defer p.installRunning.Store(false)
+	// a repository being unpacked into the folder must not be mixed with the template's files
+	if p.githubInstallRunning() {
+		return ErrGitHubInstalling
+	}
 
 	if err := p.IsIdle(); err != nil {
 		return err
@@ -1360,18 +1504,18 @@ func (p *Server) afterExit(exitCode int) {
 		p.RunningEnvironment.DisplayToConsole(true, "Server crashed (exit code %d)\n", exitCode)
 		report := p.recordCrash(exitCode, autoRestart)
 		p.notifyCrash(report)
-		restartText := "No"
+		restartText := services.NotificationText("no")
 		if autoRestart {
-			restartText = "Sí"
+			restartText = services.NotificationText("yes")
 		}
 		name, id := p.displayName(), p.ID()
 		go func() {
-			_ = services.GetDiscordService().SendAlert("💥 Caída del servidor",
-				fmt.Sprintf("**%s** se ha caído (código de salida %d).", name, exitCode),
+			_ = services.GetDiscordService().SendAlert(services.NotificationText("crashAlert.title"),
+				services.NotificationText("crashAlert.description", name, exitCode),
 				[]services.DiscordEmbedField{
-					{Name: "Servidor", Value: name, Inline: true},
+					{Name: services.NotificationText("field.server"), Value: name, Inline: true},
 					{Name: "ID", Value: id, Inline: true},
-					{Name: "Reinicio automático", Value: restartText, Inline: true},
+					{Name: services.NotificationText("field.autoRestart"), Value: restartText, Inline: true},
 				})
 		}()
 	}
@@ -1389,7 +1533,8 @@ func (p *Server) afterExit(exitCode int) {
 	p.RunningEnvironment.DisplayToConsole(true, "Running post-execution steps\n")
 	p.Log(logging.Info, "Running post execution steps: %s", p.ID())
 
-	err = processes.Run(p)
+	// the conditions see them too: "if": "!success" runs a step only after a crash
+	err = processes.RunWith(p, map[string]interface{}{"success": graceful, "exitCode": exitCode})
 	if err != nil {
 		p.Log(logging.Error, "Error running post processing for server: %s", err)
 		p.RunningEnvironment.DisplayToConsole(true, "Failed to run post-execution steps\n")
@@ -1522,6 +1667,25 @@ const (
 // retention only ever removes those and never a backup somebody made by hand
 const AutoBackupPrefix = "auto-"
 
+// failedBackupPrefix names the mark left for a backup made by hand whose archive could not be
+// written. The panel listed that backup as soon as it was asked for; the mark tells it to drop
+// the entry, which has no file behind it. It is hidden, so it is never listed as a backup.
+const failedBackupPrefix = ".failed-"
+
+// partialBackupPrefix names an archive while it is being written
+const partialBackupPrefix = ".partial-"
+
+// BackupFailedLocation is the Location the backup list gives a backup marked as failed
+const BackupFailedLocation = "failed"
+
+// BackupsOffsiteHeader is set on the node's backup list, to BackupsOffsiteUnavailable, when
+// the bucket is set up but could not be listed: the copies only the bucket has are missing
+// from that list, and the panel must not take them for deleted. An older node never sets it.
+const (
+	BackupsOffsiteHeader      = "X-Backups-Offsite"
+	BackupsOffsiteUnavailable = "unavailable"
+)
+
 // StartBackup begins a backup and returns its file name straight away; the archive is
 // written in the background and the console reports when it is done
 func (p *Server) StartBackup() (string, error) {
@@ -1533,19 +1697,45 @@ func (p *Server) StartBackup() (string, error) {
 	return fileName, nil
 }
 
+// AutoBackupOptions is what a scheduled task's backup step asks for
+type AutoBackupOptions struct {
+	// Keep is how many automatic backups stay on the node
+	Keep int
+	// TaskID names the task in the file name; without it the backup is never uploaded, since
+	// no task could recognise it as its own in the bucket
+	TaskID string
+	// Offsite is how often a run uploads its backup
+	Offsite OffsiteFrequency
+	// OffsiteKeep is how many of the task's copies stay in the bucket; 0 deletes none
+	OffsiteKeep int
+	// Now is the time of the run, time.Now when nil
+	Now func() time.Time
+}
+
 // RunAutoBackup backs the server up for a scheduled task. It waits for the archive, so the
-// task's next step sees it finished, then keeps only the newest keep automatic backups.
-func (p *Server) RunAutoBackup(keep int) (string, error) {
-	fileName, file, err := p.beginBackup(AutoBackupPrefix)
+// task's next step sees it finished, then keeps only the newest Keep automatic backups and,
+// when the task's frequency says so, copies this one off-site in the background.
+func (p *Server) RunAutoBackup(opts AutoBackupOptions) (string, error) {
+	prefix := AutoBackupPrefix
+	if opts.TaskID != "" {
+		// the id becomes part of a path, so a task file edited by hand must not reach outside
+		// the backup folder
+		if !taskIDPattern.MatchString(opts.TaskID) {
+			return "", fmt.Errorf("invalid task id %q", opts.TaskID)
+		}
+		prefix = taskBackupPrefix(opts.TaskID)
+	}
+	fileName, file, err := p.beginBackup(prefix)
 	if err != nil {
 		return "", err
 	}
 	if !p.finishBackup(file) {
 		return "", errors.New("backup failed")
 	}
-	if err := p.pruneAutoBackups(keep); err != nil {
+	if err := p.pruneAutoBackups(opts.Keep); err != nil {
 		p.Log(logging.Error, "Error removing old automatic backups: %s", err)
 	}
+	p.copyTaskBackupOffsite(fileName, file, opts)
 	return fileName, nil
 }
 
@@ -1570,27 +1760,55 @@ func (p *Server) beginBackup(prefix string) (fileName, file string, err error) {
 	return fileName, path.Join(backupDirectory, fileName), nil
 }
 
-// finishBackup writes the archive, copies it off-site when that is on, and reports the result
+// finishBackup writes the archive and reports the result. It never uploads: a backup made by
+// hand stays on the node, and a scheduled one is copied off-site by its caller when due.
 func (p *Server) finishBackup(file string) bool {
 	err := p.writeArchive(file)
 	if err != nil {
 		p.Log(logging.Error, "Error creating backup file: %s", err)
 		p.RunningEnvironment.DisplayToConsole(true, "Failed to create backup file")
+		// only the panel's list of backups made by hand has an entry to drop; a scheduled
+		// task reports its failure itself
+		if !strings.HasPrefix(filepath.Base(file), AutoBackupPrefix) {
+			p.markBackupFailed(file)
+		}
 	}
-	// the backup is done once the local archive exists; the off-site copy (up to two hours)
-	// runs after, so it no longer keeps the server from starting or being restarted
 	p.endBackup(err == nil)
-	if err == nil {
-		go p.uploadOffsite(file)
-	}
 	return err == nil
+}
+
+// markBackupFailed leaves the mark FailedBackups reports for the backup written to file
+func (p *Server) markBackupFailed(file string) {
+	mark := filepath.Join(filepath.Dir(file), failedBackupPrefix+filepath.Base(file))
+	if err := os.WriteFile(mark, nil, 0600); err != nil {
+		p.Log(logging.Error, "Error marking the backup %s as failed: %s", filepath.Base(file), err)
+	}
+}
+
+// FailedBackups lists the backups made by hand whose archive could not be written, until
+// DeleteBackup removes them
+func (p *Server) FailedBackups() ([]string, error) {
+	entries, err := os.ReadDir(p.GetBackupDirectory())
+	if os.IsNotExist(err) {
+		return []string{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	failed := make([]string, 0)
+	for _, entry := range entries {
+		if name, ok := strings.CutPrefix(entry.Name(), failedBackupPrefix); ok && !entry.IsDir() {
+			failed = append(failed, name)
+		}
+	}
+	return failed, nil
 }
 
 // writeArchive compresses the server's files under a hidden name and moves the archive into
 // place once it is complete, so a half-written backup is never listed, downloaded or
 // restored. The hidden name keeps the .tar.gz ending because the format is picked from it.
 func (p *Server) writeArchive(file string) error {
-	partial := filepath.Join(filepath.Dir(file), ".partial-"+filepath.Base(file))
+	partial := filepath.Join(filepath.Dir(file), partialBackupPrefix+filepath.Base(file))
 	err := files.CompressServer(p.GetFileServer(), partial)
 	if err == nil {
 		err = os.Rename(partial, file)
@@ -1604,45 +1822,60 @@ func (p *Server) writeArchive(file string) error {
 // offsiteTimeout bounds one transfer to or from the bucket
 const offsiteTimeout = 2 * time.Hour
 
-// uploadOffsite copies a finished backup to the bucket when off-site backups are on. The
-// local copy stays: the bucket is for when the node's disk is gone. A failed upload is
-// reported but does not fail the backup, which exists locally.
-func (p *Server) uploadOffsite(file string) {
-	cfg, ok := offsite.FromSettings()
-	if !ok {
-		return
-	}
-	p.RunningEnvironment.DisplayToConsole(true, "Uploading backup to off-site storage")
-	ctx, cancel := context.WithTimeout(context.Background(), offsiteTimeout)
-	defer cancel()
-	if err := offsite.Upload(ctx, cfg, p.ID(), filepath.Base(file), file); err != nil {
-		p.Log(logging.Error, "Error uploading backup off-site: %s", err)
-		p.RunningEnvironment.DisplayToConsole(true, "Off-site upload failed: %s", err)
-		return
-	}
-	p.RunningEnvironment.DisplayToConsole(true, "Backup uploaded to off-site storage")
+// endBackup ends a backup, telling the console, the owner's channels and Discord how it went
+func (p *Server) endBackup(success bool) {
+	p.endBackupQuiet(success)
+	p.alertBackup(success)
 }
 
-func (p *Server) endBackup(success bool) {
+// endBackupQuiet ends a backup telling only the console. The periodic copy alerts by itself,
+// and only on a failure of a server still loaded: one every few hours on every server would
+// otherwise bury the alerts that matter.
+func (p *Server) endBackupQuiet(success bool) {
 	p.backupState.Store(backupIdle)
+	if success {
+		p.RunningEnvironment.DisplayToConsole(true, "Backup complete")
+		return
+	}
+	p.RunningEnvironment.DisplayToConsole(true, "Backup failed")
+}
 
+// alertBackup tells the owner's channels and the admin's Discord how a backup went
+func (p *Server) alertBackup(success bool) {
 	serverName := p.Server.Display
 	if serverName == "" {
 		serverName = p.ID()
 	}
 	p.notifyBackup(success)
-	ds := services.GetDiscordService()
-	if success {
-		p.RunningEnvironment.DisplayToConsole(true, "Backup complete")
-		_ = ds.SendBackupAlert(serverName, p.ID(), "Completado exitosamente", true)
-	} else {
-		p.RunningEnvironment.DisplayToConsole(true, "Backup failed")
-		_ = ds.SendBackupAlert(serverName, p.ID(), "Falló durante la creación", false)
+	status := services.NotificationText("backupAlert.statusSuccess")
+	if !success {
+		status = services.NotificationText("backupAlert.statusFailed")
 	}
+	_ = services.GetDiscordService().SendBackupAlert(serverName, p.ID(), status, success)
 }
 
-// ListBackups returns the finished backups in the server's backup folder, newest first
+// ListBackups returns the server's finished backups, on the node and in the bucket, newest
+// first
 func (p *Server) ListBackups() ([]skypanel.BackupFile, error) {
+	result, _, err := p.ListBackupsChecked()
+	return result, err
+}
+
+// ListBackupsChecked is ListBackups that also says whether the bucket part of the list is
+// there: bucketListed is false only when off-site backups are set up but the bucket could not
+// be listed, so the copies only the bucket has are missing from the result.
+func (p *Server) ListBackupsChecked() (result []skypanel.BackupFile, bucketListed bool, err error) {
+	result, err = p.listLocalBackups()
+	if err != nil {
+		return nil, false, err
+	}
+	result, bucketListed = p.mergeOffsite(result)
+	sortNewestFirst(result)
+	return result, bucketListed, nil
+}
+
+// listLocalBackups returns the finished backups in the server's backup folder, in no order
+func (p *Server) listLocalBackups() ([]skypanel.BackupFile, error) {
 	entries, err := os.ReadDir(p.GetBackupDirectory())
 	if os.IsNotExist(err) {
 		return []skypanel.BackupFile{}, nil
@@ -1663,24 +1896,25 @@ func (p *Server) ListBackups() ([]skypanel.BackupFile, error) {
 		}
 		result = append(result, skypanel.BackupFile{FileName: name, Size: info.Size(), ModTime: info.ModTime(), Location: "local"})
 	}
-	result = p.mergeOffsite(result)
-	sort.Slice(result, func(i, j int) bool { return result[i].ModTime.After(result[j].ModTime) })
 	return result, nil
 }
 
+func sortNewestFirst(backups []skypanel.BackupFile) {
+	sort.Slice(backups, func(i, j int) bool { return backups[i].ModTime.After(backups[j].ModTime) })
+}
+
 // mergeOffsite adds the backups only the bucket still has and marks the ones in both places.
-// If the bucket cannot be listed the local list is returned as it is.
-func (p *Server) mergeOffsite(local []skypanel.BackupFile) []skypanel.BackupFile {
-	cfg, ok := offsite.FromSettings()
-	if !ok {
-		return local
+// If the bucket cannot be listed the local list is returned as it is, with listed false.
+func (p *Server) mergeOffsite(local []skypanel.BackupFile) (merged []skypanel.BackupFile, listed bool) {
+	if !bucket.Configured() {
+		return local, true
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	remote, err := offsite.List(ctx, cfg, p.ID())
+	remote, err := bucket.List(ctx, p.ID())
 	if err != nil {
 		p.Log(logging.Error, "Error listing off-site backups: %s", err)
-		return local
+		return local, false
 	}
 	index := make(map[string]int, len(local))
 	for i, b := range local {
@@ -1693,18 +1927,21 @@ func (p *Server) mergeOffsite(local []skypanel.BackupFile) []skypanel.BackupFile
 		}
 		local = append(local, skypanel.BackupFile{FileName: object.FileName, Size: object.Size, ModTime: object.ModTime, Location: "offsite"})
 	}
-	return local
+	return local, true
 }
 
-// pruneAutoBackups deletes the oldest automatic backups beyond the newest keep
+// pruneAutoBackups deletes the oldest automatic backups on the node beyond the newest keep.
+// The bucket keeps its own history, pruned on its own count, so only local copies are counted
+// and deleted here.
 func (p *Server) pruneAutoBackups(keep int) error {
 	if keep < 1 {
 		return nil
 	}
-	backups, err := p.ListBackups()
+	backups, err := p.listLocalBackups()
 	if err != nil {
 		return err
 	}
+	sortNewestFirst(backups)
 	kept := 0
 	for _, b := range backups {
 		if !strings.HasPrefix(b.FileName, AutoBackupPrefix) {
@@ -1712,7 +1949,7 @@ func (p *Server) pruneAutoBackups(keep int) error {
 		}
 		kept++
 		if kept > keep {
-			if err := p.DeleteBackup(b.FileName); err != nil {
+			if err := p.deleteLocalBackup(b.FileName); err != nil {
 				return err
 			}
 		}
@@ -1720,7 +1957,25 @@ func (p *Server) pruneAutoBackups(keep int) error {
 	return nil
 }
 
+// DeleteBackup removes a backup everywhere it is, on the node and in the bucket, as a user
+// asks from the panel
 func (p *Server) DeleteBackup(fileName string) error {
+	if err := p.deleteLocalBackup(fileName); err != nil {
+		return err
+	}
+	if bucket.Configured() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		if err := bucket.Delete(ctx, p.ID(), fileName); err != nil {
+			p.Log(logging.Error, "Error deleting off-site backup %s: %s", fileName, err)
+		}
+	}
+	return nil
+}
+
+// deleteLocalBackup removes the backup's file on the node, and its failed mark, leaving any
+// copy in the bucket alone
+func (p *Server) deleteLocalBackup(fileName string) error {
 	if !filepath.IsLocal(fileName) {
 		return fmt.Errorf("invalid backup file name: %s", fileName)
 	}
@@ -1735,15 +1990,11 @@ func (p *Server) DeleteBackup(fileName string) error {
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
-
-	if cfg, ok := offsite.FromSettings(); ok {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-		defer cancel()
-		if err := offsite.Delete(ctx, cfg, p.ID(), fileName); err != nil {
-			p.Log(logging.Error, "Error deleting off-site backup %s: %s", fileName, err)
-		}
+	// a backup that failed has only its mark
+	err = os.Remove(path.Join(backupDirectory, failedBackupPrefix+path.Base(fileName)))
+	if err != nil && !os.IsNotExist(err) {
+		return err
 	}
-
 	return nil
 }
 
@@ -1757,16 +2008,33 @@ func (p *Server) locateBackup(fileName string) (backupFile string, fetchOffsite 
 			return "", false, err
 		}
 		// the local copy is gone (a new disk, say): the bucket may still have it
-		cfg, ok := offsite.FromSettings()
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		exists := ok && offsite.Exists(ctx, cfg, p.ID(), fileName)
-		cancel()
-		if !exists {
+		if !p.inBucket(path.Base(fileName)) {
 			return "", false, skypanel.ErrFileNotFound
 		}
 		return backupFile, true, nil
 	}
 	return backupFile, false, nil
+}
+
+// inBucket tells whether the bucket holds the backup; a bucket that is off or cannot be listed
+// does not
+func (p *Server) inBucket(fileName string) bool {
+	if !bucket.Configured() {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	objects, err := bucket.List(ctx, p.ID())
+	if err != nil {
+		p.Log(logging.Error, "Error listing off-site backups: %s", err)
+		return false
+	}
+	for _, o := range objects {
+		if o.FileName == fileName {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Server) StartRestore(fileName string) error {

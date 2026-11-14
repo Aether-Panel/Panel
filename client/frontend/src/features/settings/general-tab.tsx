@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -54,7 +55,9 @@ function DomainStatusLine({ t }: Readonly<{ t: (key: string, options?: Record<st
     else if (status.https) text = t('settings.general.domainStatus.okHttps', { domain });
     else text = t('settings.general.domainStatus.okHttp', { domain });
 
-    const Icon = status.state === 'working' ? Loader2 : status.state === 'error' ? XCircle : CheckCircle2;
+    let Icon = CheckCircle2;
+    if (status.state === 'working') Icon = Loader2;
+    else if (status.state === 'error') Icon = XCircle;
     // the website goes through the proxy, game ports and SFTP cannot: the panel hands out the IP
     const proxyNote = status.state === 'ok' && status.proxied && status.serverIp
         ? t('settings.general.domainStatus.proxied', { ip: status.serverIp })
@@ -310,6 +313,23 @@ export function GeneralTab({ localSettings, handleUpdate, t }: Readonly<GeneralT
                     </div>
                 </SettingsSection>
 
+                <SettingsSection title={t('settings.general.sections.notificationsTitle')} description={t('settings.general.sections.notificationsDescription')}>
+                    <SettingsField id="notification-language" label={t('settings.general.notificationLanguageLabel')} hint={t('settings.general.notificationLanguageDescription')} className="max-w-sm">
+                        <Select
+                            value={localSettings['panel.settings.notificationLanguage'] === 'en' ? 'en' : 'es'}
+                            onValueChange={(v) => handleUpdate('panel.settings.notificationLanguage', v)}
+                        >
+                            <SelectTrigger id="notification-language">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="es">{t('profileSettings.general.language_es')}</SelectItem>
+                                <SelectItem value="en">{t('profileSettings.general.language_en')}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </SettingsField>
+                </SettingsSection>
+
                 <SettingsSection title={t('settings.general.sections.aiTitle')} description={t('settings.general.sections.aiDescription')}>
                     <div className="space-y-5">
                         <SettingRows>
@@ -319,6 +339,14 @@ export function GeneralTab({ localSettings, handleUpdate, t }: Readonly<GeneralT
                                 description={t('settings.general.hideAiAnalysisDescription')}
                                 checked={hideAi}
                                 onCheckedChange={(v) => handleUpdate('panel.settings.hideAiAnalysis', v)}
+                            />
+                            <SettingRow
+                                id="ai-file-tools"
+                                label={t('settings.general.aiFileToolsLabel')}
+                                description={t('settings.general.aiFileToolsDescription')}
+                                // on unless an administrator turned it off
+                                checked={localSettings['panel.settings.aiFileTools'] !== false}
+                                onCheckedChange={(v) => handleUpdate('panel.settings.aiFileTools', v)}
                             />
                         </SettingRows>
                         {!hideAi && (
@@ -356,6 +384,13 @@ export function GeneralTab({ localSettings, handleUpdate, t }: Readonly<GeneralT
                                 description={t('settings.general.allowRegistrationDescription')}
                                 checked={!!localSettings['panel.registrationEnabled']}
                                 onCheckedChange={(v) => handleUpdate('panel.registrationEnabled', v)}
+                            />
+                            <SettingRow
+                                id="registration-approval"
+                                label={t('settings.general.registrationApprovalLabel')}
+                                description={t('settings.general.registrationApprovalDescription')}
+                                checked={localSettings['panel.registrationApproval'] !== false}
+                                onCheckedChange={(v) => handleUpdate('panel.registrationApproval', v)}
                             />
                             <SettingRow
                                 id="captcha-builtin"

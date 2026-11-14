@@ -176,3 +176,32 @@ func TestTruncateRunes(t *testing.T) {
 	assert.Equal(t, "ho…", TruncateRunes("hola!", 3))
 	assert.Equal(t, "ñ", TruncateRunes("ññ", 1))
 }
+
+// The assistant's actions have underscores (ai.create_file). An underscore is a LIKE
+// wildcard, so a prefix with one must still only match it literally.
+func TestServerActivity_ListFiltersAssistantActions(t *testing.T) {
+	db := setupServerActivityDB(t, "srv1")
+	sa := &ServerActivity{DB: db}
+	now := time.Now()
+	for _, action := range []string{"ai.create_file", "ai.createxfile", "ai.delete_path", "file.write"} {
+		addServerActivity(t, db, "srv1", action, now)
+	}
+
+	cases := map[string][]string{
+		"files":      {"file.write", "ai.delete_path", "ai.createxfile", "ai.create_file"},
+		"ai":         {"ai.delete_path", "ai.createxfile", "ai.create_file"},
+		"ai.create_": {"ai.create_file"},
+		"ai._":       {},
+		"ai_.x":      {},
+	}
+	for filter, want := range cases {
+		entries, _, err := sa.List("srv1", 50, 0, filter)
+		require.NoError(t, err, filter)
+		assert.Equal(t, want, actionsOf(entries), "filter %q", filter)
+	}
+}
+
+func TestLikePrefix(t *testing.T) {
+	assert.Equal(t, "ai.create!_", likePrefix("ai.create_"))
+	assert.Equal(t, "a!%b!!c", likePrefix("a%b!c"))
+}

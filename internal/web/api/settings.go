@@ -21,6 +21,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/offsite"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
+	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/update"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
@@ -68,6 +69,40 @@ func registerSettings(g *gin.RouterGroup) {
 
 	g.Handle("GET", "/domain-status", middleware.RequiresPermission(scopes.ScopeSettingsEdit), domainStatus)
 	g.Handle("OPTIONS", "/domain-status", response.CreateOptions("GET"))
+
+	g.Handle("GET", "/node-sync", middleware.RequiresPermission(scopes.ScopeSettingsEdit), getNodeSettingsSync)
+	g.Handle("OPTIONS", "/node-sync", response.CreateOptions("GET"))
+}
+
+// requestNodeSettingsSync sends the node settings to the remote nodes in the background; a
+// variable so tests can see a save ask for it without reaching any node
+var requestNodeSettingsSync = services.RequestNodeSettingsSync
+
+// syncNodesIfChanged asks for a pass to the remote nodes when the save touched a setting their
+// daemons use, so no node needs it in its own config.json. The pass runs in the background:
+// the save never waits for a slow or switched-off node.
+func syncNodesIfChanged(keys ...string) {
+	for _, key := range keys {
+		if config.IsSyncedNodeSetting(key) {
+			requestNodeSettingsSync()
+			return
+		}
+	}
+}
+
+// @Summary Node settings on the remote nodes
+// @Description Whether every remote node has the panel's node settings (S3 off-site backups and the CurseForge key): synced, pending (retried by itself), outdated (the node needs updating) or failed (with the node's reason). Never includes a setting's value.
+// @Success 200 {array} services.NodeSyncStatus
+// @Failure 500 {object} ErrorResponse
+// @Tags Panel Settings
+// @Router /api/settings/node-sync [get]
+// @Security OAuth2Application[settings.edit]
+func getNodeSettingsSync(c *gin.Context) {
+	statuses, err := services.NodeSettingsSyncStatuses(middleware.GetDatabase(c))
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	c.JSON(http.StatusOK, statuses)
 }
 
 // @Summary Domain set-up status
@@ -96,7 +131,7 @@ func getSetting(c *gin.Context) {
 
 	for _, v := range editableStringEntries {
 		if v.Key() == key {
-			c.JSON(http.StatusOK, models.Setting{Value: v.Value()})
+			c.JSON(http.StatusOK, models.Setting{Value: maskedSettingValue(key, v.Value())})
 			return
 		}
 	}
@@ -137,24 +172,38 @@ func setSetting(c *gin.Context) {
 		return
 	}
 
-	if key == masterNodeIPKey {
-		err = saveMasterNodeIP(middleware.GetDatabase(c), model.Value)
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return
-		}
+	// the page sent the mask back: the saved secret stays as it is
+	if isSecretSetting(key) && cast.ToString(model.Value) == secretMask {
 		c.Status(http.StatusNoContent)
 		return
 	}
 
-	if response.HandleError(c, validateStringSetting(key, cast.ToString(model.Value)), http.StatusBadRequest) {
+	db := middleware.GetDatabase(c)
+	if key == masterNodeIPKey {
+		previousHost := localNodeHost(db)
+		err = saveMasterNodeIP(db, model.Value)
+		if response.HandleError(c, err, http.StatusInternalServerError) {
+			return
+		}
+		followNodeAddress(models.LocalNode.ID, previousHost, localNodeHost(db))
+		c.Status(http.StatusNoContent)
 		return
 	}
 
+	if response.HandleError(c, validateSetting(key, model.Value), http.StatusBadRequest) {
+		return
+	}
+
+	previousLanguage := services.NotificationLanguage()
+	previousDNS, previousHost := prepareDNSSettingsChange(db, key)
 	if err = applyEditableSetting(key, model.Value); response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
 	services.SyncNodeToConfig()
+	pushNotificationLanguageIfChanged(previousLanguage)
+	followDNSSettingsChange(db, previousDNS, previousHost)
+	syncNodesIfChanged(key)
 
 	c.Status(http.StatusNoContent)
 }
@@ -171,13 +220,19 @@ func saveMasterNodeIP(db *gorm.DB, value interface{}) error {
 // applyEditableSetting writes the value to the editable config entry with
 // the given key, converted to that entry's type. Unknown keys are ignored.
 func applyEditableSetting(key string, value interface{}) error {
-	if err := setMatchingEntries(editableStringEntries, key, strings.TrimSpace(cast.ToString(value))); err != nil {
+	text := strings.TrimSpace(cast.ToString(value))
+	if key == config.MasterURL.Key() {
+		// links in emails, password resets and the panel's identity need a full address
+		text = services.NormalizePanelURL(text)
+	}
+	if err := setMatchingEntries(editableStringEntries, key, text); err != nil {
 		return err
 	}
 	if err := setMatchingEntries(editableBoolEntries, key, cast.ToBool(value)); err != nil {
 		return err
 	}
-	return setMatchingEntries(editableIntEntries, key, cast.ToInt(value))
+	number, _ := config.WholeNumber(value)
+	return setMatchingEntries(editableIntEntries, key, number)
 }
 
 // settableEntry is a config entry the settings API can change.
@@ -216,14 +271,21 @@ func setSettings(c *gin.Context) {
 	}
 
 	db := middleware.GetDatabase(c)
+	dropMaskedSecrets(*settings)
 
 	// check everything first, so a bad value does not leave the settings half saved
 	for key, value := range *settings {
-		if response.HandleError(c, validateStringSetting(key, cast.ToString(value)), http.StatusBadRequest) {
+		if response.HandleError(c, validateSetting(key, value), http.StatusBadRequest) {
 			return
 		}
 	}
 
+	previousLanguage := services.NotificationLanguage()
+	keys := make([]string, 0, len(*settings))
+	for key := range *settings {
+		keys = append(keys, key)
+	}
+	previousDNS, previousHost := prepareDNSSettingsChange(db, keys...)
 	for key, value := range *settings {
 		// Intercept the custom global setting
 		if key == masterNodeIPKey {
@@ -237,15 +299,46 @@ func setSettings(c *gin.Context) {
 	}
 
 	services.SyncNodeToConfig()
+	pushNotificationLanguageIfChanged(previousLanguage)
+	followDNSSettingsChange(db, previousDNS, previousHost)
+	syncNodesIfChanged(keys...)
 
 	c.Status(http.StatusNoContent)
+}
+
+// prepareDNSSettingsChange notes what the subdomains depend on before a settings save: the DNS
+// settings, after writing them into the servers whose subdomain predates that (so a new base
+// domain can still find their records), and the panel node's address
+func prepareDNSSettingsChange(db *gorm.DB, keys ...string) (dnsSettings, string) {
+	previous := currentDNSSettings()
+	if touchesDNSSettings(keys...) {
+		if err := rememberSubdomainHome(db, previous); err != nil {
+			logging.Error.Printf("keeping where the subdomain records live: %v", err)
+		}
+	}
+	return previous, localNodeHost(db)
+}
+
+// followDNSSettingsChange moves or updates the subdomains after a settings save changed their
+// base domain, zone or DNS target, or the panel node's address (master node IP, Base URL)
+func followDNSSettingsChange(db *gorm.DB, previous dnsSettings, previousHost string) {
+	followDNSSettings(previous)
+	followNodeAddress(models.LocalNode.ID, previousHost, localNodeHost(db))
+}
+
+// pushNotificationLanguageIfChanged sends a changed notification language to the remote nodes
+// now: the status poll carries it, and would otherwise only run within the next 30 seconds
+func pushNotificationLanguageIfChanged(previous string) {
+	if services.NotificationLanguage() != previous {
+		servers.PollRemoteNodesNow()
+	}
 }
 
 func getSettings(c *gin.Context) {
 	settings := make(map[string]interface{})
 
 	for _, v := range editableStringEntries {
-		settings[v.Key()] = v.Value()
+		settings[v.Key()] = maskedSettingValue(v.Key(), v.Value())
 	}
 
 	for _, v := range editableBoolEntries {
@@ -279,6 +372,7 @@ func sendTestEmail(c *gin.Context) {
 
 	var body map[string]interface{}
 	_ = c.BindJSON(&body)
+	dropMaskedSecrets(body)
 
 	getStr := func(key string) string {
 		if v, ok := body[key].(string); ok {
@@ -334,27 +428,29 @@ func sendTestDiscord(c *gin.Context) {
 	// webhooks typed in the form but not saved yet are tested too, like the email test does
 	var overrides map[string]interface{}
 	_ = c.ShouldBindJSON(&overrides)
+	dropMaskedSecrets(overrides)
 
 	fields := []services.DiscordEmbedField{
-		{Name: "Tipo", Value: "Mensaje de Prueba", Inline: true},
-		{Name: "Estado", Value: "✅ Configuración Correcta", Inline: true},
+		{Name: services.NotificationText("field.type"), Value: services.NotificationText("discordTest.type"), Inline: true},
+		{Name: services.NotificationText("field.status"), Value: services.NotificationText("discordTest.status"), Inline: true},
 	}
 
-	title := "🧪 Test de Webhook Discord"
-	description := "Este es un mensaje de prueba para verificar que el webhook de Discord está configurado correctamente."
+	title := services.NotificationText("discordTest.title")
+	description := services.NotificationText("discordTest.description")
 	color := 0x0099FF
 
 	// send to every configured webhook and report the ones that failed: a test that always
-	// says OK hides a wrong or deleted webhook until a real alert goes missing
+	// says OK hides a wrong or deleted webhook until a real alert goes missing. The names are
+	// the ones ErrDiscordTestFailed carries, which the page shows as its section titles.
 	targets := []struct {
 		name  string
 		entry config.StringEntry
 		title string
 	}{
-		{"principal", config.DiscordWebhook, title},
-		{"sistema", config.DiscordWebhookSystem, title + " (Sistema)"},
-		{"nodo", config.DiscordWebhookNode, title + " (Nodo)"},
-		{"migraciones", config.DiscordWebhookExTransfer, title + " (Migraciones)"},
+		{"alerts", config.DiscordWebhook, title},
+		{"reports", config.DiscordWebhookSystem, title + " (" + services.NotificationText("discordTest.system") + ")"},
+		{"status", config.DiscordWebhookNode, title + " (" + services.NotificationText("discordTest.node") + ")"},
+		{"transfers", config.DiscordWebhookExTransfer, title + " (" + services.NotificationText("discordTest.transfers") + ")"},
 	}
 
 	var failed []string
@@ -373,18 +469,18 @@ func sendTestDiscord(c *gin.Context) {
 		}
 		sent++
 		if err := ds.SendWebhookToURL(hook, target.title, description, color, fields); err != nil {
-			logging.Error.Printf("Error enviando test al webhook %s: %v", target.name, err)
+			logging.Error.Printf("Error sending the test to the %s webhook: %v", target.name, err)
 			failed = append(failed, target.name)
 		}
 	}
 
 	if sent == 0 {
-		response.HandleError(c, errors.New("no hay webhooks de Discord configurados"), http.StatusBadRequest)
+		response.HandleError(c, skypanel.ErrDiscordNoWebhooks, http.StatusBadRequest)
 		return
 	}
 	if len(failed) > 0 {
 		// 422 rather than 502: the panel hides the text of 5xx errors, and the admin needs it
-		response.HandleError(c, fmt.Errorf("el mensaje de prueba no llegó al webhook %s; revisa que siga existiendo en Discord", strings.Join(failed, ", ")), http.StatusUnprocessableEntity)
+		response.HandleError(c, skypanel.ErrDiscordTestFailed(failed), http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -555,11 +651,23 @@ var discordWebhookEntries = []config.StringEntry{
 	config.DiscordWebhookExTransfer,
 }
 
+// validateSetting checks a setting's value before anything is saved
+func validateSetting(key string, value interface{}) error {
+	// the periodic off-site values follow the same rules a node applies to them
+	if err := servers.ValidateOffsiteSetting(key, value); err != nil {
+		return err
+	}
+	return validateStringSetting(key, cast.ToString(value))
+}
+
 func validateStringSetting(key, value string) error {
 	for _, v := range discordWebhookEntries {
 		if v.Key() == key {
 			return services.ValidateDiscordWebhook(strings.TrimSpace(value))
 		}
+	}
+	if key == config.NotificationLanguage.Key() && !services.IsNotificationLanguage(strings.TrimSpace(value)) {
+		return skypanel.ErrNotificationLanguage
 	}
 	return nil
 }
@@ -578,8 +686,11 @@ var editableStringEntries = []config.StringEntry{
 	config.MasterURL,
 	config.NodeIP,
 	config.GeminiAPIKey,
-	// the node's key for CurseForge modpacks (on remote nodes it is set in their own config)
+	config.NotificationLanguage,
+	// the node's key for CurseForge modpacks; the panel sends it to every remote node too
 	config.CurseForgeKey,
+	// the OAuth App users connect their GitHub account through
+	config.GitHubClientID,
 	config.DiscordWebhook,
 	config.DiscordWebhookSystem,
 	config.DiscordWebhookNode,
@@ -603,7 +714,9 @@ var editableStringEntries = []config.StringEntry{
 }
 var editableBoolEntries = []config.BoolEntry{
 	config.RegistrationEnabled,
+	config.RegistrationApproval,
 	config.HideAIAnalysis,
+	config.AIFileTools,
 	config.BackupsS3Enabled,
 	config.BackupsS3Insecure,
 	config.DNSAutoAssign,
@@ -613,7 +726,10 @@ var editableBoolEntries = []config.BoolEntry{
 	config.TurnstileEnabled,
 	config.CaptchaBuiltin,
 }
-var editableIntEntries = []config.IntEntry{}
+var editableIntEntries = []config.IntEntry{
+	config.BackupsS3PeriodicHours,
+	config.BackupsS3PeriodicKeep,
+}
 
 // @Summary Update panel automatically
 // @Description Spawns an ephemeral container on the host to run the panelUpdate script, and triggers the update on every registered node.
@@ -824,31 +940,47 @@ func updateCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-// commitVerification says how GitHub's checks on a commit went: "pending" while one still
-// runs, "failed" when one failed, "" when all passed. A commit without checks, or a GitHub that
-// does not answer, gives "": the update was already confirmed and is not held back.
+// updateWorkflowPath is the workflow whose run on a commit decides whether installs may update
+// to it: the panel's own CI. Other runs on the same commit (Dependabot, CodeQL, scanners) say
+// nothing about the panel, and a Dependabot update that cannot be applied fails on every commit.
+const updateWorkflowPath = ".github/workflows/ci.yml"
+
+// commitVerification says how the panel's CI went on a commit: "pending" while it runs,
+// "failed" when it failed, "" when it passed. A commit without a CI run, or a GitHub that does
+// not answer, gives "": the update was already confirmed and is not held back.
 func commitVerification(ctx context.Context, sha string) string {
-	var runs struct {
-		CheckRuns []struct {
+	var answer struct {
+		WorkflowRuns []struct {
+			Path       string `json:"path"`
 			Status     string `json:"status"`
 			Conclusion string `json:"conclusion"`
-		} `json:"check_runs"`
+		} `json:"workflow_runs"`
 	}
-	if githubJSON(ctx, "commits/"+sha+"/check-runs?per_page=100", &runs) != "" {
+	if githubJSON(ctx, "actions/runs?head_sha="+url.QueryEscape(sha)+"&per_page=100", &answer) != "" {
 		return ""
 	}
-	verification := ""
-	for _, run := range runs.CheckRuns {
-		if run.Status != "completed" {
-			verification = "pending"
+	pending, failed := false, false
+	for _, run := range answer.WorkflowRuns {
+		if run.Path != updateWorkflowPath {
 			continue
 		}
-		switch run.Conclusion {
-		case "failure", "timed_out", "startup_failure", "action_required":
-			return "failed"
+		switch {
+		case run.Status != "completed":
+			pending = true
+		case run.Conclusion == "success":
+			// a passing run (a re-run after a flaky one included) is enough
+			return ""
+		case run.Conclusion == "failure", run.Conclusion == "timed_out", run.Conclusion == "startup_failure", run.Conclusion == "action_required":
+			failed = true
 		}
 	}
-	return verification
+	if pending {
+		return "pending"
+	}
+	if failed {
+		return "failed"
+	}
+	return ""
 }
 
 // githubRepoAPI is the panel's repository on GitHub's API (a variable so tests can point it at
@@ -988,6 +1120,7 @@ func sendTestS3(c *gin.Context) {
 	cfg, _ := offsite.FromSettings()
 	var overrides map[string]interface{}
 	_ = c.ShouldBindJSON(&overrides)
+	dropMaskedSecrets(overrides)
 	if v, ok := overrides[config.BackupsS3Endpoint.Key()]; ok {
 		cfg.Endpoint = strings.TrimSpace(cast.ToString(v))
 	}

@@ -119,7 +119,7 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 	// Check role-based permissions first (Global Roles)
 	role := resolveUserRole(db, user)
 
-	allScopes := collectScopes(role, perms, serverID, owner)
+	allScopes := boundByClient(c, collectScopes(role, perms, serverID, owner), serverID)
 
 	allowed := scopes.ContainsScope(allScopes, perm)
 	if allowed {
@@ -147,6 +147,33 @@ func clientPermits(c *gin.Context, perm *scopes.Scope, serverID string) (permitt
 		return false, true
 	}
 	return true, false
+}
+
+// boundByClient keeps, for a session minted from an OAuth2 client, only the scopes the client
+// may use. Handlers read the stored scopes for second checks (who may see a password, edit
+// the environment, grant a scope...), so they must not see the user's wider powers there.
+func boundByClient(c *gin.Context, granted []*scopes.Scope, serverID string) []*scopes.Scope {
+	clientGin, hasClient := c.Get("client")
+	if !hasClient {
+		return granted
+	}
+	client, ok := clientGin.(*models.Client)
+	if !ok || client == nil {
+		return []*scopes.Scope{}
+	}
+	return ClientScopes(client, granted, serverID)
+}
+
+// ClientScopes keeps, of the scopes granted on serverID, the ones an OAuth2 client may use:
+// what a session minted from it really gets
+func ClientScopes(client *models.Client, granted []*scopes.Scope, serverID string) []*scopes.Scope {
+	bounded := make([]*scopes.Scope, 0, len(granted))
+	for _, s := range granted {
+		if clientAllows(client, s, serverID) {
+			bounded = append(bounded, s)
+		}
+	}
+	return bounded
 }
 
 // loadUserPermissions fetches the server permissions plus the global ones when a server is set.
@@ -193,6 +220,30 @@ func resolveUserRole(db *gorm.DB, user *models.User) *models.Role {
 		user.Role = *role
 	}
 	return role
+}
+
+// UserScopesOn is everything a user may do on a server (or panel-wide when serverID is empty),
+// the same scopes a request of theirs gets there, without an OAuth2 client's bounds
+func UserScopesOn(db *gorm.DB, user *models.User, serverID string) ([]*scopes.Scope, error) {
+	ps := &services.Permission{DB: db}
+	var perms []*models.Permissions
+	p, err := ps.GetForUserAndServer(user.ID, serverID)
+	if err != nil {
+		return nil, err
+	}
+	perms = append(perms, p)
+	owner := false
+	if serverID != "" {
+		global, err := ps.GetForUserAndServer(user.ID, "")
+		if err != nil {
+			return nil, err
+		}
+		perms = append(perms, global)
+		if owner, err = ps.IsServerOwner(user.ID, serverID); err != nil {
+			return nil, err
+		}
+	}
+	return collectScopes(resolveUserRole(db, user), perms, serverID, owner), nil
 }
 
 // clientAllows bounds what an OAuth2 client token may reach. A server-scoped client

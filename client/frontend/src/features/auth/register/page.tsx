@@ -48,12 +48,17 @@ export function RegisterPanel({ onSwitch }: Readonly<{ onSwitch: () => void }>) 
   async function onSubmit(values: RegisterValues) {
     setLoading(true);
     try {
-      await register({
+      const result = await register({
         username: values.username,
         email: values.email,
         password: values.password,
         ...captcha.fields,
       });
+      // the account waits for approval: back to the sign-in form, which says so if they try
+      if (result === 'pending') {
+        form.reset();
+        onSwitch();
+      }
     } catch (e: any) {
       captcha.reset();
       sileo.error({ title: t('auth.registerFailed'), description: e.message || t('auth.checkCredentials') });

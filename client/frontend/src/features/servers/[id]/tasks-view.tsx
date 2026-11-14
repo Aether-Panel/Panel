@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/providers';
 import { useTranslations } from '@/contexts/translations-context';
 import { ApiError, api } from '@/lib/api-client';
 import { sileo } from '@/lib/toast';
-import TaskDialog, { DEFAULT_BACKUP_KEEP, EDITABLE_STEPS, STEP_ICONS, sleepMinutes, type Task, type TaskStep } from './task-dialog';
+import TaskDialog, { DEFAULT_BACKUP_KEEP, EDITABLE_STEPS, STEP_ICONS, newStep, sleepMinutes, type Task, type TaskStep } from './task-dialog';
 import { describeNextRun, describeSchedule, fromCron, localTimeZone, nextRun, toCron } from './task-schedule';
 
 type TasksViewProps = {
@@ -44,7 +44,7 @@ const PRESETS: Preset[] = [
     build: (t) => ({
       name: t('servers.tasks.presets.dailyBackup.name'),
       cronSchedule: toCron({ kind: 'daily', time: '04:00' }, localTimeZone()),
-      operations: [{ type: 'backup', keep: 7 }],
+      operations: [{ ...newStep('backup'), keep: 7 }],
     }),
   },
   {

@@ -1,0 +1,175 @@
+{
+  "type": "python",
+  "display": "Python App",
+  "icon": "python",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 1024,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 8000,
+      "display": "Port",
+      "desc": "Port your app can listen on (TCP). It is also passed to the app as the PORT environment variable",
+      "required": true,
+      "userEdit": false
+    },
+    "pyversion": {
+      "type": "option",
+      "value": "3.13",
+      "display": "Python Version",
+      "desc": "Version of Python to run",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "3.11",
+          "display": "Python 3.11"
+        },
+        {
+          "value": "3.12",
+          "display": "Python 3.12"
+        },
+        {
+          "value": "3.13",
+          "display": "Python 3.13"
+        },
+        {
+          "value": "3.14",
+          "display": "Python 3.14"
+        }
+      ]
+    },
+    "gitrepo": {
+      "type": "string",
+      "value": "",
+      "display": "Git Repository",
+      "desc": "HTTPS URL of a git repository to download on install, for example https://github.com/user/my-bot.git. Reinstalling pulls the latest commit. Leave empty to upload the files yourself",
+      "required": false,
+      "userEdit": true
+    },
+    "gitbranch": {
+      "type": "string",
+      "value": "",
+      "display": "Git Branch",
+      "desc": "Branch to check out. Empty means the default branch of the repository",
+      "required": false,
+      "userEdit": true
+    },
+    "gittoken": {
+      "type": "string",
+      "value": "",
+      "display": "Git Access Token",
+      "desc": "Personal access token for a private repository (GitHub, GitLab). Leave empty for public repositories",
+      "required": false,
+      "userEdit": true
+    },
+    "startfile": {
+      "type": "string",
+      "value": "main.py",
+      "display": "Start File",
+      "desc": "Python file to run, relative to the server folder",
+      "required": true,
+      "userEdit": true
+    },
+    "installonstart": {
+      "type": "boolean",
+      "value": true,
+      "display": "Install Requirements on Start",
+      "desc": "Run pip install -r requirements.txt before every start, so new packages are picked up",
+      "required": false,
+      "userEdit": true
+    }
+  },
+  "install": [
+    {
+      "if": "gitrepo != ''",
+      "type": "command",
+      "commands": [
+        "bash -c \"set -e; if [ -z \\\"$GIT_REPO\\\" ]; then exit 0; fi; if ! command -v git >/dev/null 2>&1; then if [ \\\"$(id -u)\\\" = 0 ] && command -v apt-get >/dev/null 2>&1; then echo \\\"Installing git in the install container\\\"; apt-get update -qq >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends git ca-certificates >/dev/null; else echo \\\"git is not installed, it is needed to download the repository\\\"; exit 1; fi; fi; g() { git -c safe.directory='*' -c init.defaultBranch=main -c advice.detachedHead=false \\\"$@\\\"; }; auth=(); if [ -n \\\"$GIT_TOKEN\\\" ]; then auth=(-c \\\"http.extraHeader=Authorization: Basic $(printf 'oauth2:%s' \\\"$GIT_TOKEN\\\" | base64 | tr -d '\\\\n')\\\"); fi; [ -d .git ] || g init -q; echo \\\"Fetching $GIT_REPO ${GIT_BRANCH:-(default branch)}\\\"; g \\\"${auth[@]}\\\" fetch -q --depth 1 \\\"$GIT_REPO\\\" \\\"${GIT_BRANCH:-HEAD}\\\"; g reset -q --hard FETCH_HEAD; echo \\\"Checked out $(g log -1 --format='%h %s')\\\"\""
+      ]
+    },
+    {
+      "if": "gitrepo == '' && !file_exists(startfile)",
+      "type": "writefile",
+      "target": "${startfile}",
+      "text": "# Placeholder written by Aether Panel. Replace this file with your app, or set a git\n# repository in the server settings and reinstall.\nimport platform\n\nprint(\"Aether Panel: Python \" + platform.python_version() + \" is running ${startfile}. Upload your app, or set a git repository and reinstall.\")\n"
+    },
+    {
+      "type": "command",
+      "commands": [
+        "bash -c \"set -e; PY=python3; if command -v \\\"python${pyversion}\\\" >/dev/null 2>&1; then PY=\\\"python${pyversion}\\\"; fi; V=\\\"$($PY -c 'import sys; print(\\\"%d.%d\\\" % sys.version_info[:2])')\\\"; if [ -d .venv ] && [ ! -d \\\".venv/lib/python$V\\\" ]; then echo \\\"Python version changed, recreating .venv\\\"; rm -rf .venv; fi; if [ ! -x .venv/bin/python ]; then echo \\\"Creating the virtual environment .venv (Python $V)\\\"; $PY -m venv .venv; fi; if [ -f requirements.txt ]; then echo \\\"Installing requirements.txt\\\"; .venv/bin/python -m pip install -q -r requirements.txt; fi\""
+      ]
+    }
+  ],
+  "run": {
+    "command": "bash -c \"set -e; unset GIT_TOKEN; PY=python3; if command -v \\\"python${pyversion}\\\" >/dev/null 2>&1; then PY=\\\"python${pyversion}\\\"; fi; V=\\\"$($PY -c 'import sys; print(\\\"%d.%d\\\" % sys.version_info[:2])')\\\"; if [ -d .venv ] && [ ! -d \\\".venv/lib/python$V\\\" ]; then echo \\\"Python version changed, recreating .venv\\\"; rm -rf .venv; fi; if [ ! -x .venv/bin/python ]; then echo \\\"Creating the virtual environment .venv (Python $V)\\\"; $PY -m venv .venv; fi; if [ \\\"${installonstart}\\\" = true ]; then if [ -f requirements.txt ]; then echo \\\"Installing requirements.txt\\\"; .venv/bin/python -m pip install -q -r requirements.txt; fi; fi; exec .venv/bin/python -u \\\"${startfile}\\\"\"",
+    "stopCode": 2,
+    "environmentVars": {
+      "PORT": "${port}",
+      "PYTHONUNBUFFERED": "1",
+      "PIP_DISABLE_PIP_VERSION_CHECK": "1",
+      "PIP_ROOT_USER_ACTION": "ignore",
+      "GIT_REPO": "${gitrepo}",
+      "GIT_BRANCH": "${gitbranch}",
+      "GIT_TOKEN": "${gittoken}"
+    },
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "python:${pyversion}-slim",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "binaries": [
+      "bash",
+      "python3"
+    ]
+  }
+}

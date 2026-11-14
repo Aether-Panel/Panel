@@ -214,11 +214,7 @@ func resolveModLoader(env *skypanel.Environment, serverFile, clientFile File) (m
 	data = make(map[string]string)
 	if jar, err := findInstallerJar(env); err == nil {
 		logging.Debug.Printf("Found jar: %s\n", jar)
-		if strings.HasPrefix(jar, "neoforgedl") {
-			modLoader = "neoforgedl"
-		} else {
-			modLoader = "forge"
-		}
+		modLoader = loaderForInstallerJar(jar)
 		data["jar"] = jar
 	} else if vars, err := readVariableFile(serverFile); err == nil {
 		logging.Debug.Printf("Reading variables.txt\n")
@@ -239,6 +235,15 @@ func resolveModLoader(env *skypanel.Environment, serverFile, clientFile File) (m
 		return "", nil, false
 	}
 	return modLoader, data, true
+}
+
+// loaderForInstallerJar is the loader an installer jar the pack shipped belongs to. It must
+// be one Run installs: "neoforgedl" (the operation's name) matched no jar and no case there.
+func loaderForInstallerJar(jar string) string {
+	if strings.HasPrefix(jar, "neoforge") {
+		return "neoforge"
+	}
+	return "forge"
 }
 
 func primaryLoaderID(manifest Manifest) string {
@@ -422,8 +427,9 @@ func installFabric(env *skypanel.Environment, data map[string]string, javaBinary
 		return nil
 	}
 
-	if !errors.Is(err, errNoFile) {
-		// we got a 404, so we can't use the improved version at all
+	if errors.Is(err, errNoFile) {
+		// we got a 404, so we can't use the improved version at all; any other error is a
+		// real failure (network, server error) and is returned below
 		fabricURL = replaceTokens(FabricInstallerURL, data)
 		targetFile = filepath.Join(cleanRoot, "fabric-installer.jar")
 		cleanTarget = filepath.Clean(targetFile)
@@ -437,7 +443,7 @@ func installFabric(env *skypanel.Environment, data map[string]string, javaBinary
 		// forge installer found, we will run this one
 		result := make(chan int, 1)
 		err = env.Execute(skypanel.ExecutionData{
-			Command: fmt.Sprintf("%s -jar fabric-installer server -mcversion %s -loader %s -downloadMinecraft", javaBinary, data["mcVersion"], data["version"]),
+			Command: fmt.Sprintf("%s -jar fabric-installer.jar server -mcversion %s -loader %s -downloadMinecraft", javaBinary, data["mcVersion"], data["version"]),
 			Callback: func(exitCode int) {
 				result <- exitCode
 				env.DisplayToConsole(true, "Installer exit code: %d", exitCode)
@@ -488,6 +494,10 @@ func downloadFile(url, root, target string) error {
 	}
 	if response.StatusCode == http.StatusNotFound {
 		return errNoFile
+	}
+	// an error page must not be saved as the jar
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code %d from %s", response.StatusCode, url)
 	}
 	_, err = io.Copy(file, response.Body)
 	return err

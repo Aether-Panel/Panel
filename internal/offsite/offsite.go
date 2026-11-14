@@ -139,16 +139,6 @@ func Open(ctx context.Context, c Config, serverID, fileName string) (io.ReadClos
 	return object, info.Size, nil
 }
 
-// Exists tells whether the bucket holds the backup
-func Exists(ctx context.Context, c Config, serverID, fileName string) bool {
-	client, err := c.client()
-	if err != nil {
-		return false
-	}
-	_, err = client.StatObject(ctx, c.Bucket, c.objectKey(serverID, fileName), minio.StatObjectOptions{})
-	return err == nil
-}
-
 // Delete removes a backup from the bucket; a missing object is not an error
 func Delete(ctx context.Context, c Config, serverID, fileName string) error {
 	client, err := c.client()
@@ -185,18 +175,35 @@ func List(ctx context.Context, c Config, serverID string) ([]Object, error) {
 	return result, nil
 }
 
-// Test checks the settings by writing, reading and deleting a small object
+// Reachable checks that the bucket answers and exists, without writing anything
+func Reachable(ctx context.Context, c Config) error {
+	client, err := c.client()
+	if err != nil {
+		return err
+	}
+	return bucketExists(ctx, client, c.Bucket)
+}
+
+func bucketExists(ctx context.Context, client *minio.Client, name string) error {
+	exists, err := client.BucketExists(ctx, name)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return fmt.Errorf("the bucket %q does not exist", name)
+	}
+	return nil
+}
+
+// Test checks the settings: the bucket must exist, and a small object is written and then
+// deleted. Reading is not tried, so a key that may write but not read still passes.
 func Test(ctx context.Context, c Config) error {
 	client, err := c.client()
 	if err != nil {
 		return err
 	}
-	exists, err := client.BucketExists(ctx, c.Bucket)
-	if err != nil {
+	if err = bucketExists(ctx, client, c.Bucket); err != nil {
 		return err
-	}
-	if !exists {
-		return fmt.Errorf("the bucket %q does not exist", c.Bucket)
 	}
 	key := c.objectKey(".aether-test", fmt.Sprintf("probe-%d", time.Now().UnixNano()))
 	content := []byte("aether panel off-site backup test")

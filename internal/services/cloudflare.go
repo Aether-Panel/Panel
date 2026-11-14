@@ -5,13 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 )
 
 // CloudflareAPIBase is Cloudflare's REST API v4
@@ -24,7 +25,10 @@ const cloudflareTimeout = 15 * time.Second
 const cloudflareZonesPath = "/zones/"
 
 // ErrCloudflareNotConfigured is returned when the token or the zone is missing
-var ErrCloudflareNotConfigured = errors.New("faltan el token de la API o el ID de zona de Cloudflare")
+var ErrCloudflareNotConfigured = skypanel.CreateError("the Cloudflare API token or zone ID is missing", "ErrCloudflareNotConfigured")
+
+// errCloudflareZoneID is returned when the zone ID does not look like one
+var errCloudflareZoneID = skypanel.CreateError("the Cloudflare zone ID must be 32 hexadecimal characters", "ErrCloudflareZoneID")
 
 // cloudflareID is the shape of zone and record IDs; anything else is refused before it reaches a URL
 var cloudflareID = regexp.MustCompile(`^[a-fA-F0-9]{32}$`)
@@ -84,10 +88,24 @@ type CloudflareError struct {
 }
 
 func (e *CloudflareError) Error() string {
-	if e.Code != 0 {
-		return fmt.Sprintf("Cloudflare respondió: %s (código %d)", e.Message, e.Code)
+	return e.panelError().Error()
+}
+
+// As lets the API answer the refusal as a coded error, which the page shows in the viewer's
+// language with Cloudflare's own message inside
+func (e *CloudflareError) As(target interface{}) bool {
+	panelErr, ok := target.(**skypanel.Error)
+	if ok {
+		*panelErr = e.panelError()
 	}
-	return "Cloudflare respondió: " + e.Message
+	return ok
+}
+
+func (e *CloudflareError) panelError() *skypanel.Error {
+	if e.Code != 0 {
+		return skypanel.ErrCloudflareRefusedCode(e.Message, e.Code)
+	}
+	return skypanel.ErrCloudflareRefused(e.Message)
 }
 
 // IsCloudflareNotFound reports whether the API said the zone or record does not exist
@@ -146,7 +164,7 @@ func (cf *Cloudflare) UpdateRecord(ctx context.Context, id string, record Cloudf
 		return updated, err
 	}
 	if !cloudflareID.MatchString(id) {
-		return updated, fmt.Errorf("ID de registro DNS no válido: %q", id)
+		return updated, skypanel.ErrCloudflareRecordID(id)
 	}
 	record.ID = ""
 	err := cf.do(ctx, http.MethodPut, cloudflareZonesPath+cf.ZoneID+"/dns_records/"+id, record, &updated)
@@ -159,7 +177,7 @@ func (cf *Cloudflare) DeleteRecord(ctx context.Context, id string) error {
 		return err
 	}
 	if !cloudflareID.MatchString(id) {
-		return fmt.Errorf("ID de registro DNS no válido: %q", id)
+		return skypanel.ErrCloudflareRecordID(id)
 	}
 	err := cf.do(ctx, http.MethodDelete, cloudflareZonesPath+cf.ZoneID+"/dns_records/"+id, nil, nil)
 	if IsCloudflareNotFound(err) {
@@ -178,7 +196,7 @@ func (cf *Cloudflare) Verify(ctx context.Context, domain string) (string, error)
 	zoneName := strings.ToLower(strings.TrimSuffix(zone.Name, "."))
 	domain = strings.ToLower(strings.Trim(strings.TrimSpace(domain), "."))
 	if domain != "" && domain != zoneName && !strings.HasSuffix(domain, "."+zoneName) {
-		return zoneName, fmt.Errorf("el dominio %s no pertenece a la zona %s", domain, zoneName)
+		return zoneName, skypanel.ErrCloudflareDomainNotInZone(domain, zoneName)
 	}
 	if domain == "" {
 		domain = zoneName
@@ -205,7 +223,7 @@ func (cf *Cloudflare) check() error {
 		return ErrCloudflareNotConfigured
 	}
 	if !cloudflareID.MatchString(cf.ZoneID) {
-		return errors.New("el ID de zona de Cloudflare debe tener 32 caracteres hexadecimales")
+		return errCloudflareZoneID
 	}
 	return nil
 }
@@ -243,13 +261,13 @@ func (cf *Cloudflare) do(ctx context.Context, method, path string, body, out int
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return cf.scrub(fmt.Errorf("no se pudo contactar con Cloudflare: %w", err))
+		return skypanel.ErrCloudflareUnreachable(cf.scrubText(err.Error()))
 	}
 	defer resp.Body.Close()
 
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return cf.scrub(fmt.Errorf("no se pudo leer la respuesta de Cloudflare: %w", err))
+		return skypanel.ErrCloudflareBadAnswer(cf.scrubText(err.Error()))
 	}
 
 	var envelope cloudflareEnvelope
@@ -261,7 +279,7 @@ func (cf *Cloudflare) do(ctx context.Context, method, path string, body, out int
 			cfErr.Message = envelope.Errors[0].Message
 		}
 		if cfErr.Message == "" {
-			cfErr.Message = "respuesta inesperada"
+			cfErr.Message = "unexpected answer"
 		}
 		cfErr.Message = cf.scrubText(cfErr.Message)
 		return cfErr
@@ -269,7 +287,7 @@ func (cf *Cloudflare) do(ctx context.Context, method, path string, body, out int
 
 	if out != nil && len(envelope.Result) > 0 {
 		if err := json.Unmarshal(envelope.Result, out); err != nil {
-			return fmt.Errorf("respuesta de Cloudflare no válida: %w", err)
+			return skypanel.ErrCloudflareBadAnswer(err.Error())
 		}
 	}
 	return nil

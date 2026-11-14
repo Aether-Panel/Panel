@@ -4,6 +4,7 @@ import { forwardRef } from 'react';
 import type { Icon, IconProps } from '@phosphor-icons/react';
 import {
     ArchiveIcon,
+    ArrowBendDownRightIcon,
     ArrowCircleUpIcon,
     ArrowClockwiseIcon,
     ArrowCounterClockwiseIcon,
@@ -49,6 +50,7 @@ import {
     CrownIcon,
     CubeIcon,
     DatabaseIcon,
+    DotsSixVerticalIcon,
     DotsThreeIcon,
     DownloadSimpleIcon,
     EnvelopeIcon,
@@ -76,6 +78,8 @@ import {
     GaugeIcon,
     GearSixIcon,
     GitBranchIcon,
+    GithubLogoIcon,
+    LinkBreakIcon,
     GitDiffIcon,
     GlobeIcon,
     GlobeSimpleIcon,
@@ -176,6 +180,7 @@ export const Blocks = panelIcon(CubeIcon);
 export const BookOpenText = panelIcon(BookOpenTextIcon);
 export const Bot = panelIcon(RobotIcon);
 export const Box = panelIcon(CubeIcon);
+export const Braces = panelIcon(BracketsCurlyIcon);
 export const CalendarClock = panelIcon(CalendarCheckIcon);
 export const Check = panelIcon(CheckIcon);
 export const CheckCircle2 = panelIcon(CheckCircleIcon);
@@ -195,6 +200,8 @@ export const Coffee = panelIcon(CoffeeIcon);
 export const Copy = panelIcon(CopyIcon);
 export const CopyPlus = panelIcon(CopySimpleIcon);
 export const CornerDownLeft = panelIcon(ArrowElbowDownLeftIcon);
+// moving files to another folder
+export const MoveTo = panelIcon(ArrowBendDownRightIcon);
 export const Cpu = panelIcon(CpuIcon);
 export const Crown = panelIcon(CrownIcon);
 export const Database = panelIcon(DatabaseIcon);
@@ -225,6 +232,9 @@ export const FolderPlus = panelIcon(FolderSimplePlusIcon);
 export const Gamepad2 = panelIcon(GameControllerIcon);
 export const Gauge = panelIcon(GaugeIcon);
 export const GitBranch = panelIcon(GitBranchIcon);
+export const Github = panelIcon(GithubLogoIcon);
+export const GripVertical = panelIcon(DotsSixVerticalIcon);
+export const Unlink = panelIcon(LinkBreakIcon);
 export const GitCompareArrows = panelIcon(GitDiffIcon);
 export const Globe = panelIcon(GlobeSimpleIcon);
 export const Globe2 = panelIcon(GlobeIcon);

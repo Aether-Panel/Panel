@@ -31,7 +31,8 @@ export function sha256Hex(text: string): string {
     // message + 0x80 + zero padding + 64-bit length, in 64-byte blocks
     const blocks = Math.ceil((bytes + 9) / 64);
     const data = new Uint8Array(blocks * 64);
-    for (let i = 0; i < bytes; i++) data[i] = text.charCodeAt(i) & 0xff;
+    // codePointAt equals charCodeAt for ASCII, the only input here (hex salt + decimal number)
+    for (let i = 0; i < bytes; i++) data[i] = (text.codePointAt(i) ?? 0) & 0xff;
     data[bytes] = 0x80;
     const bits = bytes * 8;
     const end = data.length;
@@ -40,6 +41,8 @@ export function sha256Hex(text: string): string {
     data[end - 2] = (bits >>> 8) & 0xff;
     data[end - 1] = bits & 0xff;
 
+    // `>>> 0` wraps every sum to 32 bits, as SHA-256 needs. The words are kept unsigned rather
+    // than signed, which changes nothing: the bits are the same and the output is read unsigned.
     let h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a;
     let h4 = 0x510e527f, h5 = 0x9b05688c, h6 = 0x1f83d9ab, h7 = 0x5be0cd19;
 
@@ -52,21 +55,29 @@ export function sha256Hex(text: string): string {
             const a = W[i - 15], b = W[i - 2];
             const s0 = ((a >>> 7) | (a << 25)) ^ ((a >>> 18) | (a << 14)) ^ (a >>> 3);
             const s1 = ((b >>> 17) | (b << 15)) ^ ((b >>> 19) | (b << 13)) ^ (b >>> 10);
-            W[i] = (W[i - 16] + s0 + W[i - 7] + s1) | 0;
+            W[i] = (W[i - 16] + s0 + W[i - 7] + s1) >>> 0;
         }
         let a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7;
         for (let i = 0; i < 64; i++) {
             const S1 = ((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7));
-            const t1 = (h + S1 + ((e & f) ^ (~e & g)) + K[i] + W[i]) | 0;
+            const t1 = (h + S1 + ((e & f) ^ (~e & g)) + K[i] + W[i]) >>> 0;
             const S0 = ((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10));
-            const t2 = (S0 + ((a & b) ^ (a & c) ^ (b & c))) | 0;
-            h = g; g = f; f = e; e = (d + t1) | 0;
-            d = c; c = b; b = a; a = (t1 + t2) | 0;
+            const t2 = (S0 + ((a & b) ^ (a & c) ^ (b & c))) >>> 0;
+            h = g; g = f; f = e; e = (d + t1) >>> 0;
+            d = c; c = b; b = a; a = (t1 + t2) >>> 0;
         }
-        h0 = (h0 + a) | 0; h1 = (h1 + b) | 0; h2 = (h2 + c) | 0; h3 = (h3 + d) | 0;
-        h4 = (h4 + e) | 0; h5 = (h5 + f) | 0; h6 = (h6 + g) | 0; h7 = (h7 + h) | 0;
+        h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0; h3 = (h3 + d) >>> 0;
+        h4 = (h4 + e) >>> 0; h5 = (h5 + f) >>> 0; h6 = (h6 + g) >>> 0; h7 = (h7 + h) >>> 0;
     }
     return [h0, h1, h2, h3, h4, h5, h6, h7].map((v) => (v >>> 0).toString(16).padStart(8, '0')).join('');
+}
+
+/** The first number in [start, last] that solves the challenge, or null when none does. */
+function findInRange(ch: Challenge, start: number, last: number): number | null {
+    for (let n = start; n <= last; n++) {
+        if (sha256Hex(ch.salt + n) === ch.challenge) return n;
+    }
+    return null;
 }
 
 /**
@@ -75,21 +86,23 @@ export function sha256Hex(text: string): string {
  */
 export async function solveChallenge(ch: Challenge, signal?: AbortSignal): Promise<string> {
     const STEP = 4000;
-    for (let start = 0; start <= ch.maxnumber; start += STEP) {
+    // One chunk at a time, each after the previous one has yielded: the chunks must run in
+    // order and never together, or the page would freeze while they search.
+    const searchFrom = async (start: number): Promise<string> => {
+        if (start > ch.maxnumber) throw new Error('challenge has no solution');
         if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-        const last = Math.min(start + STEP - 1, ch.maxnumber);
-        for (let n = start; n <= last; n++) {
-            if (sha256Hex(ch.salt + n) === ch.challenge) {
-                return btoa(JSON.stringify({
-                    algorithm: ch.algorithm,
-                    challenge: ch.challenge,
-                    number: n,
-                    salt: ch.salt,
-                    signature: ch.signature,
-                }));
-            }
+        const n = findInRange(ch, start, Math.min(start + STEP - 1, ch.maxnumber));
+        if (n !== null) {
+            return btoa(JSON.stringify({
+                algorithm: ch.algorithm,
+                challenge: ch.challenge,
+                number: n,
+                salt: ch.salt,
+                signature: ch.signature,
+            }));
         }
         await new Promise((resolve) => setTimeout(resolve, 0));
-    }
-    throw new Error('challenge has no solution');
+        return searchFrom(start + STEP);
+    };
+    return searchFrom(0);
 }

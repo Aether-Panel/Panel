@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
-import { Archive, Plus, Download, RotateCcw, Trash2, Loader2, Clock, Cloud, HardDrive, ShieldCheck, TriangleAlert } from '@/components/icons';
+import { Archive, Plus, Download, RotateCcw, Trash2, Loader2, Clock, Cloud, CloudUpload, HardDrive, ShieldCheck, TriangleAlert } from '@/components/icons';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
 import { cn, formatBytes } from '@/lib/utils';
+import OffsiteCard from './offsite-card';
 
 type BackupInfo = {
   id: number;
@@ -25,19 +26,23 @@ type BackupInfo = {
   location?: string;
 };
 
-/** Backups made by scheduled tasks; the node names their files with this prefix. */
-const isAutomatic = (backup: BackupInfo) => backup.fileName.startsWith('auto-');
-/** The name the panel stores for them, shown translated instead. */
+/** Each server's periodic copy, made straight to the bucket; the node names its files with this prefix. */
+const isPeriodic = (backup: BackupInfo) => backup.fileName.startsWith('offsite-');
+/** Backups nobody made by hand: those of scheduled tasks ("auto-") and the periodic copies. */
+const isAutomatic = (backup: BackupInfo) => backup.fileName.startsWith('auto-') || isPeriodic(backup);
+/** The names the panel stores for them, shown translated instead. */
 const AUTOMATIC_BACKUP_NAME = 'Automatic backup';
+const PERIODIC_BACKUP_NAME = 'Periodic backup (S3)';
 /** Restore points: quick backups taken before risky steps, named "restore-<reason>-<id>". */
 const restoreReason = (backup: BackupInfo) =>
   backup.fileName.startsWith('restore-') ? backup.fileName.split('-')[1] ?? 'other' : null;
-const RESTORE_REASONS = new Set(['plugin', 'version', 'restore', 'modpack']);
+const RESTORE_REASONS = new Set(['plugin', 'version', 'restore', 'modpack', 'github']);
 
-/** The title a backup reads by: its restore reason, the translated automatic name, or its own name. */
+/** The title a backup reads by: its restore reason, the translated automatic or periodic name, or its own name. */
 function backupTitle(backup: BackupInfo, t: (key: string) => string): string {
   const reason = restoreReason(backup);
   if (reason) return t(`servers.backups.restorePoint.reasons.${RESTORE_REASONS.has(reason) ? reason : 'other'}`);
+  if (isPeriodic(backup) && backup.name === PERIODIC_BACKUP_NAME) return t('servers.backups.offsite.periodic.name');
   if (isAutomatic(backup) && backup.name === AUTOMATIC_BACKUP_NAME) return t('servers.backups.automatic.name');
   return backup.name;
 }
@@ -227,7 +232,13 @@ export default function BackupsView({ serverId }: Readonly<BackupsViewProps>) {
                       <h4 className="truncate text-[15px] font-semibold leading-tight">
                         {backupTitle(backup, t)}
                       </h4>
-                      {isAutomatic(backup) && <Badge variant="secondary" className="shrink-0">{t('servers.backups.automatic.badge')}</Badge>}
+                      {isPeriodic(backup) && (
+                        <Badge variant="secondary" className="shrink-0 gap-1" title={t('servers.backups.offsite.periodic.hint')}>
+                          <CloudUpload className="h-3 w-3" aria-hidden="true" />
+                          {t('servers.backups.offsite.periodic.badge')}
+                        </Badge>
+                      )}
+                      {isAutomatic(backup) && !isPeriodic(backup) && <Badge variant="secondary" className="shrink-0">{t('servers.backups.automatic.badge')}</Badge>}
                       {restoreReason(backup) && (
                         <Badge variant="outline" className="shrink-0 gap-1 border-success/40 text-success" title={t('servers.backups.restorePoint.hint')}>
                           <ShieldCheck className="h-3 w-3" aria-hidden="true" />
@@ -287,7 +298,9 @@ export default function BackupsView({ serverId }: Readonly<BackupsViewProps>) {
   }
 
   return (
-    <div className="mt-6">
+    <div className="mt-6 space-y-6">
+      <OffsiteCard serverId={serverId} />
+
       <Card>
         <CardHeader className="flex flex-col gap-4 space-y-0 border-b border-border/50 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
           <div className="min-w-0 space-y-1">
@@ -359,15 +372,25 @@ export default function BackupsView({ serverId }: Readonly<BackupsViewProps>) {
 }
 
 /**
- * How much room the backups take: the total, and a bar split by backup (automatic ones in
- * a lighter tone) so the big ones stand out.
+ * How much room the backups take on the node: the total, and a bar split by backup (automatic
+ * and periodic ones in a lighter tone) so the big ones stand out. Copies kept only in the
+ * bucket are counted apart.
  */
 function BackupUsage({ backups, t }: Readonly<{ backups: BackupInfo[]; t: (key: string, options?: Record<string, string | number>) => string }>) {
-  const sized = backups.filter((b) => (b.fileSize ?? 0) > 0);
+  // A copy that lives only in the bucket takes no room on the node, so it stays out of the
+  // total and the bar; it is mentioned apart so it doesn't vanish from the summary.
+  const onNode = backups.filter((b) => b.location !== 'offsite');
+  const sized = onNode.filter((b) => (b.fileSize ?? 0) > 0);
   const total = sized.reduce((sum, b) => sum + (b.fileSize ?? 0), 0);
-  if (total === 0) return null;
+  const offsiteOnly = backups.length - onNode.length;
+  if (total === 0 && offsiteOnly === 0) return null;
   const largest = sized.reduce((max, b) => Math.max(max, b.fileSize ?? 0), 0);
   const offsite = backups.filter((b) => b.location === 'both' || b.location === 'offsite').length;
+  // the off-site counts take the accent; the largest-copy note stays muted
+  const notes: { key: string; text: string; accent: boolean }[] = [];
+  if (largest > 0) notes.push({ key: 'largest', text: t('servers.backups.usage.largest', { size: formatBytes(largest) }), accent: false });
+  if (offsite > 0) notes.push({ key: 'offsite', text: t('servers.backups.usage.offsite', { count: offsite }), accent: true });
+  if (offsiteOnly > 0) notes.push({ key: 'offsiteOnly', text: t('servers.backups.usage.offsiteOnly', { count: offsiteOnly }), accent: true });
 
   return (
     <div className="space-y-3 border-b border-border/50 px-5 py-4 md:px-6">
@@ -377,23 +400,29 @@ function BackupUsage({ backups, t }: Readonly<{ backups: BackupInfo[]; t: (key: 
           <span className="font-semibold tabular-nums text-foreground">{formatBytes(total)}</span>
         </p>
         <p className="text-xs text-muted-foreground">
-          {t('servers.backups.usage.largest', { size: formatBytes(largest) })}
-          {offsite > 0 && <> · <span className="text-primary-bright">{t('servers.backups.usage.offsite', { count: offsite })}</span></>}
+          {notes.map((note, i) => (
+            <span key={note.key}>
+              {i > 0 && ' · '}
+              <span className={note.accent ? 'text-primary-bright' : undefined}>{note.text}</span>
+            </span>
+          ))}
         </p>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-secondary/80" role="img" aria-label={`${t('servers.backups.usage.label')} ${formatBytes(total)}`}>
-        {/* the segments slide in together, like the panel's other meters */}
-        <div className="meter-grow flex h-full w-full gap-0.5">
-          {sized.map((backup) => (
-            <span
-              key={backup.id}
-              title={`${backup.fileName} · ${formatBytes(backup.fileSize ?? 0)}`}
-              className={cn('h-full transition-[width] duration-500 ease-panel', isAutomatic(backup) ? 'bg-primary/50' : 'bg-primary')}
-              style={{ width: `${((backup.fileSize ?? 0) / total) * 100}%` }}
-            />
-          ))}
+      {total > 0 && (
+        <div className="h-2 w-full overflow-hidden rounded-full bg-secondary/80" role="img" aria-label={`${t('servers.backups.usage.label')} ${formatBytes(total)}`}>
+          {/* the segments slide in together, like the panel's other meters */}
+          <div className="meter-grow flex h-full w-full gap-0.5">
+            {sized.map((backup) => (
+              <span
+                key={backup.id}
+                title={`${backup.fileName} · ${formatBytes(backup.fileSize ?? 0)}`}
+                className={cn('h-full transition-[width] duration-500 ease-panel', isAutomatic(backup) ? 'bg-primary/50' : 'bg-primary')}
+                style={{ width: `${((backup.fileSize ?? 0) / total) * 100}%` }}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

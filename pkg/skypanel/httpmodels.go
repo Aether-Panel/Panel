@@ -57,6 +57,15 @@ type DaemonRunning struct {
 	Message string `json:"message"`
 } // @name DaemonRunning
 
+// NodeSettingsState is what a node answers on GET /daemon/settings: the keys of the settings
+// the panel hands it that this node knows (config.NodeSettingsKeys) and the hash of their
+// current values (config.NodeSettingsHashFor), never the values, which include secrets. A
+// panel of another version hashes its own values for the keys both know and compares.
+type NodeSettingsState struct {
+	Hash string   `json:"hash"`
+	Keys []string `json:"keys"`
+} // @name NodeSettingsState
+
 type ServerTasks struct {
 	Tasks map[string]ServerTask `json:"tasks"`
 } // @name ServerTasks
@@ -96,6 +105,7 @@ type BackupFile struct {
 	FileName string    `json:"fileName"`
 	Size     int64     `json:"size"`
 	ModTime  time.Time `json:"modTime"`
-	// Location is "local", "offsite" or "both"
+	// Location is "local", "offsite" or "both"; the node's list also gives "failed" for a
+	// backup made by hand whose archive could not be written
 	Location string `json:"location"`
 } // @name BackupFile

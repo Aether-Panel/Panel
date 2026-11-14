@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -90,7 +91,7 @@ func getsTemplatesForRepo(c *gin.Context) {
 
 // @Summary Add repo
 // @Description Adds a new repo to the service
-// @Param repo body models.TemplateRepo true "Repo information"
+// @Param repo body templateRepoInput true "Repo information; pat, username, password and sshKey are optional and never returned"
 // @Success 200 {object} models.TemplateRepo
 // @Failure 400 {object} skypanel.ErrorResponse
 // @Failure 500 {object} skypanel.ErrorResponse
@@ -98,12 +99,13 @@ func getsTemplatesForRepo(c *gin.Context) {
 // @Router /api/templates [post]
 // @Security OAuth2Application[templates.repo.create]
 func addRepo(c *gin.Context) {
-	var repo models.TemplateRepo
-	err := c.BindJSON(&repo)
+	var input templateRepoInput
+	err := c.BindJSON(&input)
 
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
+	repo := input.toRepo()
 
 	if repo.Name == "" {
 		response.HandleError(c, skypanel.ErrFieldRequired("repoName"), http.StatusBadRequest)
@@ -113,7 +115,7 @@ func addRepo(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	ts := &services.Template{DB: db}
 
-	err = ts.AddRepo(&repo)
+	err = ts.AddRepo(repo)
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -122,10 +124,11 @@ func addRepo(c *gin.Context) {
 }
 
 // @Summary Delete repo
-// @Description Deletes a repo from the service
+// @Description Deletes a repo from the service. Refused while a store product finds its template only in this repo.
 // @Param repo path uint true "Repo Id"
 // @Success 204 {object} nil
 // @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 409 {object} skypanel.ErrorResponse "ErrTemplateRepoInUse: products use templates only this repo has"
 // @Failure 500 {object} skypanel.ErrorResponse
 // @Tags Templates
 // @Router /api/templates/{repo} [delete]
@@ -140,7 +143,10 @@ func deleteRepo(c *gin.Context) {
 	ts := &services.Template{DB: db}
 
 	err = ts.DeleteRepo(repoID)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
+	if errors.Is(err, skypanel.ErrTemplateRepoInUse(nil)) {
+		response.HandleError(c, err, http.StatusConflict)
+		return
+	} else if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -178,6 +184,7 @@ func getTemplateFromRepo(c *gin.Context) {
 // @Summary Adds or updates a template
 // @Success 204 {object} nil
 // @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 413 {object} skypanel.ErrorResponse
 // @Failure 500 {object} skypanel.ErrorResponse
 // @Param template body skypanel.Server true "Template"
 // @Param name path string true "Template name"
@@ -189,8 +196,23 @@ func putTemplate(c *gin.Context) {
 	ts := &services.Template{DB: db}
 
 	templateName := c.Param("name")
+
+	// the body is stored whole, unknown keys included, so it gets the same cap as an upload
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxTemplateFileSize)
+	// the body is checked as a server definition, as always, and then stored as written:
+	// decoding it into skypanel.Server would sort the variables and drop unknown fields
+	body, err := io.ReadAll(c.Request.Body)
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		response.HandleError(c, skypanel.CreateError("the template is larger than 2 MB", "ErrTemplateTooLarge"), http.StatusRequestEntityTooLarge)
+		return
+	}
+	if response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+	c.Request.Body = io.NopCloser(bytes.NewReader(body))
 	templateRequest := skypanel.Server{}
-	err := c.MustBindWith(&templateRequest, binding.JSON)
+	err = c.MustBindWith(&templateRequest, binding.JSON)
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
@@ -204,7 +226,11 @@ func putTemplate(c *gin.Context) {
 		return
 	}
 
-	template.Server = templateRequest
+	// only a JSON null gets this far without being an object
+	err = template.SetDefinition(body)
+	if response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
 	err = ts.Save(template)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -214,9 +240,10 @@ func putTemplate(c *gin.Context) {
 }
 
 // @Summary Deletes template
-// @Description Deletes template
+// @Description Deletes template. Refused while a store product creates its servers with it and no other repo has a template of that name.
 // @Success 204 {object} nil
 // @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 409 {object} skypanel.ErrorResponse "ErrTemplateInUse: products use this template"
 // @Failure 500 {object} skypanel.ErrorResponse
 // @Param name path string true "Template name"
 // @Tags Templates
@@ -227,10 +254,14 @@ func deleteTemplate(c *gin.Context) {
 	ts := &services.Template{DB: db}
 
 	err := ts.Delete(c.Param("name"))
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
 		c.AbortWithStatus(http.StatusNotFound)
 		return
-	} else if response.HandleError(c, err, http.StatusInternalServerError) {
+	case errors.Is(err, skypanel.ErrTemplateInUse(nil)):
+		response.HandleError(c, err, http.StatusConflict)
+		return
+	case response.HandleError(c, err, http.StatusInternalServerError):
 		return
 	}
 
@@ -311,9 +342,35 @@ func parseUploadedTemplate(fh *multipart.FileHeader) (*models.Template, error) {
 	if name == "" {
 		name = server.Type.Type
 	}
-	if server.Display == "" {
-		server.Display = name
-	}
 
-	return &models.Template{Name: name, Server: server}, nil
+	// the file is kept as written; a missing display name is added at its end
+	template := &models.Template{Name: name}
+	if err := template.SetDefinition(data); err != nil {
+		return nil, err
+	}
+	if template.Display == "" {
+		if err := template.SetField("display", name); err != nil {
+			return nil, err
+		}
+	}
+	return template, nil
+}
+
+// templateRepoInput is the body of POST /api/templates. The credentials of a private
+// repository are accepted here but never sent back: models.TemplateRepo hides them from JSON.
+type templateRepoInput struct {
+	models.TemplateRepo
+	PAT      string `json:"pat"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	SSHKey   string `json:"sshKey"`
+} // @name TemplateRepoInput
+
+func (in templateRepoInput) toRepo() *models.TemplateRepo {
+	repo := in.TemplateRepo
+	repo.PAT = in.PAT
+	repo.Username = in.Username
+	repo.Password = in.Password
+	repo.SSHKey = in.SSHKey
+	return &repo
 }

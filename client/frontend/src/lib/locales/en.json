@@ -105,7 +105,8 @@
       "done": "Anti-bot check complete",
       "failed": "The anti-bot check could not run.",
       "retry": "Retry"
-    }
+    },
+    "registerPending": "Account created. An administrator has to approve it before you can sign in."
   },
   "header": {
     "root": "Panel",
@@ -274,7 +275,25 @@
       "copySecret": "Copy secret",
       "deleteAria": "Delete client {{name}}",
       "deleteTitle": "Delete this OAuth2 client?",
-      "deleteDescription": "Applications using it lose access immediately. This can't be undone."
+      "deleteDescription": "Applications using it lose access immediately. This can't be undone.",
+      "limits": {
+        "server": "Access",
+        "allServers": "My whole account (all my servers)",
+        "allServersHint": "The client can do everything your account can. Use it only for your own tools.",
+        "oneServerHint": "The client can only act on this server. Recommended for outside services, such as a game panel or a bot.",
+        "permissions": "Permissions on that server",
+        "everything": "Everything I can do there",
+        "groups": {
+          "power": "Start, stop and see the status",
+          "stats": "See CPU, memory and disk",
+          "console": "See the console and send commands",
+          "files": "See and edit files",
+          "data": "See the settings (variables)",
+          "backups": "See and create backups"
+        },
+        "limitedTo": "Only the server {{server}}",
+        "wholeAccount": "Whole account"
+      }
     },
     "messages": {
       "infoChanged": "Your information has been changed",
@@ -327,7 +346,7 @@
       "status": {
         "serversActive": "Active servers",
         "activeOf": "{{online}} of {{total}}",
-        "health": "Overall health",
+        "health": "Running time (30 days)",
         "network": "Network traffic",
         "live": "Live"
       },
@@ -338,6 +357,8 @@
         "avgOfServersOne": "average of 1 server",
         "avgOfNodes": "average of {{count}} nodes",
         "avgOfNodesOne": "average of 1 node",
+        "ofNode": "node {{name}}",
+        "ofLocalNode": "local node (this machine)",
         "noSamples": "No resource data yet",
         "averageCpu": "Average CPU",
         "averageMemory": "Average memory",
@@ -631,14 +652,14 @@
     },
     "fileManager": {
       "title": "File Manager",
-      "description": "Browse and manage files on this server. Click on a file name to edit it.",
+      "description": "Browse and manage the files on this server. Click a file to edit it, and drag items onto a folder to move them.",
       "upload": "Upload",
       "new": "New",
       "newFile": "File",
       "newFolder": "Folder",
       "paste": "Paste",
       "empty": "This folder is empty.",
-      "emptyHint": "Upload a file or create a folder to get started.",
+      "emptyHint": "Drag files or folders here, upload them, or create a folder to get started.",
       "nameLabel": "Name",
       "createFileTitle": "Create File",
       "createFolderTitle": "Create Folder",
@@ -659,16 +680,28 @@
         "delete": "Delete",
         "copy": "Copy",
         "cut": "Cut",
-        "unarchive": "Unarchive"
+        "unarchive": "Unarchive",
+        "compress": "Compress",
+        "move": "Move to…",
+        "view": "View"
       },
       "deleteDialog": {
         "title": "Delete",
-        "description": "Are you sure you want to delete {{name}}?"
+        "description": "Are you sure you want to delete {{name}}?",
+        "descriptionMany": "Are you sure you want to delete the {{count}} selected items? This cannot be undone."
       },
       "renameDialog": {
         "title": "Rename",
         "description": "Rename {{name}}. You can also change the extension.",
         "placeholder": "new-name.txt"
+      },
+      "compressDialog": {
+        "title": "Compress",
+        "description": "Pack {{name}} into an archive in this folder.",
+        "descriptionMany": "Pack the {{count}} selected items into one archive in this folder.",
+        "nameLabel": "Archive name",
+        "placeholder": "backup.zip",
+        "hint": "End it in .zip, .tar or .tar.gz to pick the format; any other name gets .zip added."
       },
       "editor": {
         "title": "Editing: {{filename}}",
@@ -677,7 +710,8 @@
         "save": "Save Changes",
         "saveSuccess": "File saved successfully.",
         "saveHint": "Ctrl + S to save",
-        "loading": "Loading editor…"
+        "loading": "Loading editor…",
+        "readOnly": "Read only: you are not allowed to edit files."
       },
       "toast": {
         "createdFile": "File created successfully.",
@@ -699,12 +733,69 @@
         "deleteError": "Could not delete.",
         "renameError": "Could not rename.",
         "extractError": "Could not extract.",
-        "saveError": "Could not save."
+        "compressed": "Created {{name}}.",
+        "compressError": "Could not compress.",
+        "deletedMany": "Deleted {{count}} items.",
+        "deletedPartly": "Deleted {{count}} of {{total}} items, then it stopped: {{reason}}",
+        "saveError": "Could not save.",
+        "uploadedMany": "Uploaded {{count}} items.",
+        "uploadedPartly": "Uploaded {{count}} of {{total}} items, then it stopped: {{reason}}",
+        "dropReadError": "Could not read what you dropped.",
+        "uploadCancelled": "Upload cancelled: {{count}} of {{total}} items went up.",
+        "copiedMany": "{{count}} items copied. Go to another folder and press Paste.",
+        "cutMany": "{{count}} items cut. Go to another folder and press Paste.",
+        "moveError": "Could not move.",
+        "moveSame": "It is already in that folder.",
+        "moveInside": "A folder cannot be moved into itself.",
+        "movedTo": "Moved {{name}} to {{folder}}.",
+        "movedMany": "Moved {{count}} items to {{folder}}.",
+        "movedPartly": "Moved {{count}} of {{total}} items, then it stopped: {{reason}}",
+        "pastedPartly": "Pasted {{count}} of {{total}} items, then it stopped: {{reason}}",
+        "readError": "Could not read {{path}}.",
+        "makeFolderError": "Could not create the folder {{path}}.",
+        "writeError": "Could not write {{path}}."
       },
       "goRoot": "Go to root folder",
       "pathLabel": "Current path",
       "rowActions": "Actions for {{name}}",
-      "clearClipboard": "Clear clipboard"
+      "clearClipboard": "Clear clipboard",
+      "selection": {
+        "selectAll": "Select everything in this folder",
+        "select": "Select {{name}}",
+        "toolbar": "Selected items",
+        "countOne": "1 item selected",
+        "countMany": "{{count}} items selected",
+        "compress": "Compress selected",
+        "delete": "Delete selected",
+        "clear": "Clear selection",
+        "move": "Move"
+      },
+      "uploadFolder": "Upload folder",
+      "drop": {
+        "title": "Drop to upload to {{path}}",
+        "hint": "Files, folders or archives (.zip, .tar.gz…)"
+      },
+      "clipboardMany": "{{count}} items",
+      "moveDialog": {
+        "titleOne": "Move {{name}}",
+        "titleMany": "Move {{count}} items",
+        "description": "Choose the destination folder. It counts from the server root (~) and is created if missing.",
+        "parent": "Parent folder",
+        "root": "Root",
+        "label": "Destination folder",
+        "hint": "For example ~/plugins, or ~/ for the root.",
+        "invalid": "The folder cannot leave the server (..).",
+        "move": "Move"
+      },
+      "uploadPanel": {
+        "label": "Upload progress",
+        "title": "Uploading {{step}} of {{total}}",
+        "cancelling": "Cancelling…",
+        "bytes": "{{sent}} of {{total}}",
+        "speed": "{{speed}}/s",
+        "left": "{{time}} left"
+      },
+      "descriptionReadOnly": "Browse the files on this server. You can open and download them, but not change them: you are not allowed to edit files."
     },
     "settings": {
       "title": "Configuration",
@@ -906,6 +997,7 @@
       "hostPort": "Host and port",
       "showPassword": "Show password",
       "hidePassword": "Hide password",
+      "passwordHidden": "Only visible to users who can manage databases",
       "copyField": "Copy {{field}}",
       "createdDialog": {
         "title": "Database created",
@@ -954,12 +1046,37 @@
         "both": "Off-site",
         "bothHint": "Also kept in off-site storage.",
         "only": "Off-site only",
-        "onlyHint": "The local copy is gone; it is fetched from off-site storage when restored or downloaded."
+        "onlyHint": "The local copy is gone; it is fetched from off-site storage when restored or downloaded.",
+        "title": "Copy to S3",
+        "description": "A full copy of the server that goes straight to S3 every so often, without taking space on the node.",
+        "interval": "How often",
+        "defaultOption": "Default ({{value}})",
+        "defaultPlain": "Default",
+        "intervalOff": "Off",
+        "intervalHours": "{{count}} h",
+        "intervalDays": "{{count}} days",
+        "keep": "Keep in S3",
+        "keepHint": "1 to 50. Empty uses the default. The oldest are deleted from S3.",
+        "useDefault": "Default",
+        "last": "Last periodic copy: {{date}}",
+        "none": "No periodic copy yet.",
+        "notConfigured": "This node has no S3 set up.",
+        "readOnly": "Changing this takes the permission to create backups.",
+        "save": "Save",
+        "saved": "Saved",
+        "saveError": "The copy to S3 could not be saved.",
+        "periodic": {
+          "name": "Periodic backup (S3)",
+          "badge": "Periodic",
+          "hint": "Automatic copy of the whole server, kept in S3 only."
+        },
+        "loadError": "This server's copy to S3 could not be read: the node did not answer."
       },
       "usage": {
         "label": "Space used by backups:",
         "largest": "The largest takes {{size}}",
-        "offsite": "{{count}} also off-site"
+        "offsite": "{{count}} also off-site",
+        "offsiteOnly": "{{count}} off-site only"
       },
       "restorePoint": {
         "badge": "Restore point",
@@ -969,7 +1086,8 @@
           "version": "Before a version change",
           "restore": "Before restoring a backup",
           "other": "Restore point",
-          "modpack": "Before installing a modpack"
+          "modpack": "Before installing a modpack",
+          "github": "Before installing from GitHub"
         }
       }
     },
@@ -1051,7 +1169,18 @@
           "backup": "Backup (keeps {{count}})",
           "restartNote": "Only if it is running"
         },
-        "adminOnly": "Administrator step: {{type}}"
+        "adminOnly": "Administrator step: {{type}}",
+        "offsite": "Upload to S3",
+        "offsiteKeep": "Keep in S3",
+        "offsiteHelp": "Other runs keep the backup on the server only.",
+        "offsiteFrequencies": {
+          "never": "Never",
+          "always": "Always",
+          "weekend": "Every weekend",
+          "weekly": "Every week",
+          "biweekly": "Every 15 days",
+          "monthly": "Every month"
+        }
       },
       "dialog": {
         "createTitle": "New task",
@@ -1087,6 +1216,8 @@
       "title": "Plugins",
       "description": "{{count}} plugins installed",
       "searchPlaceholder": "Search in Modrinth (plugins, mods...)",
+      "searchPlaceholderPlugins": "Search plugins on Modrinth",
+      "searchPlaceholderMods": "Search mods on Modrinth",
       "searchButton": "Search",
       "tabs": {
         "installed": "Installed",
@@ -1147,7 +1278,9 @@
         "description": "This action is permanent. All server files and data will be erased.",
         "button": "Delete",
         "success": "Server has been deleted.",
-        "error": "Could not delete the server."
+        "error": "Could not delete the server.",
+        "leftoversTitle": "Databases left on their host",
+        "leftovers": "The server was deleted, but these MySQL databases and their users could not be removed from their host and are still there: {{databases}}. An administrator has to remove them by hand."
       },
       "deleteDialog": {
         "title": "Are you absolutely sure?",
@@ -1335,8 +1468,8 @@
         "cancelledBody": "This migration session was cancelled and its token is no longer valid. Generate a new one if you want to try again."
       },
       "import": {
-        "warningTitle": "This server will be overwritten",
-        "warningBody": "Importing from another provider stops this server and replaces its files and configuration with the incoming data. Make a backup before you continue.",
+        "warningTitle": "Files with the same name will be replaced",
+        "warningBody": "Importing copies the files from the other panel into this server's folder: files with the same name are replaced and the rest are kept. The server is not stopped and its configuration (template, variables, ports) does not change. Stop it and make a backup before you continue.",
         "urlLabel": "Origin panel URL",
         "urlHelp": "The main or API address of the provider currently hosting the server.",
         "tokenLabel": "Migration token",
@@ -1376,6 +1509,28 @@
         "importDescription": "The download will stop and the temporary files will be deleted. Files already unpacked on this server are not restored.",
         "confirm": "Yes, cancel",
         "keep": "Keep transferring"
+      },
+      "progress": {
+        "STEP_STARTING": "Starting…",
+        "STEP_VALIDATING": "Checking the connection with the origin panel…",
+        "STEP_ORIGIN_START": "Starting the transfer on the origin server…",
+        "STEP_WAITING_ARCHIVE": "Waiting for the origin to compress the files…",
+        "STEP_DOWNLOADING": "Downloading the data package from the origin…",
+        "STEP_UPLOADING": "Uploading the files to the local daemon (this can take a while)…",
+        "STEP_EXTRACTING": "Unpacking the files…",
+        "STEP_CLEANUP": "Removing temporary files…",
+        "ERROR_ORIGIN_URL": "The origin URL is not valid or points to an address that is not allowed",
+        "ERROR_ORIGIN_UNREACHABLE": "Network error while connecting to the origin",
+        "ERROR_TOKEN_REJECTED": "Invalid or expired token",
+        "ERROR_ORIGIN_BAD_ANSWER": "The origin sent an invalid answer",
+        "ERROR_ORIGIN_BAD_SESSION": "The origin returned an invalid session ID",
+        "ERROR_ORIGIN_START": "The transfer could not be started on the origin",
+        "ERROR_ORIGIN_REFUSED": "The origin refused the transfer",
+        "ERROR_DOWNLOAD_NETWORK": "Network error while downloading the package",
+        "ERROR_DOWNLOAD_REFUSED": "The origin refused the download",
+        "ERROR_DOWNLOAD_TIMEOUT": "The origin did not prepare the package in time",
+        "ERROR_UPLOAD": "The file could not be uploaded to the daemon",
+        "ERROR_EXTRACT": "The files could not be unpacked on the destination"
       }
     },
     "sftp": {
@@ -1648,6 +1803,8 @@
           "suspend": "suspended the server",
           "unsuspend": "unsuspended the server",
           "transfer": "moved the server to another node",
+          "transferFailed": "tried to move the server to another node, but it failed and was undone:",
+          "transferStartFailed": "moved the server to another node, but it could not be started there:",
           "change": "made a change to the server",
           "version": "changed the game version to",
           "clone": "cloned the server as"
@@ -1664,6 +1821,16 @@
           "archive": "compressed files into",
           "extract": "extracted",
           "restore": "restored an earlier version of"
+        },
+        "ai": {
+          "create_file": "used the assistant to create the file",
+          "create_directory": "used the assistant to create the folder",
+          "copy_path": "used the assistant to copy",
+          "edit_file": "used the assistant to edit the file",
+          "write_file": "used the assistant to overwrite the file",
+          "move_path": "used the assistant to move",
+          "rename_path": "used the assistant to rename",
+          "delete_path": "used the assistant to delete"
         },
         "plugin": {
           "install": "installed the plugin",
@@ -1738,13 +1905,70 @@
         "players": "players",
         "performance": "performance",
         "crashes": "crashes",
-        "console": "console"
+        "console": "console",
+        "files": "files"
       },
       "errors": {
-        "generic": "I could not answer right now. Try again in a moment.",
         "limit": "You asked a lot of questions in a row. Wait a few minutes and try again.",
         "notConfigured": "The AI is not set up. An administrator can add the Gemini key in Settings.",
-        "noPermission": "You need access to this server's console to use the assistant."
+        "noPermission": "You need access to this server's console to use the assistant.",
+        "expired": "This request expired. Ask again.",
+        "title": "What you asked for could not be done",
+        "retry": "Try again",
+        "changesKept": "Before it stopped it made the changes marked as done below; they stay and are in the activity log.",
+        "reasons": {
+          "offline": "There is no internet connection. Check your connection and try again.",
+          "connection": "The connection to the panel was lost before the answer arrived. Check your connection and try again.",
+          "panelUnavailable": "The panel did not answer (code {{status}}). It may be restarting or updating; wait a moment and try again.",
+          "session": "Your session expired. Sign in again.",
+          "status": "The panel answered with an unexpected error (code {{status}}).",
+          "notConfigured": "The AI is not set up. An administrator can add the Gemini key in Settings.",
+          "keyRejected": "Gemini rejected the API key: it is invalid, restricted, or the API is not enabled. An administrator must check it in Settings → General.",
+          "quota": "The Gemini key reached its usage limit. Wait a little or check the key's plan in Google AI Studio.",
+          "unavailable": "Gemini is overloaded or unavailable right now; the panel tried 3 times. Try again in a moment.",
+          "unreachable": "The panel could not connect to Gemini. Check the internet connection of the panel's machine.",
+          "rejected": "Gemini rejected the request. The exact reason is in the panel's log.",
+          "unreadable": "Gemini sent an answer that could not be read. Try again.",
+          "empty": "Gemini answered with nothing. Try again or put the request in other words.",
+          "tooLong": "The answer did not fit in Gemini's limit. Ask for the task in parts, for example one file at a time.",
+          "blocked": "Gemini refused to answer because of its safety filters. Rephrase the request.",
+          "malformed": "Gemini tried an operation that could not be read. Try again.",
+          "timeout": "The assistant took too long and stopped. Ask for the task in parts.",
+          "failed": "The assistant failed with an internal error. The reason is in the panel's log."
+        }
+      },
+      "steps": {
+        "label": "What the assistant did",
+        "status": {
+          "done": "Done",
+          "failed": "Failed",
+          "pending": "Waiting",
+          "declined": "Declined",
+          "refused": "Not allowed"
+        }
+      },
+      "pending": {
+        "title": "The assistant wants to:",
+        "description": "Nothing changes until you approve. Untick anything you do not want.",
+        "destructive": "Deletes or replaces data",
+        "approve": "Approve",
+        "declineAll": "Decline all",
+        "working": "Carrying out the approved changes…",
+        "inputLocked": "Approve or decline the changes above first"
+      },
+      "tools": {
+        "list_directory": "Look at the folder {{path}}",
+        "read_file": "Read {{path}}",
+        "file_info": "Check {{path}}",
+        "search_files": "Search in {{path}}",
+        "create_file": "Create the file {{path}}",
+        "create_directory": "Create the folder {{path}}",
+        "copy_path": "Copy {{path}} to {{dest}}",
+        "edit_file": "Edit {{path}}",
+        "write_file": "Rewrite {{path}}",
+        "move_path": "Move {{path}} to {{dest}}",
+        "rename_path": "Rename {{path}} to {{dest}}",
+        "delete_path": "Delete {{path}}"
       }
     },
     "version": {
@@ -1806,7 +2030,7 @@
       "save": "Save changes",
       "unknownField": "An option the panel does not know; it is kept as is.",
       "changed": "Changed",
-      "locked": "Managed by the panel in Settings → Address, so it matches the assigned port.",
+      "locked": "Managed by the panel in Settings → Ports, so it matches the assigned port.",
       "undo": "Undo the change to {{name}}",
       "default": "default value",
       "newWorldsOnly": "Only affects new worlds",
@@ -2422,6 +2646,60 @@
         "error": "Could not start the install."
       },
       "safety": "A restore point is saved in Backups before the install. If the modpack gives trouble, restore it and you are back where you were."
+    },
+    "github": {
+      "title": "Install from GitHub",
+      "description": "Bring a project from your GitHub account (private ones too) straight into the server, without uploading it over SFTP. The node downloads it from GitHub.",
+      "loadError": "Could not load the GitHub connection.",
+      "notConfigured": "GitHub is not set up on this panel. An administrator has to add the Client ID of an OAuth App in Settings → GitHub.",
+      "connect": "Connect GitHub",
+      "connectedToast": "GitHub connected as {{login}}",
+      "connectedAs": "Connected as",
+      "unlink": "Unlink",
+      "unlinkedToast": "GitHub account unlinked",
+      "unlinkError": "Could not unlink the account.",
+      "unlinkDialog": {
+        "title": "Unlink GitHub?",
+        "description": "The panel forgets your GitHub account on all your servers. Files already installed stay as they are. You can also revoke the access in GitHub → Settings → Applications."
+      },
+      "device": {
+        "title": "Connect your GitHub account",
+        "description": "Open GitHub, sign in and enter this code. This window closes by itself when you are done.",
+        "copy": "Copy code",
+        "open": "Open GitHub",
+        "waiting": "Waiting for you to enter the code on GitHub…",
+        "expired": "The code expired. Click «Connect GitHub» again.",
+        "denied": "The access was refused on GitHub.",
+        "failed": "Could not connect to GitHub."
+      },
+      "search": "Search repositories",
+      "reposLabel": "Your repositories",
+      "reposError": "Could not load your repositories.",
+      "noRepos": "This account has no repositories.",
+      "noMatch": "No repository matches the search.",
+      "loadMore": "Load more",
+      "private": "Private",
+      "branch": "Branch",
+      "defaultBranch": "default",
+      "install": "Install",
+      "installStarted": "Installing {{repo}}…",
+      "installError": "Could not start the install.",
+      "installDone": "{{repo}} installed",
+      "installFailed": "The GitHub install failed",
+      "installDialog": {
+        "title": "Install {{repo}} ({{branch}})?",
+        "description": "Every file of the server is deleted and only the contents of that branch remain. A restore point is saved in Backups first. The server stops if it is running and does not start again by itself.",
+        "confirm": "Delete and install"
+      },
+      "steps": {
+        "stopping": "Stopping the server…",
+        "downloading": "Downloading from GitHub… {{size}}",
+        "restorePoint": "Saving a restore point…",
+        "cleaning": "Emptying the server folder…",
+        "extracting": "Unpacking the project…",
+        "done": "Installed",
+        "failed": "Failed"
+      }
     }
   },
   "users": {
@@ -2501,6 +2779,14 @@
       "updateFailed": "Couldn't update the user.",
       "deleted": "User deleted.",
       "deleteFailed": "Couldn't delete the user."
+    },
+    "approval": {
+      "pending": "Pending",
+      "approve": "Approve",
+      "reject": "Reject and delete",
+      "approvedToast": "{{name}} can now sign in",
+      "approveFailed": "Could not approve the account.",
+      "banner": "Accounts waiting for approval: {{count}}. They cannot sign in until you approve them; reject any you do not recognise."
     }
   },
   "roles": {
@@ -2752,7 +3038,7 @@
     },
     "deployDialog": {
       "title": "Deploy Node: {{name}}",
-      "description": "This node will be used as a slave: it adds capacity to run servers on another machine while the master panel centralizes management. The server will only run the Daemon (<code>SKYPANEL_PANEL_ENABLE=false</code>) and connect to this Panel.",
+      "description": "A node adds another machine that runs servers; this panel still manages them. That machine only runs the daemon, with no web panel or database.",
       "step1": "Step 1: Install Docker on the new server.",
       "step1Description": "Install Docker Engine and the Docker Compose plugin on the machine that will become the slave node. Since AetherPanel runs in Docker, you do not need to configure an additional Panel, only the Daemon.",
       "step2": "Step 2: Create the deploy folder.",
@@ -2761,8 +3047,19 @@
       "step3Description": "Create a <code>docker-compose.yml</code> file in that folder with the following content. With <code>SKYPANEL_PANEL_ENABLE=false</code> the local Panel is disabled and the Daemon points to the master (adjust the master IP if it differs from this URL):",
       "step4": "Step 4: Start the container.",
       "step4Description": "Run the following command so the Daemon starts inside Docker and securely connects to the Master Panel:",
-      "successMessage": "Your new slave node is configured and connected. You can now assign servers to it from the Master Panel!",
-      "close": "Close"
+      "successMessage": "Connected! The node answers this panel: you can now create servers on it.",
+      "close": "Close",
+      "oneCommandTitle": "With one command (recommended)",
+      "oneCommandDescription": "Generate the command and paste it as <code>root</code> on the new machine. It installs Docker, sets the node up with its credentials, opens its ports and connects it to this panel. The code works once and for an hour.",
+      "generate": "Generate command",
+      "regenerate": "Generate another command",
+      "codeExpires": "Works once, until {{time}}. Generating another one cancels this one.",
+      "requirements": "Needs Linux (Ubuntu, Debian, Rocky, Alma, Fedora, Arch or openSUSE) with 2 GB of RAM and Internet access. The first time takes 5 to 15 minutes because it builds the image. If it fails halfway, run the same command again: no new code is needed.",
+      "showManual": "Show the manual setup",
+      "hideManual": "Hide the manual setup",
+      "loadingSecret": "Loading the node's credentials…",
+      "manualFailed": "Could not load the node's credentials",
+      "waitingMessage": "Waiting for the node to connect… When the command finishes on the new machine it shows up here (it can take 5 to 15 minutes)."
     },
     "detail": {
       "totalServers": "Total Servers",
@@ -2968,7 +3265,7 @@
   "templates": {
     "title": "Template Management",
     "description": "Select a template to create a new server.",
-    "create": "Create Template",
+    "create": "New template",
     "use": "Use Template",
     "categories": {
       "web": "Web",
@@ -2977,12 +3274,8 @@
       "other": "Other",
       "NoGroup": "No Group"
     },
-    "General": "General",
-    "RunConfig": "Run Configuration",
-    "Json": "JSON",
     "upload": "Upload",
     "uploading": "Uploading…",
-    "save": "Save template",
     "listTitle": "Available templates",
     "localDescription": "Templates stored on this panel.",
     "communityDescription": "Templates from community repositories.",
@@ -2992,7 +3285,8 @@
     },
     "actions": {
       "delete": "Delete {{name}}",
-      "openMenu": "Actions for {{name}}"
+      "openMenu": "Actions for {{name}}",
+      "duplicate": "Duplicate"
     },
     "empty": {
       "localTitle": "No local templates",
@@ -3004,25 +3298,6 @@
       "title": "Delete template",
       "description": "Delete the local template \"{{name}}\"? This can't be undone."
     },
-    "createDialog": {
-      "description": "Define the template parameters. The fields and the JSON stay in sync."
-    },
-    "fields": {
-      "name": "Name (unique ID)",
-      "namePlaceholder": "e.g. spigot",
-      "display": "Display name",
-      "displayPlaceholder": "e.g. Minecraft Spigot",
-      "type": "Category (type)",
-      "typePlaceholder": "e.g. web, game, bot",
-      "startCommand": "Start command",
-      "startCommandPlaceholder": "e.g. java -jar server.jar",
-      "stopCommand": "Stop command",
-      "stopCommandPlaceholder": "e.g. stop",
-      "workingDirectory": "Working directory",
-      "json": "Template JSON",
-      "jsonPlaceholder": "Paste or write the template JSON here…",
-      "loadFromFile": "Load from JSON file"
-    },
     "toast": {
       "uploaded": "Uploaded {{count}} templates.",
       "uploadFailed": "Couldn't upload the templates.",
@@ -3030,13 +3305,1419 @@
       "deleted": "Template \"{{name}}\" deleted.",
       "deleteFailed": "Couldn't delete the template.",
       "created": "Template created.",
-      "nameRequired": "The template must have a \"name\" field.",
-      "saveFailed": "Invalid JSON or network error.",
-      "updated": "Template updated.",
-      "loadFailed": "Couldn't load the template."
+      "saveFailed": "Couldn't save the template.",
+      "updated": "Template updated."
     },
-    "editDialog": {
-      "title": "Edit template"
+    "search": {
+      "label": "Search templates",
+      "placeholder": "Search by name, language or game…",
+      "noResultsTitle": "No template matches",
+      "noResultsDescription": "No templates for “{{query}}”. Try another name, a language (Go, PHP, C#…) or a game.",
+      "clear": "Clear search"
+    },
+    "chooser": {
+      "title": "New template",
+      "description": "Choose how to start. Nothing is saved until you press Save in the editor.",
+      "blank": {
+        "title": "Blank",
+        "description": "Start from the bare minimum and fill in each section."
+      },
+      "duplicate": {
+        "option": "Duplicate an existing one",
+        "optionDescription": "Start from a local or community template and save it as your own.",
+        "title": "Duplicate a template",
+        "description": "Pick the template to start from. The copy opens in the editor as a local template.",
+        "searchLabel": "Search for the template to duplicate",
+        "emptyTitle": "No template matches",
+        "emptyDescription": "Try another name, a language or a game.",
+        "noneTitle": "No templates yet",
+        "noneDescription": "Local and community templates will show up here.",
+        "resultsOne": "1 template",
+        "resultsMany": "{{count}} templates",
+        "searchHint": "Type to filter. Enter opens the first result; the down arrow moves into the list."
+      },
+      "import": {
+        "title": "Import a .json",
+        "description": "Open a template file in the editor to review it before saving.",
+        "failed": "Couldn't open the file in the editor."
+      },
+      "back": "Back",
+      "preset": {
+        "option": "Base template",
+        "optionDescription": "Start from a ready template for a common case: Minecraft, Steam, Node.js, Python or Docker.",
+        "title": "Choose a base template",
+        "description": "It opens in the editor without a name: give it one and adjust it before saving.",
+        "listLabel": "Base templates"
+      }
+    },
+    "editor": {
+      "breadcrumb": "Editor",
+      "newTitle": "New template",
+      "back": "Templates",
+      "descriptionNew": "A new local template: it is stored in this panel when you press Save.",
+      "descriptionLocal": "Local template \"{{name}}\".",
+      "unsaved": "Unsaved",
+      "save": "Save",
+      "download": "Download .json",
+      "saveFailed": "Couldn't save the template: {{message}}",
+      "copySuffix": "copy",
+      "views": {
+        "label": "View",
+        "form": "Form",
+        "json": "JSON",
+        "split": "Split"
+      },
+      "status": {
+        "clean": "No problems",
+        "jsonInvalid": "The JSON is not valid: fix it to save.",
+        "blocked": "Fix the marked errors to save."
+      },
+      "issues": {
+        "errorsOne": "1 error",
+        "errorsMany": "{{count}} errors",
+        "warningsOne": "1 warning",
+        "warningsMany": "{{count}} warnings"
+      },
+      "leave": {
+        "title": "Leave without saving?",
+        "description": "The changes to this template will be lost.",
+        "stay": "Keep editing",
+        "confirm": "Leave without saving"
+      },
+      "confirmErrors": {
+        "title": "Save with errors?",
+        "descriptionOne": "The template has 1 error. The panel may reject it or the installation may fail. Save it anyway?",
+        "descriptionMany": "The template has {{count}} errors. The panel may reject it or the installation may fail. Save it anyway?",
+        "confirm": "Save anyway"
+      },
+      "sections": {
+        "navLabel": "Template sections",
+        "selectLabel": "Section",
+        "info": {
+          "label": "Information",
+          "description": "What the template is called and how users see it."
+        },
+        "variables": {
+          "label": "Variables",
+          "description": "What people fill in when they create a server: port, version, password…",
+          "countLabelOne": "1 variable",
+          "countLabelMany": "{{count}} variables"
+        },
+        "install": {
+          "label": "Installation",
+          "description": "The steps that prepare the server's files on install, and the ones that clean up on uninstall.",
+          "countLabelOne": "1 step",
+          "countLabelMany": "{{count}} steps"
+        },
+        "run": {
+          "label": "Run",
+          "description": "How the server starts and stops, its folder, its environment variables and its console."
+        },
+        "environment": {
+          "label": "Environment",
+          "description": "Where the server runs: on the host or in a Docker container, and with which image."
+        },
+        "requirements": {
+          "label": "Requirements",
+          "description": "The operating system, architecture and programs the node needs."
+        },
+        "advanced": {
+          "label": "Advanced",
+          "description": "Variable groups, statistics, status query and keep-alive."
+        }
+      },
+      "info": {
+        "identity": {
+          "title": "Identity",
+          "description": "The name identifies the template in the panel; the display name is what users see."
+        },
+        "appearance": {
+          "title": "Category and icon",
+          "description": "They help people find the template in the list and when creating a server."
+        },
+        "name": {
+          "label": "Name (unique ID)",
+          "placeholder": "e.g. paper",
+          "hint": "It appears in links and is unique among local templates. Lowercase letters, digits and hyphens work best.",
+          "hintRename": "If you change it to another name, a new template is saved and \"{{name}}\" stays as it is. Changing only case or accents does not count as another name.",
+          "recheck": "Check again",
+          "recheckFailed": "Couldn't read the local templates. Try again in a moment."
+        },
+        "display": {
+          "label": "Display name",
+          "placeholder": "e.g. Minecraft Paper",
+          "hint": "What users see when they pick the template."
+        },
+        "type": {
+          "label": "Category",
+          "placeholder": "e.g. minecraft-java",
+          "hint": "Groups the template and sets its default icon in the list. You can type your own."
+        },
+        "icon": {
+          "label": "Icon",
+          "automatic": "Automatic (from the name)",
+          "hint": "The template's logo. Automatic looks it up by the template's name."
+        }
+      },
+      "json": {
+        "title": "Template JSON",
+        "valid": "Valid JSON",
+        "invalidShort": "Invalid JSON",
+        "invalid": "The JSON is not valid.",
+        "notObject": "The JSON must be an object: { … }.",
+        "keptForm": "The form keeps showing the last valid version.",
+        "formNotice": "The JSON has changes that are not valid. The form shows the last valid version; editing here discards those changes.",
+        "loading": "Loading the editor…"
+      },
+      "load": {
+        "notFound": {
+          "title": "Template not found",
+          "description": "There is no template \"{{name}}\". It may have been deleted or renamed."
+        },
+        "importMissing": {
+          "title": "Nothing to import",
+          "description": "The imported file is no longer in this tab. Import it again from the template list."
+        },
+        "loadFailed": {
+          "title": "Couldn't open the template",
+          "description": "The panel didn't answer as expected. Try again in a moment."
+        },
+        "presetMissing": {
+          "title": "That base template doesn't exist",
+          "description": "There is no base template \"{{name}}\". Go back to the list and pick another."
+        }
+      },
+      "operationCategories": {
+        "files": "Files",
+        "downloads": "Downloads",
+        "minecraft": "Games/Minecraft",
+        "steam": "Steam",
+        "runtimes": "Java/Node",
+        "system": "System",
+        "server": "Server"
+      },
+      "operations": {
+        "alterfile": {
+          "label": "Edit file",
+          "help": "Finds a text in a file and replaces every occurrence.",
+          "fields": {
+            "file": {
+              "label": "File",
+              "help": "Path of the file inside the server folder.",
+              "placeholder": "server.properties"
+            },
+            "search": {
+              "label": "Find",
+              "help": "Text to look for. With \"Regular expression\" on, a pattern.",
+              "placeholder": "server-port=25565"
+            },
+            "replace": {
+              "label": "Replace with",
+              "help": "Text that takes its place. Empty deletes what was found.",
+              "placeholder": "server-port=${port}"
+            },
+            "regex": {
+              "label": "Regular expression",
+              "help": "Reads \"Find\" as a Go regular expression; \"Replace with\" can use $1, $2…"
+            }
+          }
+        },
+        "writefile": {
+          "label": "Write file",
+          "help": "Creates a file with the given text, or overwrites it if it exists.",
+          "fields": {
+            "target": {
+              "label": "File",
+              "help": "Path of the file inside the server folder.",
+              "placeholder": "eula.txt"
+            },
+            "text": {
+              "label": "Content",
+              "help": "The whole text of the file. It can hold variables such as ${port}."
+            }
+          }
+        },
+        "mkdir": {
+          "label": "Create folder",
+          "help": "Creates a folder, and any missing parents, inside the server folder.",
+          "fields": {
+            "target": {
+              "label": "Folder",
+              "help": "Path of the folder to create.",
+              "placeholder": "plugins"
+            }
+          }
+        },
+        "move": {
+          "label": "Move or rename",
+          "help": "Moves or renames files inside the server folder.",
+          "fields": {
+            "source": {
+              "label": "Source",
+              "help": "File to move. Wildcards work (*.jar); with several, the target must be an existing folder.",
+              "placeholder": "server-*.jar"
+            },
+            "target": {
+              "label": "Target",
+              "help": "New path, or the folder they move into.",
+              "placeholder": "server.jar"
+            }
+          }
+        },
+        "extract": {
+          "label": "Extract archive",
+          "help": "Unpacks a .zip, .tar.gz or other supported archive inside the server folder.",
+          "fields": {
+            "source": {
+              "label": "Archive",
+              "help": "Path of the archive to unpack.",
+              "placeholder": "server.zip"
+            },
+            "destination": {
+              "label": "Destination folder",
+              "help": "Where its content goes. Empty means the server folder.",
+              "placeholder": "."
+            }
+          }
+        },
+        "archive": {
+          "label": "Compress",
+          "help": "Creates an archive with the given files and folders.",
+          "fields": {
+            "source": {
+              "label": "Files",
+              "help": "Paths to include, one per line.",
+              "placeholder": "world"
+            },
+            "destination": {
+              "label": "Output file",
+              "help": "Path of the archive to create; it must not exist.",
+              "placeholder": "world-backup.zip"
+            }
+          }
+        },
+        "download": {
+          "label": "Download files",
+          "help": "Downloads each URL into the server folder, named after the file in the URL.",
+          "fields": {
+            "files": {
+              "label": "URLs",
+              "help": "Addresses to download, one per line.",
+              "placeholder": "https://example.com/server.jar"
+            }
+          }
+        },
+        "githubdl": {
+          "label": "Download from GitHub",
+          "help": "Downloads a file from the latest release of a GitHub repository.",
+          "fields": {
+            "repository": {
+              "label": "Repository",
+              "help": "Owner and name of the repository.",
+              "placeholder": "lavalink-devs/Lavalink"
+            },
+            "assetMatch": {
+              "label": "Release file",
+              "help": "Part of the name of the file to download. Empty takes the release's first file.",
+              "placeholder": "Lavalink.jar"
+            },
+            "outputVariable": {
+              "label": "Store name in variable",
+              "help": "Variable that receives the downloaded file's name, for the next steps.",
+              "placeholder": "downloadedFile"
+            }
+          }
+        },
+        "scraperdl": {
+          "label": "Download latest version from a page",
+          "help": "Reads a page, finds the version with a regular expression and downloads the download URL with that version.",
+          "fields": {
+            "url": {
+              "label": "Page",
+              "help": "Address to read.",
+              "placeholder": "https://api.purpurmc.org/v2/purpur"
+            },
+            "regex": {
+              "label": "Regular expression",
+              "help": "Pattern with one group in parentheses that captures the version.",
+              "placeholder": "\"current\":\"([^\"]+)\""
+            },
+            "downloadUrl": {
+              "label": "Download URL",
+              "help": "Address of the file; ${match} is replaced with the version found.",
+              "placeholder": "https://example.com/download/${match}/server.jar"
+            },
+            "outputVariable": {
+              "label": "Store version in variable",
+              "help": "Variable that receives the version found, for the next steps.",
+              "placeholder": "resolvedVersion"
+            }
+          }
+        },
+        "mojangdl": {
+          "label": "Minecraft (Mojang)",
+          "help": "Downloads the official Minecraft Java server of the given version.",
+          "fields": {
+            "version": {
+              "label": "Version",
+              "help": "A specific version (1.21.1), \"latest\" or \"release\" for the latest stable, or \"snapshot\".",
+              "placeholder": "${version}"
+            },
+            "target": {
+              "label": "File",
+              "help": "Name the server is saved as.",
+              "placeholder": "server.jar"
+            }
+          }
+        },
+        "paperdl": {
+          "label": "PaperMC",
+          "help": "Downloads Paper or another PaperMC project (Folia, Velocity, Waterfall).",
+          "fields": {
+            "project": {
+              "label": "Project",
+              "help": "PaperMC project. Empty means Paper."
+            },
+            "minecraftVersion": {
+              "label": "Minecraft version",
+              "help": "Minecraft version, or \"latest\" for the newest the project supports.",
+              "placeholder": "${version}"
+            },
+            "build": {
+              "label": "Build",
+              "help": "Build number, or \"latest\".",
+              "placeholder": "latest"
+            },
+            "target": {
+              "label": "File",
+              "help": "Name the server is saved as.",
+              "placeholder": "server.jar"
+            }
+          }
+        },
+        "fabricdl": {
+          "label": "Fabric installer",
+          "help": "Downloads the latest Fabric installer as fabric-installer.jar; a later \"Run commands\" step runs it."
+        },
+        "forgedl": {
+          "label": "Forge installer",
+          "help": "Downloads the Minecraft Forge installer. Give the Minecraft version, the Forge version or both.",
+          "fields": {
+            "minecraftVersion": {
+              "label": "Minecraft version",
+              "help": "Without a Forge version, the latest for this Minecraft version is used.",
+              "placeholder": "1.20.1"
+            },
+            "version": {
+              "label": "Forge version",
+              "help": "Full version, such as 1.20.1-47.2.0. Empty means the latest for the Minecraft version.",
+              "placeholder": "1.20.1-47.2.0"
+            },
+            "target": {
+              "label": "File",
+              "help": "Name the installer is saved as.",
+              "placeholder": "installer.jar"
+            },
+            "outputVariable": {
+              "label": "Store version in variable",
+              "help": "Variable that receives the Forge version chosen."
+            }
+          }
+        },
+        "neoforgedl": {
+          "label": "NeoForge installer",
+          "help": "Downloads the NeoForge installer. Give the Minecraft version, the NeoForge version or both.",
+          "fields": {
+            "minecraftVersion": {
+              "label": "Minecraft version",
+              "help": "Without a NeoForge version, the latest for this Minecraft version is used.",
+              "placeholder": "1.21.1"
+            },
+            "version": {
+              "label": "NeoForge version",
+              "help": "NeoForge version. Empty means the latest for the Minecraft version.",
+              "placeholder": "21.1.77"
+            },
+            "target": {
+              "label": "File",
+              "help": "Name the installer is saved as.",
+              "placeholder": "installer.jar"
+            },
+            "outputVariable": {
+              "label": "Store version in variable",
+              "help": "Variable that receives the NeoForge version chosen."
+            }
+          }
+        },
+        "resolveforgeversion": {
+          "label": "Find Forge version",
+          "help": "Works out which Forge version applies and stores it in a variable, without downloading anything.",
+          "fields": {
+            "minecraftVersion": {
+              "label": "Minecraft version",
+              "help": "Minecraft version to find Forge for.",
+              "placeholder": "${version}"
+            },
+            "version": {
+              "label": "Forge version",
+              "help": "When given, it is used as is.",
+              "placeholder": "${forgebuild}"
+            },
+            "outputVariable": {
+              "label": "Store version in variable",
+              "help": "Variable that receives the version found."
+            }
+          }
+        },
+        "resolveneoforgeversion": {
+          "label": "Find NeoForge version",
+          "help": "Works out which NeoForge version applies and stores it in a variable, without downloading anything.",
+          "fields": {
+            "minecraftVersion": {
+              "label": "Minecraft version",
+              "help": "Minecraft version to find NeoForge for.",
+              "placeholder": "${version}"
+            },
+            "version": {
+              "label": "NeoForge version",
+              "help": "When given, it is used as is.",
+              "placeholder": "${neoforgebuild}"
+            },
+            "outputVariable": {
+              "label": "Store version in variable",
+              "help": "Variable that receives the version found."
+            }
+          }
+        },
+        "spongedl": {
+          "label": "Sponge",
+          "help": "Downloads SpongeVanilla or installs SpongeForge.",
+          "fields": {
+            "spongeType": {
+              "label": "Type",
+              "help": "Sponge edition to install.",
+              "options": {
+                "spongevanilla": "SpongeVanilla",
+                "spongeforge": "SpongeForge"
+              }
+            },
+            "minecraftVersion": {
+              "label": "Minecraft version",
+              "help": "Narrows the Sponge versions to a Minecraft version.",
+              "placeholder": "1.20.1"
+            },
+            "spongeVersion": {
+              "label": "Sponge version",
+              "help": "A specific version. Empty means the latest that matches the filters.",
+              "placeholder": "1.20.1-11.0.0"
+            },
+            "recommended": {
+              "label": "Recommended only",
+              "help": "Picks the latest version marked as recommended."
+            }
+          }
+        },
+        "curseforge": {
+          "label": "CurseForge modpack",
+          "help": "Installs the server files of a CurseForge modpack. Needs the CurseForge API key set in the panel.",
+          "fields": {
+            "projectId": {
+              "label": "Project ID",
+              "help": "Number of the project on CurseForge.",
+              "placeholder": "${projectId}"
+            },
+            "fileId": {
+              "label": "File ID",
+              "help": "A specific modpack version. Empty means the newest.",
+              "placeholder": "${fileId}"
+            },
+            "java": {
+              "label": "Java",
+              "help": "Java command that runs the modpack's installer.",
+              "placeholder": "java${javaversion}"
+            }
+          }
+        },
+        "steamgamedl": {
+          "label": "Steam game",
+          "help": "Downloads or updates a Steam game with DepotDownloader.",
+          "fields": {
+            "appId": {
+              "label": "App ID",
+              "help": "Steam app number of the dedicated server.",
+              "placeholder": "896660"
+            },
+            "username": {
+              "label": "Steam user",
+              "help": "Only for games that need a login. Empty downloads anonymously.",
+              "placeholder": "${steam_user}"
+            },
+            "password": {
+              "label": "Steam password",
+              "help": "Password of that account. Better as a variable than written here."
+            },
+            "extraArgs": {
+              "label": "Extra arguments",
+              "help": "Additional DepotDownloader options, one per line.",
+              "placeholder": "-beta"
+            }
+          }
+        },
+        "javadl": {
+          "label": "Java",
+          "help": "Installs Java (Eclipse Temurin) on the node and makes it available as java<version>, such as java21.",
+          "fields": {
+            "version": {
+              "label": "Version",
+              "help": "Java major version.",
+              "placeholder": "${javaversion}"
+            }
+          }
+        },
+        "nodejsdl": {
+          "label": "Node.js",
+          "help": "Installs Node.js on the node and makes it available as node<version> and npm<version>.",
+          "fields": {
+            "version": {
+              "label": "Version",
+              "help": "Node.js major version.",
+              "placeholder": "${nodeversion}"
+            }
+          }
+        },
+        "command": {
+          "label": "Run commands",
+          "help": "Runs commands in the server folder, one after another; it stops at the first that fails.",
+          "fields": {
+            "commands": {
+              "label": "Commands",
+              "help": "One command per line.",
+              "placeholder": "java -jar installer.jar --installServer"
+            },
+            "stdin": {
+              "label": "Command console",
+              "help": "How input reaches these commands. Rarely needed."
+            }
+          }
+        },
+        "console": {
+          "label": "Show message",
+          "help": "Writes a message to the server console, for instance with instructions.",
+          "fields": {
+            "message": {
+              "label": "Message",
+              "help": "Text shown in the console.",
+              "placeholder": "Open the link below to sign in."
+            }
+          }
+        },
+        "stdin": {
+          "label": "Send to console",
+          "help": "Sends a command to the running server's console.",
+          "fields": {
+            "command": {
+              "label": "Command",
+              "help": "What is typed into the console.",
+              "placeholder": "save-all"
+            }
+          }
+        },
+        "sleep": {
+          "label": "Wait",
+          "help": "Pauses before the next step.",
+          "fields": {
+            "duration": {
+              "label": "Duration",
+              "help": "With a unit: 30s, 5m, 1h30m.",
+              "placeholder": "30s"
+            }
+          }
+        },
+        "dockerpull": {
+          "label": "Pull Docker image",
+          "help": "Downloads a Docker image on the node.",
+          "fields": {
+            "imageName": {
+              "label": "Image",
+              "help": "Image name and tag. Use official images or ghcr.io/aether-panel ones.",
+              "placeholder": "eclipse-temurin:21"
+            }
+          }
+        },
+        "start": {
+          "label": "Start",
+          "help": "Starts the server. Scheduled tasks only."
+        },
+        "stop": {
+          "label": "Stop",
+          "help": "Stops the server and waits for it to shut down. Scheduled tasks only."
+        },
+        "restart": {
+          "label": "Restart",
+          "help": "Restarts the server if it is running. Scheduled tasks only."
+        },
+        "backup": {
+          "label": "Backup",
+          "help": "Backs up the server. Scheduled tasks only.",
+          "fields": {
+            "keep": {
+              "label": "Copies kept",
+              "help": "Older automatic backups are deleted by themselves (1 to 50)."
+            },
+            "offsite": {
+              "label": "Upload to S3",
+              "help": "How often the backup is also uploaded to off-site storage.",
+              "options": {
+                "never": "Never",
+                "always": "Always",
+                "weekend": "Every weekend",
+                "weekly": "Every week",
+                "biweekly": "Every 15 days",
+                "monthly": "Every month"
+              }
+            },
+            "offsiteKeep": {
+              "label": "Copies in S3",
+              "help": "How many of this task's backups stay in S3 (1 to 50)."
+            }
+          }
+        }
+      },
+      "validation": {
+        "required": "This field is required.",
+        "invalidType": "The value is not of the expected type.",
+        "invalidNumber": "Must be a whole number or a variable, such as ${version}.",
+        "invalidBoolean": "Must be true or false.",
+        "outOfRange": "The value is outside the allowed range.",
+        "invalidOption": "Pick one of the available options.",
+        "invalidValue": "The value is not valid.",
+        "invalidDuration": "Give a duration with a unit, such as 30s, 5m or 1h.",
+        "invalidVariableKey": "The key can only hold letters, digits, hyphens and underscores.",
+        "invalidEnvironment": "Pick an environment: host or docker.",
+        "invalidCommand": "Must be a command or a list of commands with conditions.",
+        "unknownOperation": "The node does not know this step type.",
+        "versionOrMinecraftVersion": "Give the Minecraft version, the loader version or both.",
+        "invalidInteger": "Must be a whole number.",
+        "stepNotObject": "Each step must be an object with its \"type\".",
+        "nameRequired": "Enter a name for the template.",
+        "nameTooLong": "The name can be at most 100 characters long.",
+        "nameSlash": "The name cannot contain \"/\".",
+        "nameDots": "The name cannot be \".\" or \"..\".",
+        "nameWhitespace": "The name cannot start or end with spaces.",
+        "nameControl": "The name has characters that cannot be used.",
+        "nameTaken": "There is already a local template with this name.",
+        "namesUnchecked": "Couldn't read the local templates, so there is no telling whether this name exists. Check again to save."
+      },
+      "warnings": {
+        "integerVariableValue": "Not a whole number: the node will change it without warning (text, for example, becomes 0).",
+        "noDefaultEnvironment": "The template has no default environment. \"Create server\" doesn't use it (it creates servers in Docker), but a server created from the template as it is, from the API for example, needs one.",
+        "nameCaseOnly": "The panel does not tell names apart by case or accents: when saved, the template keeps the name \"{{name}}\".",
+        "undefinedVariable": "{{token}} is not a variable of the template: the node leaves the text as it is. Create it in Variables, or ignore this if it is a shell variable.",
+        "undefinedConditionVariable": "The condition reads \"{{name}}\", which is not a variable: the step will fail when it is evaluated.",
+        "unusedVariable": "No command, step or condition uses this variable.",
+        "conditionVariableKey": "\"{{name}}\" has a hyphen or starts with a digit, so a condition cannot read it by name: write {{token}} instead.",
+        "noDefaultCommand": "Every entry has a condition: if none holds, the server has nothing to start with. Leave one without a condition as the default command.",
+        "extraDefaultCommand": "The node only uses the first entry without a condition: this one will never be used. Give it a condition or remove it.",
+        "stopCommandIgnored": "There is also a signal code, and with it the node never sends this command. Remove one of the two.",
+        "noStopMethod": "There's no stop command or signal code: on stop, the panel will send an empty line to the console and the server most likely won't stop.",
+        "thirdPartyImage": "Third-party image. The project only uses its own images (ghcr.io/aether-panel/…) or official ones, from Docker Hub (such as ubuntu or eclipse-temurin) or from the program's vendor (such as mcr.microsoft.com or steamcmd/steamcmd): a third-party image can change or vanish without notice. If a program is missing, it gets added to our images.",
+        "keepAliveFrequency": "The node can't read this frequency and won't send the command. Use a duration with a unit, such as 30s, 5m or 1h30m.",
+        "keepAliveIncomplete": "The keep-alive needs both the frequency and the command: with only one, nothing is sent.",
+        "groupUnknownVariable": "\"{{key}}\" isn't a variable of the template: the group can't show it.",
+        "noDockerEnvironment": "No supported environment is Docker. The \"Create server\" form always creates servers in Docker, so it will use the image {{image}}, which most likely lacks what the template needs. Add a Docker environment with its image."
+      },
+      "sortable": {
+        "handle": "Drag to move \"{{item}}\"",
+        "roleDescription": "sortable item",
+        "instructions": "To move an item, press space or Enter on its handle, move it with the up and down arrows and press space or Enter to drop it. Escape cancels.",
+        "picked": "Picked up \"{{item}}\". It is in position {{position}} of {{count}}.",
+        "over": "\"{{item}}\" moves to position {{position}} of {{count}}.",
+        "outside": "\"{{item}}\" is outside the list.",
+        "dropped": "Dropped \"{{item}}\" in position {{position}} of {{count}}.",
+        "cancelled": "Move cancelled: \"{{item}}\" is back in position {{position}} of {{count}}.",
+        "moveUp": "Move \"{{item}}\" up",
+        "moveDown": "Move \"{{item}}\" down",
+        "movedTo": "\"{{item}}\" is now in position {{position}} of {{count}}.",
+        "locked": "\"{{item}}\" can't be moved"
+      },
+      "insertVariable": {
+        "button": "Insert variable",
+        "noField": "First click the field you want to insert the variable into.",
+        "search": "Search variables…",
+        "empty": "No variable matches.",
+        "templateGroup": "Template variables",
+        "builtinGroup": "From the panel",
+        "builtin": {
+          "rootDir": "Server folder"
+        }
+      },
+      "variables": {
+        "add": "Add variable",
+        "countOne": "1 variable, in the order the create-server form shows it.",
+        "countMany": "{{count}} variables, in the order the create-server form shows them.",
+        "expandAll": "Open all",
+        "collapseAll": "Close all",
+        "menu": "Actions for \"{{key}}\"",
+        "duplicate": "Duplicate",
+        "empty": {
+          "title": "No variables",
+          "description": "Add the choices made by whoever creates the server, such as the port, the version or the memory. Commands and steps then use them as ${key}."
+        },
+        "undefined": {
+          "title": "The template uses these variables, but they are not defined. Click one to create it:",
+          "create": "Create the variable {{name}}"
+        },
+        "deleteConfirm": {
+          "title": "Delete \"{{key}}\"?",
+          "descriptionOne": "It is used in 1 place in the template. If you delete it, that use gets no value: {{token}} is left as it is and a condition that reads it fails.",
+          "descriptionMany": "It is used in {{count}} places in the template. If you delete it, those uses get no value: {{token}} is left as it is and a condition that reads it fails."
+        },
+        "badges": {
+          "required": "Required",
+          "internal": "Internal",
+          "pinned": "Always first"
+        },
+        "key": {
+          "label": "Key",
+          "hint": "Commands and steps write it as ${key}. Letters, digits, _ and -.",
+          "usedOne": "Used in 1 place.",
+          "usedMany": "Used in {{count}} places.",
+          "conditionUnsafe": "An \"if\" condition cannot read it by name (it has a hyphen or starts with a digit); write {{token}} there.",
+          "keyRequired": "Type a key.",
+          "keyInvalid": "Only letters, digits, hyphens and underscores, no spaces.",
+          "keyTaken": "Another variable already has this key.",
+          "renameUsesOne": "Also change its use: {{from}} → {{to}}",
+          "renameUsesMany": "Also change its {{count}} uses: {{from}} → {{to}}",
+          "pinned": "A key that is only a number always comes first in the list: it cannot be moved.",
+          "renameKeepsConditionOne": "The condition that reads it by name is not changed: a condition cannot read a key with a hyphen or a leading digit.",
+          "renameKeepsConditionMany": "The {{count}} conditions that read it by name are not changed: a condition cannot read a key with a hyphen or a leading digit.",
+          "notAppliedTitle": "Key not changed",
+          "notApplied": "\"{{draft}}\" was not applied: {{reason}} The variable is still called \"{{key}}\".",
+          "notAppliedEmpty": "A key can't be empty, so it wasn't changed: the variable is still called \"{{key}}\"."
+        },
+        "type": {
+          "label": "Type",
+          "string": "Text",
+          "integer": "Whole number",
+          "boolean": "Yes / No",
+          "option": "List of options",
+          "other": "Other: {{type}}"
+        },
+        "value": {
+          "label": "Default value",
+          "yes": "Yes",
+          "no": "No",
+          "noOptions": "Add options below to pick one.",
+          "pick": "Pick an option",
+          "notAnOption": "{{value}} (not in the list)"
+        },
+        "display": {
+          "label": "Display name",
+          "placeholder": "e.g. Server port"
+        },
+        "desc": {
+          "label": "Description",
+          "placeholder": "A sentence that helps choose the value."
+        },
+        "options": {
+          "title": "Options",
+          "hint": "What can be chosen. The value is what the template receives; the text is what users see.",
+          "valueColumn": "Value",
+          "displayColumn": "Display text",
+          "valueLabel": "Value of option {{n}}",
+          "displayLabel": "Display text of option {{n}}",
+          "valuePlaceholder": "value",
+          "displayPlaceholder": "Text users see",
+          "remove": "Remove the option \"{{item}}\"",
+          "add": "Add option",
+          "none": "No options yet.",
+          "empty": "(empty)",
+          "numbered": "option {{n}}",
+          "notOptionType": "This variable's type is \"{{type}}\", but it has options: the create-server form still shows this list.",
+          "removeAll": "Remove the options"
+        },
+        "flags": {
+          "required": {
+            "label": "Required",
+            "description": "It needs a value before the server can be created."
+          },
+          "userEdit": {
+            "label": "Editable by users",
+            "description": "The server's users can change it later in its settings. Otherwise only an administrator can."
+          },
+          "internal": {
+            "label": "Internal",
+            "description": "Not shown when creating the server or in its settings: the default value is always used."
+          }
+        }
+      },
+      "install": {
+        "title": "Install steps",
+        "empty": {
+          "title": "No install steps yet",
+          "description": "Add the steps that set up the server's files: download the game, extract it, write its configuration…"
+        },
+        "uninstall": {
+          "title": "Uninstall",
+          "optional": "(optional)",
+          "description": "Steps that run when a server is deleted, right before its files are removed. Rarely needed.",
+          "empty": {
+            "title": "No uninstall steps",
+            "description": "Deleting the server only removes its files. Add a step if something else has to happen first."
+          }
+        }
+      },
+      "steps": {
+        "add": "Add step",
+        "countOne": "1 step",
+        "countMany": "{{count}} steps",
+        "expandAll": "Expand all",
+        "collapseAll": "Collapse all",
+        "numbered": "Step {{n}}: {{name}}",
+        "stepNumber": "Step {{n}}:",
+        "menu": "Actions for \"{{step}}\"",
+        "editJson": "Edit this step's JSON",
+        "useForm": "Back to the form",
+        "insertAfter": "Insert step after",
+        "duplicate": "Duplicate",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "invalidStep": "Invalid step",
+        "unknownType": "A type the panel doesn't know",
+        "notFilled": "Not filled in",
+        "noFields": "This step needs no settings.",
+        "taskOnly": "This operation is meant for scheduled tasks: the panel can't run it during an install or a start.",
+        "extraKeys": "It also has {{keys}}, which the form doesn't show. They're kept; you can change them in the step's JSON.",
+        "required": "required",
+        "pick": "Pick a value",
+        "unset": "Not set",
+        "otherValue": "Other: {{value}}",
+        "defaultValue": "Default: {{value}}",
+        "suggestions": "Common values for \"{{field}}\"",
+        "suggestionsShort": "Common values",
+        "notEditableHere": "This value isn't in the shape the form expects. It's kept as it is; change it in the step's JSON.",
+        "advanced": "Advanced options",
+        "list": {
+          "item": "{{field}}, line {{n}}",
+          "add": "Add line",
+          "remove": "Remove \"{{item}}\""
+        },
+        "keyValue": {
+          "keyLabel": "Name {{n}}",
+          "valueLabel": "Value of \"{{key}}\"",
+          "add": "Add",
+          "none": "None yet.",
+          "keyRequired": "Enter a name.",
+          "keyTaken": "Another one already has this name.",
+          "pinned": "A name that is only a number always comes first: it can't be moved."
+        },
+        "condition": {
+          "label": "When it runs",
+          "help": "The step is skipped when its condition isn't met.",
+          "presets": {
+            "none": "Always",
+            "host": "Host only",
+            "docker": "Docker only",
+            "custom": "Custom"
+          },
+          "tag": {
+            "host": "Host only",
+            "docker": "Docker only",
+            "custom": "Conditional"
+          },
+          "hintNone": "Runs in every environment.",
+          "hintPreset": "Saved as {{expression}}.",
+          "hintCustom": "A CEL expression: read variables by their name, without ${}. Compare with == and !=, combine with && (and), || (or) and ! (not); text goes in single quotes.",
+          "examples": "Examples:",
+          "insert": "Insert variable or function",
+          "asText": "as text (its key has a hyphen)",
+          "functions": "Functions",
+          "builtin": {
+            "env": "Environment: host or docker",
+            "os": "System: linux or windows",
+            "arch": "Architecture: amd64 or arm64"
+          },
+          "function": {
+            "file_exists": "Whether a file exists in the server folder",
+            "in_path": "Whether a program is installed on the system"
+          }
+        },
+        "json": {
+          "label": "Step JSON",
+          "syntax": "The JSON isn't valid ({{detail}}); the step keeps its last valid version.",
+          "notObject": "A step must be an object in braces; the step keeps its last valid version.",
+          "unknownHint": "The panel has no form for \"{{type}}\": it may come from a newer version or be a typo. Edit it here or change its type.",
+          "invalidHint": "This step isn't an object, so it can't run. Write it as {\"type\": …}.",
+          "invalidState": "The step's JSON isn't valid.",
+          "unapplied": "This step's JSON isn't valid and hasn't been applied: fix it to save."
+        },
+        "palette": {
+          "title": "Add step",
+          "titleAfter": "Insert step after step {{n}}",
+          "description": "Choose what the step does. Search by name or by what it does.",
+          "search": "Search operations…",
+          "empty": "No operation matches.",
+          "keyMove": "move",
+          "keyPick": "add",
+          "keyClose": "close",
+          "results": "Results"
+        },
+        "deleteConfirm": {
+          "title": "Delete \"{{step}}\"?",
+          "description": "Everything it has set up is lost. If it was a mistake, don't save the changes."
+        }
+      },
+      "stdin": {
+        "types": {
+          "unset": "Not set (standard input)",
+          "stdin": "Standard input",
+          "rcon": "RCON",
+          "rconws": "RCON over WebSocket",
+          "telnet": "Telnet"
+        },
+        "ip": {
+          "label": "Address",
+          "help": "Empty connects to the server itself."
+        },
+        "port": {
+          "label": "Port",
+          "help": "The port of the game's remote console."
+        },
+        "password": {
+          "label": "Password",
+          "help": "Better as a variable than typed here."
+        },
+        "secure": {
+          "label": "Secure connection (wss://)",
+          "help": "Turn it off if the game only accepts unencrypted ws://."
+        }
+      },
+      "jsonBlock": {
+        "invalidState": "The JSON isn't valid.",
+        "syntax": "The JSON isn't valid ({{detail}}). The last valid one is kept.",
+        "notObject": "It has to be an object: { … }. The last valid one is kept.",
+        "unapplied": "This JSON isn't valid and hasn't been applied: fix or empty it to save."
+      },
+      "run": {
+        "optional": "(optional)",
+        "start": {
+          "title": "Start",
+          "description": "The command that starts the server. It can be a single one, or several, each with the condition it is used under."
+        },
+        "command": {
+          "shape": "Command",
+          "single": "One command",
+          "conditional": "By condition",
+          "singleBlocked": "To go back to one command, leave a single entry and remove its condition.",
+          "singleBlockedKeys": "This entry has settings of its own, such as its console, that a single command doesn't keep. Remove them to go back to one command.",
+          "label": "Start command",
+          "hint": "What the node runs in the server's folder. Variables such as ${memory} are replaced with their value.",
+          "line": "Command",
+          "entry": "Entry {{n}}",
+          "defaultTag": "Default",
+          "remove": "Remove \"{{item}}\"",
+          "conditionHelp": "The node uses the first entry whose condition holds.",
+          "conditionNone": "Without a condition it is the default command: used when no other condition holds.",
+          "conditionalHint": "On start, the node tries the entries in order and uses the first whose condition holds; if none does, it uses the first one without a condition.",
+          "extraKeys": "It also has {{keys}}, which the form doesn't show. They're kept; you can change them in the JSON view.",
+          "add": "Add command",
+          "conditionLabel": "When it is used",
+          "advanced": "Advanced options",
+          "stdinLabel": "Console for this entry",
+          "stdinHint": "Only when the server starts with this entry. Not set, the one in the Console section is used."
+        },
+        "workingDirectory": {
+          "label": "Working directory",
+          "hint": "It is saved in the template, but this node doesn't use it: the server always starts in its own folder."
+        },
+        "stop": {
+          "title": "Stop",
+          "description": "How the server is asked to stop: with a command in its console or a signal to its process.",
+          "mode": "How it stops",
+          "removeCommand": "Remove the command",
+          "command": {
+            "choice": "Stop command",
+            "label": "Stop command",
+            "hint": "What is typed into the console to shut the server down, such as stop, quit or exit."
+          },
+          "code": {
+            "choice": "Signal code",
+            "label": "Signal code",
+            "hint": "The number of the signal sent to the process. The usual ones are 15 (SIGTERM) and 2 (SIGINT, like pressing Ctrl+C).",
+            "pick": "Common",
+            "pickLabel": "Common signals"
+          },
+          "signals": {
+            "SIGTERM": "Asks the program to shut down. The most common one.",
+            "SIGINT": "Like pressing Ctrl+C in the console: many servers save and exit.",
+            "SIGKILL": "Ends it at once, without letting it save. Only if it ignores the others.",
+            "SIGHUP": "Tells it the terminal closed. Few programs exit on it.",
+            "SIGQUIT": "Asks it to quit; some programs write a debug dump first."
+          }
+        },
+        "environmentVars": {
+          "title": "Environment variables",
+          "description": "The environment variables the server's process starts with.",
+          "label": "Environment variables",
+          "hint": "A name and its value per row. The value can use template variables such as ${port}.",
+          "keyPlaceholder": "NAME",
+          "valuePlaceholder": "value or ${variable}"
+        },
+        "console": {
+          "title": "Console",
+          "description": "How the panel sends the commands typed into the server's console.",
+          "label": "Console input",
+          "hint": "Almost always the standard input. Some games only take commands over RCON or telnet."
+        },
+        "behaviour": {
+          "title": "Automatic start and restart",
+          "description": "What the node does on its own with servers created from this template. Each server can change it later in its settings.",
+          "autostart": {
+            "label": "Start when the node starts",
+            "hint": "The server starts by itself when the node boots."
+          },
+          "autorecover": {
+            "label": "Restart if it crashes",
+            "hint": "If the process exits with a code other than the expected one, it is started again."
+          },
+          "autorestart": {
+            "label": "Restart if it stops",
+            "hint": "If the process exits with the expected code (without anyone stopping it from the panel), it is started again."
+          },
+          "expectedExitCode": {
+            "label": "Expected exit code",
+            "hint": "The code the server exits with when it shuts down cleanly; with any other, the panel treats it as a crash. Stopped by a signal, many programs exit with 128 plus the signal (143 with SIGTERM)."
+          }
+        },
+        "pre": {
+          "title": "Before start",
+          "description": "Steps run every time the server starts, right before the start command: updating the game, regenerating its config…",
+          "empty": {
+            "title": "No steps before start",
+            "description": "The server starts straight away with its command. Add a step if something has to be prepared every time."
+          }
+        },
+        "post": {
+          "title": "After stop",
+          "description": "Steps run when the server's process exits. They can read ${success} and ${exitCode}.",
+          "empty": {
+            "title": "No steps after stop",
+            "description": "Nothing else happens when it exits. Add a step if something has to be cleaned up or copied."
+          }
+        }
+      },
+      "environment": {
+        "default": {
+          "title": "Default environment",
+          "description": "It is kept in the template, but the panel's \"Create server\" form doesn't use it: it always creates servers in Docker, with the first Docker environment under \"Supported environments\"."
+        },
+        "supported": {
+          "title": "Supported environments",
+          "description": "The \"Create server\" form creates servers in Docker with the first Docker environment of this list: its image, ports and settings.",
+          "item": "Environment {{n}}: {{type}}",
+          "remove": "Remove \"{{item}}\"",
+          "add": "Add environment",
+          "empty": {
+            "title": "No supported environments",
+            "description": "Without a Docker environment here, the \"Create server\" form uses a generic image. Add one with the image the template needs."
+          }
+        },
+        "type": {
+          "label": "Type",
+          "hint": {
+            "docker": "In a Docker container, isolated from the node, with the image below.",
+            "host": "Directly on the node, with the programs it has installed.",
+            "unset": "Not set."
+          }
+        },
+        "types": {
+          "unset": "Not set",
+          "host": "Host",
+          "docker": "Docker",
+          "tty": "tty (same as host)",
+          "standard": "standard (same as host)"
+        },
+        "image": {
+          "label": "Image",
+          "hint": "An image from ghcr.io/aether-panel/ or an official one (from Docker Hub or from the program's vendor). The tag can use a variable, such as eclipse-temurin:${javaversion}."
+        },
+        "portBindings": {
+          "label": "Ports",
+          "hint": "One per row, as in docker run -p: IP:node port:container port/protocol."
+        },
+        "advanced": "Advanced Docker options",
+        "networkName": {
+          "label": "Network",
+          "hint": "bridge publishes the ports above; host shares the node's network and doesn't use them."
+        },
+        "containerRoot": {
+          "label": "Server folder in the container",
+          "hint": "Where the server's files are mounted inside the container. It has to be an absolute path."
+        },
+        "bindings": {
+          "label": "Mounted folders",
+          "hint": "A folder on the node and where it shows up inside the container.",
+          "newKey": "/path/on/the/node"
+        },
+        "labels": {
+          "label": "Container labels",
+          "hint": "Docker labels for the container. They can use variables."
+        },
+        "hostConfig": {
+          "label": "hostConfig",
+          "hint": "Container settings as the Docker API defines them (HostConfig), for example { \"Init\": true }."
+        },
+        "config": {
+          "label": "config",
+          "hint": "Image settings as the Docker API defines them (Config)."
+        },
+        "extraKeys": "It also has {{keys}}, which the form doesn't show. They're kept; you can change them in the JSON view.",
+        "extraKeysHost": "It also has {{keys}}: settings this kind of environment doesn't use. They're kept in case you switch back to Docker."
+      },
+      "requirements": {
+        "any": "With none ticked, any will do.",
+        "platform": {
+          "title": "System and architecture",
+          "description": "The node refuses to install the template on a system or architecture that isn't ticked."
+        },
+        "os": {
+          "label": "Operating system",
+          "hint": "Saved as {{value}}.",
+          "values": {
+            "linux": "Linux",
+            "windows": "Windows",
+            "darwin": "macOS"
+          }
+        },
+        "arch": {
+          "label": "Architecture",
+          "hint": "Saved as {{value}}.",
+          "values": {
+            "amd64": "x86-64 (amd64)",
+            "arm64": "64-bit ARM (arm64)",
+            "386": "32-bit x86 (386)",
+            "arm": "32-bit ARM (arm)"
+          }
+        },
+        "binaries": {
+          "title": "Programs",
+          "description": "The programs the node must have installed. Only checked on host: in Docker the image provides them.",
+          "label": "Required programs",
+          "hint": "One per row, as named in the PATH. To accept any of several, separate them with ||, as in java || java21."
+        },
+        "extraKeys": "It also has {{keys}}, which the form doesn't show. They're kept; you can change them in the JSON view."
+      },
+      "advanced": {
+        "extraKeys": "It also has {{keys}}, which the form doesn't show. They're kept; you can change them in the JSON view.",
+        "groups": {
+          "title": "Variable groups",
+          "description": "They sort the variables into blocks on the server's settings page. Those in no group are shown apart.",
+          "add": "Add group",
+          "remove": "Remove the group \"{{group}}\"",
+          "untitled": "Group {{n}}",
+          "countOne": "1 variable",
+          "countMany": "{{count}} variables",
+          "conditionHelp": "It is kept in the template, but the panel doesn't apply it yet: the group is always shown.",
+          "conditionNone": "No condition.",
+          "orderHint": "The settings page shows the groups in the order of this list; \"Order\" is kept for templates that use it.",
+          "displayField": {
+            "label": "Name",
+            "placeholder": "General"
+          },
+          "orderField": {
+            "label": "Order"
+          },
+          "descriptionField": {
+            "label": "Description"
+          },
+          "variables": {
+            "label": "Variables",
+            "hint": "In the order they're shown inside the group.",
+            "add": "Add",
+            "remove": "Remove \"{{key}}\" from the group",
+            "missing": "(doesn't exist)",
+            "none": "The template has no variables yet.",
+            "inOther": "already in \"{{group}}\""
+          },
+          "empty": {
+            "title": "No groups",
+            "description": "All variables are shown together in the server's settings."
+          },
+          "conditionLabel": "When it is shown"
+        },
+        "stats": {
+          "title": "Stats",
+          "description": "Usage data the panel shows besides CPU and memory.",
+          "type": {
+            "label": "Extra stats",
+            "hint": "\"Java memory\" asks the Java virtual machine for its memory use (heap) with jcmd.",
+            "jcmd": "Java memory (jcmd)"
+          },
+          "cmd": {
+            "label": "jcmd program",
+            "hint": "Docker only: the jcmd command inside the container."
+          }
+        },
+        "query": {
+          "title": "Status query",
+          "description": "How the panel asks the game how many players are online.",
+          "type": {
+            "label": "Protocol",
+            "minecraft": "Minecraft (server list ping)",
+            "source": "Steam (A2S)",
+            "hint": {
+              "unset": "When not set, the panel tries the Steam query (A2S) and stops trying for a while if the game doesn't answer.",
+              "minecraft": "Uses the server's IP and port (the ip and port variables).",
+              "source": "Uses the query port (queryport or its variants) or, without one, port.",
+              "other": "The panel doesn't know this protocol and won't query the status."
+            }
+          }
+        },
+        "keepAlive": {
+          "title": "Keep-alive",
+          "description": "A command sent to the console every so often while the server runs.",
+          "hint": "The frequency is a duration with a unit: 30s, 5m, 1h30m. Both fields are needed.",
+          "frequency": {
+            "label": "Every"
+          },
+          "command": {
+            "label": "Command"
+          }
+        }
+      },
+      "preview": {
+        "button": "Preview",
+        "title": "Preview",
+        "description": "This is what someone creating a server from this template will see.",
+        "note": "It is the same form as the \"Create server\" wizard, with the template's values. Try it: nothing is created here.",
+        "noVariables": "This template asks for no variables: whoever creates the server only picks the resources and ports.",
+        "check": "Check",
+        "reset": "Reset",
+        "checkOk": "All good: the server could be created with these values.",
+        "checkErrorsOne": "1 field needs fixing.",
+        "checkErrorsMany": "{{count}} fields need fixing.",
+        "failedTitle": "The preview can't show this template",
+        "failedDescription": "A variable has a value the form can't show. Check it in the JSON."
+      },
+      "summary": {
+        "title": "Errors and warnings",
+        "open": "Show the list",
+        "hint": "Pick one to go to its field.",
+        "blocking": "Blocks saving",
+        "jsonOnly": "JSON only",
+        "staleJson": "The JSON has invalid changes: this list is from the last valid version.",
+        "error": "Error",
+        "warning": "Warning"
+      }
+    },
+    "presets": {
+      "minecraft-paper": {
+        "title": "Minecraft: Java (Paper)",
+        "description": "A Paper server: downloads Paper, installs Java and asks to accept the EULA.",
+        "display": "Minecraft: Java Edition (Paper)",
+        "vars": {
+          "eula": {
+            "display": "I accept the Minecraft EULA",
+            "desc": "The server doesn't start until the Minecraft EULA is accepted: https://aka.ms/MinecraftEULA"
+          },
+          "version": {
+            "display": "Minecraft version",
+            "desc": "A version such as 1.21.4, or latest for the newest one Paper supports."
+          },
+          "paperbuild": {
+            "display": "Paper build",
+            "desc": "A Paper build number, or latest for the newest."
+          },
+          "javaversion": {
+            "display": "Java version",
+            "desc": "Minecraft 26.1 and newer need Java 25; 1.20.5 to 1.21, Java 21; 1.17 to 1.20.4, Java 17; older ones, Java 8."
+          },
+          "motd": {
+            "display": "Server message (MOTD)",
+            "desc": "The text shown under the server's name in the server list."
+          },
+          "memory": {
+            "display": "Memory (MB)",
+            "desc": "Java's maximum memory (-Xmx), in MB."
+          },
+          "port": {
+            "display": "Port",
+            "desc": "The TCP port players connect to."
+          }
+        }
+      },
+      "steam": {
+        "title": "Steam game",
+        "description": "A dedicated server downloaded from Steam by its app ID.",
+        "display": "Steam dedicated server",
+        "vars": {
+          "appid": {
+            "display": "Steam app ID",
+            "desc": "The dedicated server's number on Steam (look it up on SteamDB). For example, 896660 is Valheim."
+          },
+          "executable": {
+            "display": "Start file",
+            "desc": "The program that starts the server, inside its folder. For example, valheim_server.x86_64."
+          },
+          "args": {
+            "display": "Start arguments",
+            "desc": "What is added when the server starts; each game has its own."
+          },
+          "port": {
+            "display": "Port",
+            "desc": "The UDP port players connect to."
+          }
+        }
+      },
+      "nodejs": {
+        "title": "Node.js app",
+        "description": "Runs a file with Node.js and installs the dependencies in package.json.",
+        "display": "Node.js app",
+        "vars": {
+          "nodeversion": {
+            "display": "Node.js version",
+            "desc": "The major Node.js version the app runs on."
+          },
+          "startfile": {
+            "display": "Start file",
+            "desc": "The file run with node, inside the server's folder."
+          },
+          "port": {
+            "display": "Port",
+            "desc": "The app's TCP port. It also gets it in the PORT environment variable."
+          }
+        }
+      },
+      "python": {
+        "title": "Python app",
+        "description": "Runs a file with Python, in a virtual environment with its requirements.txt.",
+        "display": "Python app",
+        "vars": {
+          "pyversion": {
+            "display": "Python version",
+            "desc": "The Python version in Docker. On the host that version is used when installed, otherwise python3."
+          },
+          "startfile": {
+            "display": "Start file",
+            "desc": "The Python file that runs, inside the server's folder."
+          },
+          "port": {
+            "display": "Port",
+            "desc": "The app's TCP port. It also gets it in the PORT environment variable."
+          }
+        }
+      },
+      "docker": {
+        "title": "Generic Docker",
+        "description": "The least a Docker server needs: the image, a port and a start.sh.",
+        "display": "Docker app",
+        "vars": {
+          "port": {
+            "display": "Port",
+            "desc": "The server's TCP port. It also gets it in the PORT environment variable."
+          }
+        }
+      }
     }
   },
   "common": {
@@ -3082,7 +4763,8 @@
       "sectionLabel": "Settings section",
       "offsite": "Off-site backups",
       "domains": "Domains",
-      "extensions": "Extensions"
+      "extensions": "Extensions",
+      "github": "GitHub"
     },
     "general": {
       "title": "General Settings",
@@ -3106,6 +4788,8 @@
       "geminiApiKeyDescription": "Enter your Google Gemini API key to enable artificial intelligence features.",
       "hideAiAnalysisLabel": "Hide AI Console Analysis",
       "hideAiAnalysisDescription": "If enabled, the AI console analysis feature will be hidden for all servers.",
+      "aiFileToolsLabel": "Let the assistant work with server files",
+      "aiFileToolsDescription": "The server assistant can read, create, edit, move and delete files of the server it is opened on, within the user's file permissions. It always asks for confirmation before changing or deleting anything.",
       "allowRegistrationLabel": "Allow users to register",
       "allowRegistrationDescription": "Self-registered users cannot perform any actions until permissions are granted. Disabling this only prevents direct registration, server invitations and the Users page are not affected.",
       "captchaBuiltinLabel": "Built-in anti-bot check",
@@ -3129,11 +4813,13 @@
         "modpacksTitle": "Modpacks",
         "modpacksDescription": "Key to search and install CurseForge modpacks. Modrinth does not need one.",
         "experimentalTitle": "Experimental features",
-        "experimentalDescription": "New features we are still refining. They start turned off: switch on the ones you want to try. Turning one off hides it again and deletes nothing."
+        "experimentalDescription": "New features we are still refining. They start turned off: switch on the ones you want to try. Turning one off hides it again and deletes nothing.",
+        "notificationsTitle": "Notifications",
+        "notificationsDescription": "What the panel sends outside its own pages."
       },
       "curseforgeKeyLabel": "CurseForge API key",
       "curseforgeKeyPlaceholder": "Paste the API key",
-      "curseforgeKeyDescription": "Create it at console.curseforge.com. The main node uses it; remote nodes read the one in their own configuration (daemon.curseforge.key).",
+      "curseforgeKeyDescription": "Create it at console.curseforge.com. The panel sends it to every node automatically.",
       "experimental": {
         "versionSwitchLabel": "Game version switch",
         "versionSwitchDescription": "Change a server's Minecraft version in one click, with a restore point saved first.",
@@ -3144,7 +4830,11 @@
         "serverCloneLabel": "Clone server",
         "serverCloneDescription": "Duplicate a server to try changes without touching the original.",
         "serverCloneWhere": "In each server's Administration › Clone"
-      }
+      },
+      "notificationLanguageLabel": "Notification language",
+      "notificationLanguageDescription": "The language of the alerts sent to Discord, Telegram and webhooks (the panel's and each server's), the panel's Discord reports and the events extensions receive. The panel's pages follow each person's own language.",
+      "registrationApprovalLabel": "Approve new accounts",
+      "registrationApprovalDescription": "People who sign up cannot sign in until an administrator approves their account in Users. The welcome email goes out on approval."
     },
     "discord": {
       "title": "Discord Notifications",
@@ -3198,12 +4888,23 @@
         "keyPlaceholder": "••••••••"
       },
       "mailjet": {
-        "domainLabel": "Domain",
-        "domainPlaceholder": "example.com",
+        "publicKeyLabel": "API Key (public)",
+        "publicKeyPlaceholder": "Mailjet API key",
+        "fromLabel": "Sender Address",
+        "fromPlaceholder": "no-reply@aether.panel",
+        "secretKeyLabel": "Secret Key",
+        "keyPlaceholder": "••••••••"
+      },
+      "sendgrid": {
         "fromLabel": "Sender Address",
         "fromPlaceholder": "no-reply@aether.panel",
         "keyLabel": "API Key",
         "keyPlaceholder": "••••••••"
+      },
+      "debug": {
+        "option": "Debug (log only)",
+        "configDescription": "For testing: no email leaves the server.",
+        "note": "Emails are not sent. The panel writes each one (recipient, subject and body) to its log, tagged [DEBUG], instead."
       },
       "testButton": "Test Email",
       "testSuccess": "Test email sent successfully",
@@ -3332,7 +5033,9 @@
         "availableCount": "The branch has {{count}} change(s) this panel does not have yet.",
         "upToDate": "System is up to date",
         "verifying": "New version being verified",
-        "verifyingDescription": "A new version is out and GitHub is still checking it. You can update as soon as its checks pass."
+        "verifyingDescription": "A new version is out and GitHub is still checking it. You can update as soon as its checks pass.",
+        "checksFailed": "A newer version exists, but it did not pass its checks",
+        "checksFailedDescription": "The automated checks of the latest version failed, so it is not offered, to avoid installing something broken. It will be offered as soon as a version passes them."
       },
       "node": {
         "updating": "Updating…",
@@ -3361,15 +5064,15 @@
     },
     "offsite": {
       "title": "Off-site backups",
-      "description": "Keep a copy of every backup in S3-compatible storage. If the node's disk fails, the backups are still safe.",
+      "description": "Keep backups away from the node, in S3-compatible storage. If the node's disk fails, those copies are still safe.",
       "test": "Test connection",
       "testOk": "Connected: a file was written to and deleted from the bucket.",
       "testError": "Could not connect to the storage.",
       "statusTitle": "Status",
-      "statusDescription": "Local backups are kept; the bucket is a second copy.",
+      "statusDescription": "The node's backups are kept; the bucket is a separate place where copies stay safe.",
       "enabled": "Upload backups to the bucket",
-      "enabledDescription": "Each finished backup is uploaded right away. Deleting it removes it from both places.",
-      "onHint": "On: new backups will be uploaded to the bucket.",
+      "enabledDescription": "The bucket gets each server's periodic copy and the backups of tasks that ask for it. Manual backups stay on the node. Deleting a backup removes it from both places.",
+      "onHint": "On: periodic copies and the copies of tasks that ask for it upload to the bucket.",
       "offHint": "Off: backups are only kept on the node.",
       "bucketTitle": "Bucket",
       "bucketDescription": "Works with AWS S3, Backblaze B2, Cloudflare R2, Wasabi, MinIO and any S3-compatible service.",
@@ -3386,7 +5089,25 @@
       "accessKey": "Access key",
       "secretKey": "Secret key",
       "insecure": "Unencrypted connection (http)",
-      "insecureDescription": "Only for a MinIO on your own network. Public providers use https."
+      "insecureDescription": "Only for a MinIO on your own network. Public providers use https.",
+      "periodicTitle": "Periodic copy of each server",
+      "periodicDescription": "Each server gets a full copy that goes straight to the bucket, without taking space on the node. Each server can change this in its Backups tab.",
+      "periodicHours": "Interval",
+      "periodicHoursHint": "How often each server gets its copy. \"Off\" turns it off for servers without their own interval.",
+      "periodicKeep": "Copies to keep in S3",
+      "periodicKeepHint": "1 to 50. When a new one is uploaded, the oldest are deleted.",
+      "nodes": {
+        "title": "Nodes",
+        "description": "These settings and the CurseForge key are sent to every node automatically.",
+        "synced": "Up to date",
+        "pending": "Pending, retried automatically",
+        "checking": "Checking…",
+        "outdated": "Node not updated: update it so it gets the settings",
+        "failed": "Error: {{error}}",
+        "failedUnknown": "Error: the node refused the settings",
+        "loadError": "Could not read the nodes' state.",
+        "refresh": "Refresh status"
+      }
     },
     "domains": {
       "title": "Automatic subdomains",
@@ -3406,8 +5127,8 @@
       "baseDomainHint": "A domain or subdomain of your Cloudflare zone, for example play.example.com.",
       "baseDomainInvalid": "Type just the domain, without http:// or slashes.",
       "target": "DNS target (optional)",
-      "targetHint": "IP or hostname to point at when a node is registered by hostname or a private address. Empty: each node's public IP.",
-      "dnsOnlyNote": "Records are created as DNS only (grey cloud), never proxied: game traffic is not HTTP. If the panel's domain goes through Cloudflare's proxy, put the server's public IP here.",
+      "targetHint": "Only for nodes without a public address (a private IP or an internal name). A node with a public IP or its own name (usa.example.com) gets its subdomains pointed straight at it, even under another domain.",
+      "dnsOnlyNote": "Records are created as DNS only (grey cloud), never proxied: game traffic is not HTTP. Each node's name must be DNS only too. If you change the domain or the zone, existing subdomains move to the new one by themselves.",
       "credentialsTitle": "Cloudflare credentials",
       "credentialsDescription": "A token allowed only to edit this zone's DNS. The panel never shows it in its logs.",
       "openCloudflare": "Open API tokens in Cloudflare",
@@ -3419,6 +5140,22 @@
       "zoneId": "Zone ID",
       "zoneIdHint": "32 hexadecimal characters.",
       "zoneIdInvalid": "The zone ID has 32 hexadecimal characters (0-9, a-f)."
+    },
+    "github": {
+      "title": "GitHub",
+      "description": "Lets each user connect their GitHub account and install their repositories (private ones too) into their servers from Admin → Installation.",
+      "appTitle": "GitHub OAuth App",
+      "appDescription": "Created once from your GitHub account or organisation. Only its Client ID is needed: no secret and no callback URL.",
+      "openGitHub": "Create an OAuth App on GitHub",
+      "step1": "On GitHub open Settings → Developer settings → OAuth Apps → New OAuth App.",
+      "step2": "Give it a name (users see it when they connect) and put the panel's address as Homepage URL and Authorization callback URL; it is not used to sign in.",
+      "step3": "Once registered, tick «Enable Device Flow» and save.",
+      "step4": "Copy the Client ID and paste it here. No Client secret is needed.",
+      "clientId": "Client ID",
+      "clientIdHint": "New apps start with «Ov23li».",
+      "clientIdInvalid": "That does not look like a Client ID.",
+      "onHint": "On: users see «Connect GitHub» once you save.",
+      "offHint": "Off until you add a Client ID."
     }
   },
   "apiKeys": {
@@ -3487,6 +5224,9 @@
     }
   },
   "apiErrors": {
+    "ErrFileExists": "A file with that name already exists. Choose another name.",
+    "ErrPluginNoCompatibleVersion": "This project has no version for this server's loader and Minecraft version.",
+    "ErrPluginBadFileName": "The file Modrinth offers for this project is not a .jar with a plain file name, so it was not installed.",
     "ErrDiskLimitExceeded": "The server has used all of its disk space. Delete files to free some before starting it or uploading more.",
     "ErrSSHKeyInvalid": "That is not a valid SSH public key. Paste one line, such as the contents of id_ed25519.pub.",
     "ErrSSHKeyIsPrivate": "That is a private key. Paste the public key (the .pub file) and never share the private one.",
@@ -3499,8 +5239,73 @@
     "ErrServerOwner": "The server's owner cannot be removed or limited. An administrator can give the server to someone else.",
     "ErrAPIKeyPermissions": "Tick at least one action for the key.",
     "ErrAPIKeyNotAllowed": "This API key is not allowed to do that.",
+    "ErrAIAnalysisDisabled": "An administrator has turned the AI log analysis off.",
     "ErrBackupLimit": "This server already has as many backups as it may keep. Delete an old one before making another.",
-    "ErrInviteSignupsClosed": "Sign-ups are closed: that person needs an account before you can add them."
+    "ErrSchedulerStopped": "This server's tasks cannot be changed while it is being reloaded or deleted. Try again in a moment.",
+    "ErrInviteSignupsClosed": "Sign-ups are closed: that person needs an account before you can add them.",
+    "ErrDatabaseHostInUse": "This host still has databases. Delete them from their servers first, so they are not left behind on the database server.",
+    "ErrTransferRunning": "This server is already being transferred. Wait for that transfer to finish.",
+    "ErrTransferBackupRunning": "A backup or restore of this server is in progress. Transfer it once it's done.",
+    "ErrTransferSubServer": "A sub-server stays on its parent's node. Transfer the parent server instead: its sub-servers go with it.",
+    "ErrTransferPortsTaken": "Some of this server's ports are already in use on the target node. Free them there or pick another node.",
+    "ErrNodeAuthFailed": "The node refused the panel's credentials. An administrator should check that the node reaches the panel's address (it reads the panel's key there), that its secret matches the one in the panel and that both machines have the right time.",
+    "ErrPortOutOfRange": "Port {{port}} is outside the allowed range (1024-65535).",
+    "ErrPortDuplicated": "Port {{port}} is listed more than once.",
+    "ErrPortUsedByPanel": "Port {{port}} is used by the panel itself on this node.",
+    "ErrPortTaken": "Port {{port}} is already used by another server on this node.",
+    "ErrPortBusy": "Port {{port}} is already in use by another server or process on this node. Stop whatever is using it or change the server's port before starting it.",
+    "ErrSubdomainInvalid": "A subdomain may only have lowercase letters, digits and hyphens (3 to 32 characters, no hyphen at the start or end).",
+    "ErrSubdomainReserved": "That subdomain is reserved.",
+    "ErrSubdomainTaken": "That subdomain is already in use.",
+    "ErrSubdomainDisabled": "Automatic subdomains are not set up on this panel.",
+    "ErrSubdomainRateLimited": "Wait a few seconds before changing the subdomain again.",
+    "ErrSubdomainNoTarget": "This server's node has no public address. Set a DNS target in the panel settings.",
+    "ErrDNSBaseDomainInvalid": "The base domain is not a valid domain name.",
+    "ErrCloudflareNotConfigured": "The Cloudflare API token or zone ID is missing.",
+    "ErrCloudflareZoneID": "The Cloudflare zone ID must be 32 hexadecimal characters.",
+    "ErrCloudflareRecordID": "Invalid DNS record ID: {{id}}",
+    "ErrCloudflareDomainNotInZone": "The domain {{domain}} does not belong to the zone {{zone}}.",
+    "ErrCloudflareUnreachable": "Could not reach Cloudflare: {{reason}}",
+    "ErrCloudflareBadAnswer": "Cloudflare's answer could not be read: {{reason}}",
+    "ErrCloudflareRefused": "Cloudflare answered: {{message}}",
+    "ErrCloudflareRefusedCode": "Cloudflare answered: {{message}} (code {{cloudflareCode}})",
+    "ErrDiscordNoWebhooks": "There are no Discord webhooks configured.",
+    "ErrDiscordTestFailed": "The test message did not reach these webhooks: {{webhooks}}. Check that they still exist in Discord.",
+    "ErrNotificationLanguage": "The notification language must be Spanish or English.",
+    "ErrOffsitePeriodicHours": "The periodic off-site copy can only run every 12, 24, 48, 72, 168, 336 or 720 hours, or be turned off (0).",
+    "ErrOffsiteKeep": "The off-site copies to keep must be between 1 and 50.",
+    "ErrAIConfirmationInvalid": "This request expired, was already answered or belongs to someone else. Ask again.",
+    "ErrAccountPending": "Your account is waiting for approval. An administrator has to approve it before you can sign in.",
+    "ErrGitHubNotConfigured": "GitHub is not set up on this panel. An administrator has to add the Client ID in Settings → GitHub.",
+    "ErrGitHubNotConnected": "Connect your GitHub account first.",
+    "ErrGitHubCodeExpired": "The GitHub code expired. Start again.",
+    "ErrGitHubDenied": "The access was refused on GitHub.",
+    "ErrGitHubTokenRevoked": "GitHub no longer accepts this connection. Connect your account again.",
+    "ErrGitHubNotFound": "GitHub cannot find that repository or branch, or your account has no access to it.",
+    "ErrGitHubBadName": "That repository or branch name is not valid.",
+    "ErrGitHubBadClient": "GitHub does not know that Client ID, or its OAuth App has Device Flow off. Check it in Settings → GitHub.",
+    "ErrClientScopes": "A client can only be limited to server permissions you hold.",
+    "ErrPluginsNotMinecraft": "Plugins and mods are only for Minecraft: Java Edition servers.",
+    "ErrNodeJoinCode": "That join code does not exist, was already used or has expired: generate a new one in the panel.",
+    "ErrNodeJoinLocal": "The panel's own node is installed with the panel: it is not deployed on another machine.",
+    "ErrNodeJoinURL": "First set the panel's base URL in Settings → General (for example https://panel.yourdomain.com): the new node reaches the panel there.",
+    "ErrTemplateTooLarge": "The template is larger than 2 MB, the most the panel stores.",
+    "ErrNodeHasServers": "This node still has servers. Move them to another node or delete them first.",
+    "ErrNodeHasProducts": "The store products {{products}} create their servers on this node. Point them at another node or delete them first.",
+    "ErrTemplateInUse": "The store products {{products}} create their servers with this template. Point them at another template or delete them first.",
+    "ErrTemplateRepoInUse": "The store products {{products}} use templates only this repository has. Point them at other templates or delete them first.",
+    "ErrProductTemplateRequired": "A product needs a template.",
+    "ErrProductTemplateNotFound": "No template repository has a template named {{template}}. Check the name or add the template first.",
+    "ErrProductTemplateUnreadable": "The template {{template}} could not be looked up: the template repository {{repo}} could not be read. Try again later.",
+    "ErrProductNodeNotFound": "Node {{node}} does not exist. Pick another node."
+  },
+  "apiErrorValues": {
+    "ErrDiscordTestFailed": {
+      "alerts": "Server alerts",
+      "reports": "System reports",
+      "status": "Node status",
+      "transfers": "ExTransfer"
+    }
   },
   "extensions": {
     "title": "Extensions",

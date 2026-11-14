@@ -18,8 +18,9 @@ var retryDelays = []time.Duration{5 * time.Second, 30 * time.Second}
 // up goroutines; past it, events are dropped (and logged) rather than queued forever
 const maxDeliveries = 32
 
-// send posts one event; tests replace it
-var send = services.SendWebhookJSON
+// send posts one event, signed with the extension's key and with the panel's identity; tests
+// replace it
+var send = services.SendPanelSignedWebhookJSON
 
 type subscriber struct {
 	id, webhook, secret string
@@ -77,6 +78,19 @@ func subscribers(event string) []subscriber {
 	return out
 }
 
+// eventServer is the type and icon of the server an event is about, from its "server" object
+func eventServer(data map[string]interface{}) (serverType, icon string) {
+	switch server := data["server"].(type) {
+	case map[string]string:
+		return server["type"], server["icon"]
+	case map[string]interface{}:
+		t, _ := server["type"].(string)
+		i, _ := server["icon"].(string)
+		return t, i
+	}
+	return "", ""
+}
+
 // Publish sends the event to every switched-on extension that subscribed to it, in the
 // background. data is added to the body next to "event", "extension" and "timestamp".
 //
@@ -87,7 +101,12 @@ func Publish(event string, data map[string]interface{}) {
 }
 
 func dispatch(event string, data map[string]interface{}) {
+	serverType, icon := eventServer(data)
 	for _, s := range subscribers(event) {
+		// an extension for some servers only hears about those
+		if !s.manifest.Servers.Matches(serverType, icon) {
+			continue
+		}
 		body := map[string]interface{}{}
 		for k, v := range data {
 			body[k] = v
@@ -95,6 +114,8 @@ func dispatch(event string, data map[string]interface{}) {
 		body["event"] = event
 		body["extension"] = s.id
 		body["timestamp"] = time.Now().UTC().Format(time.RFC3339)
+		// which panel sent it, inside the body the panel signs
+		body["panel"] = services.PanelURL()
 
 		select {
 		case inFlight <- struct{}{}:
@@ -130,11 +151,25 @@ func SendTest(ext *models.Extension) error {
 		"event":     "test",
 		"extension": ext.ID,
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
+		"panel":     services.PanelURL(),
 	}
 	return send(ext.WebhookURL, ext.Secret, body)
 }
 
-// ServerData is the "server" object events carry
-func ServerData(id, name string) map[string]interface{} {
-	return map[string]interface{}{"server": map[string]string{"id": id, "name": name}}
+// ServerData is the "server" object events carry: with the template's type and icon, so an
+// extension knows what kind of server it is (and the panel which extensions it is for)
+func ServerData(id, name, serverType, icon string) map[string]interface{} {
+	return map[string]interface{}{"server": ServerObject(id, name, serverType, icon)}
+}
+
+// ServerObject is the server as events describe it
+func ServerObject(id, name, serverType, icon string) map[string]string {
+	server := map[string]string{"id": id, "name": name}
+	if serverType != "" {
+		server["type"] = serverType
+	}
+	if icon != "" {
+		server["icon"] = icon
+	}
+	return server
 }

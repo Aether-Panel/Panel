@@ -1,265 +1,143 @@
-# CLI Commands Reference
+# Referencia de comandos CLI
 
-Aether Panel includes a CLI built with **Cobra** that allows managing the panel, creating users, running migrations, and more.
+Todos los comandos y flags del binario `SkyPanel` (`cmd/panel`). Para saber qué hace cada comando en detalle, cómo se carga la configuración y cuándo usarlos, véase [CLI](../backend/07-cli.md).
 
-> **Note:** The binary is compiled from `cmd/panel/main.go`. The internal name of the root command is `SkyPanel`, but the binary file is generated as `skypanel` (or `skypanel.exe` on Windows).
+```text
+SkyPanel [--workDir <dir>] [--config <archivo>] <comando> [subcomando] [flags]
+```
+
+En Docker, anteponga a cada comando `docker exec -it skypanel /SkyPanel/bin/SkyPanel`.
 
 ---
 
-## 0. Usage with Docker
+## Flags globales
 
-If you run the panel inside a Docker container (image `ghcr.io/aether-panel/panel`), you cannot run the binary directly on the host. Use `docker exec` to interact with the CLI of the running container.
+Disponibles en todos los comandos.
 
-### Running Commands in the Container
+| Flag | Por defecto | Descripción |
+|------|-------------|-------------|
+| `--workDir <dir>` | directorio actual | Directorio al que cambiar antes de nada |
+| `--config <archivo>` | `SKYPANEL_CONFIG`, después `/etc/SkyPanel/config.json` si existe y después `config.json` | Archivo de configuración |
+| `-h`, `--help` | | Ayuda del comando (la añade Cobra) |
 
-```bash
-# Access the container shell
-docker exec -it skypanel sh
-
-# Or run commands directly
-docker exec -it skypanel /SkyPanel/bin/SkyPanel version
-docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --admin
-docker exec -it skypanel /SkyPanel/bin/SkyPanel db upgrade
-```
-
-> **Binary path inside the container:** `/SkyPanel/bin/SkyPanel`
-
-### Using docker-compose
-
-With the `docker-compose.yml` file included in the repository:
-
-```bash
-# Start services
-docker compose up -d
-
-# Run CLI in the running container
-docker compose exec skypanel /SkyPanel/bin/SkyPanel user add --admin
-
-# View logs
-docker compose logs -f skypanel
-```
-
-### Example: Create Admin in Docker
-
-```bash
-docker exec -it skypanel /SkyPanel/bin/SkyPanel user add \
-  --name "admin" \
-  --email "admin@example.com" \
-  --admin
-```
-
-### Example: Migrate Database in Docker
-
-```bash
-docker exec -it skypanel /SkyPanel/bin/SkyPanel db upgrade
-```
-
-### Notes for Docker
-
-- The binary inside the container is at `/SkyPanel/bin/SkyPanel` (with a capital S).
-- The config inside the container is at `/etc/SkyPanel/config.json`.
-- Persistent data is in `/var/lib/SkyPanel/`.
-- You can verify that the container is running with `docker ps` before running commands.
+No existe un flag `--version`; use `version`.
 
 ---
 
-## 1. Compilation (without Docker)
+## Comandos
 
-### Prerequisites
-- Go 1.25+
-- Access to `cmd/panel/main.go`
-
-### Basic Build
-```bash
-go build -o skypanel ./cmd/panel
-```
-
-### Build with Custom Version
-```bash
-go build -ldflags "-X 'github.com/SkyPanel/SkyPanel/v3/pkg/skypanel.Version=1.2.0' -X 'github.com/SkyPanel/SkyPanel/v3/pkg/skypanel.Hash=$(git rev-parse --short HEAD)'" -o skypanel ./cmd/panel
-```
-
-### Using Makefile
-```bash
-make build    # Generates bin/skypanel
-make run      # Runs go run ./cmd/panel/main.go
-```
-
----
-
-## 2. Available Commands
-
-| Command | Description |
+| Comando | Descripción |
 |---------|-------------|
-| `run` | Starts the full panel (web, SFTP daemon, scheduler) |
-| `runService` | Starts as a systemd service with `NOTIFY_SOCKET` notification |
-| `version` | Shows the panel version |
-| `user` | User management (subcommands: `add`, `edit`) |
-| `db` | Database operations (subcommands: `upgrade`, `migrate`) |
+| `run` | Arranca el panel y/o el daemon. Oculto en `--help`. |
+| `runService` | Igual que `run`, con mensajes `sd_notify` para systemd |
+| `version` | Muestra la versión |
+| `user add` | Crea un usuario |
+| `user edit` | Edita un usuario de forma interactiva |
+| `db upgrade` | Ejecuta las migraciones de la base de datos, con barra de progreso y copia de SQLite |
+| `db migrate` | Ejecuta las migraciones pendientes de la base de datos, igual que `run` |
+| `help [comando]` | Comando de ayuda de Cobra |
 
-### Global Flags
-
-| Flag | Description |
-|------|-------------|
-| `--workDir` | Changes the working directory before starting |
-| `--config` | Path to the JSON configuration file |
-
-Both flags are available in **all** subcommands.
+`user` y `db` por sí solos solo muestran la lista de sus subcomandos. El autocompletado de shell (`completion`) está desactivado.
 
 ---
 
-## 3. `run` — Start the Panel
+## `run`
 
 ```bash
-./skypanel run
+SkyPanel run
 ```
 
-Initializes and starts all panel services:
+Sin flags propios. Arranca lo que activen `panel.enable` y `daemon.enable`, ejecuta las migraciones de la base de datos cuando el panel está activo y escucha en `web.host` hasta recibir SIGINT/SIGTERM. Detalles: [Arrancar el panel](../backend/07-cli.md#arrancar-el-panel-run-y-runservice).
 
-1. Loads the configuration from `config.json`.
-2. Connects to the database (SQLite, MySQL, PostgreSQL, or SQL Server).
-3. Starts the **HTTP server** (REST API + web panel) on the configured port (default `8080`).
-4. Starts the **SFTP server** (default port `5657`).
-5. Starts the **task scheduler** (gocron).
-6. Starts the **game server** management (loads existing servers, starts the daemon).
-7. Shows real-time console logs.
+## `runService`
 
 ```bash
-# Use custom directory and config
-./skypanel run --workDir /opt/skypanel --config /opt/skypanel/production.json
+SkyPanel runService --config /etc/SkyPanel/config.json
 ```
+
+Sin flags propios. Como `run`; envía `READY=1` y `STOPPING=1` a `$NOTIFY_SOCKET` (unidades `Type=notify`).
+
+## `version`
+
+```bash
+SkyPanel version
+# SkyPanel nightly (unknown)
+```
+
+Muestra `SkyPanel <versión> (<hash>)`; ambos se fijan con `-ldflags` al compilar.
+
+## `user add`
+
+```bash
+SkyPanel user add [--name <usuario>] [--email <email>] [--password <contraseña>] [--admin] [--force]
+```
+
+| Flag | Tipo | Descripción |
+|------|------|-------------|
+| `--name` | texto | Nombre de usuario: obligatorio, ASCII imprimible, de 1 a 100 caracteres |
+| `--email` | texto | Email, hasta 255 caracteres |
+| `--password` | texto | Contraseña, de 8 a 72 bytes. Si no se indica, se pide dos veces |
+| `--admin` | booleano | Concede también el scope `admin` (se ignora en el modo totalmente interactivo, donde lo decide una pregunta) |
+| `--force` | booleano | Borra antes cualquier usuario con el mismo email o nombre de usuario y después lo crea |
+
+El usuario recibe siempre el scope `login`. Los valores que falten se preguntan; si se indica al menos uno de `--name`, `--email` o `--password`, un valor no válido pasado como flag termina el comando con código 1. Véase [Crear usuarios](../backend/07-cli.md#crear-usuarios-user-add).
+
+```bash
+# Primer administrador, sin preguntas (la contraseña queda en el historial de la shell)
+SkyPanel user add --name admin --email admin@example.com --password 'una-contraseña-larga' --admin
+
+# Totalmente interactivo
+SkyPanel user add
+```
+
+## `user edit`
+
+```bash
+SkyPanel user edit
+```
+
+Sin flags. Pide un nombre de usuario y después ofrece: **Username**, **Email**, **Password** (cierra las sesiones del usuario), **Admin Status** (`yes`/`no`/`cancel`), **Remove 2FA** y **Quit**. Solo puede ejecutarlo `root` o un miembro del grupo `SkyPanel`. Un nuevo nombre de usuario o correo debe superar las mismas comprobaciones que en la API (nombre obligatorio, ASCII imprimible, de 1 a 100 caracteres; un correo válido de hasta 255 caracteres); un valor rechazado no se guarda y el usuario conserva el anterior. No tener permiso, una base de datos inaccesible o un nombre de usuario desconocido terminan el comando con código 1. Véase [Editar usuarios](../backend/07-cli.md#editar-usuarios-user-edit).
+
+## `db upgrade`
+
+```bash
+SkyPanel db upgrade
+```
+
+Sin flags. Ejecuta las migraciones del esquema con una barra de progreso. Con SQLite guarda antes `<archivo>.<N>.backup` y lo restaura si la actualización falla. Se omite (código 0) cuando `panel.enable` es `false`; código 1 si falla.
+
+## `db migrate`
+
+```bash
+SkyPanel db migrate
+```
+
+Sin flags ni argumentos. Aplica las migraciones pendientes del esquema, el mismo paso que da `run` antes de arrancar, sin barra de progreso ni copia de SQLite. Muestra `Database migrations complete` y termina con 0; se omite (código 0, «Panel not enabled, skipping migrations») cuando `panel.enable` es `false`; termina con 1 si no se puede conectar con la base de datos o falla una migración. El entrypoint de Docker lo ejecuta antes de `run`.
 
 ---
 
-## 4. `runService` — systemd Service
+## Códigos de salida
 
-```bash
-./skypanel runService
-```
+| Código | Cuándo |
+|--------|--------|
+| `0` | Éxito, o un comando que solo muestra la ayuda |
+| `1` | Cualquier comando que falle: un comando o flag desconocido, argumentos incorrectos, un `user add` o `user edit` que falla (valor de flag no válido, base de datos inaccesible, usuario desconocido, sin permiso), un fallo de `db upgrade` o `db migrate` |
+| `2` | Un pánico inesperado (la traza se escribe en el log) |
 
-Identical to `run`, but also notifies systemd via `NOTIFY_SOCKET`:
-- Sends `READY=1` when the panel is ready.
-- Sends `STOPPING=1` during shutdown.
-
-Useful for integrating with systemd units of type `Type=notify`.
+Cobra muestra el error como `Error: <mensaje>`.
 
 ---
 
-## 5. `version` — Version
+## Resumen rápido
 
 ```bash
-./skypanel version
-```
+SkyPanel version
+SkyPanel user add --name admin --email admin@example.com --admin
+SkyPanel user edit
+SkyPanel db upgrade
+SkyPanel --workDir /var/lib/SkyPanel --config /etc/SkyPanel/config.json run
 
-Shows the panel version. By default: `SkyPanel nightly (unknown)`. It can be customized at compile time with `-ldflags` (see section 1).
-
----
-
-## 6. `user` — User Management
-
-### 6.1. `user add` — Create User
-
-```bash
-./skypanel user add --name "admin" --email "admin@example.com" --admin --password "secure_password"
-```
-
-All flags are **optional**. If any is omitted, the system will prompt for it interactively:
-
-| Flag | Description |
-|------|-------------|
-| `--name` | Username |
-| `--email` | Email address |
-| `--admin` | Grants administrator permissions |
-| `--password` | Password (if omitted, prompted with confirmation) |
-
-The command:
-1. Validates the username format, email, and password strength.
-2. Connects to the database.
-3. Creates the user with `ScopeLogin` + `ScopeAdmin` permissions (if `--admin`).
-
-### 6.2. `user edit` — Edit User (Interactive)
-
-```bash
-./skypanel user edit
-```
-
-**Fully interactive** command (no flags). Steps:
-
-1. Prompts for the username to edit.
-2. Shows an interactive menu with options:
-
-   | Option | Action |
-   |--------|--------|
-   | **Username** | Change username |
-   | **Email** | Change email address |
-   | **Password** | Change password |
-   | **Admin Status** | Add or remove administrator permissions |
-   | **Remove 2FA** | Disable two-factor authentication |
-   | **Quit** | Exit |
-
-3. Allows making multiple changes in the same session.
-
----
-
-## 7. `db` — Database
-
-### 7.1. `db upgrade` — Migrations
-
-```bash
-./skypanel db upgrade
-```
-
-Runs the database schema migrations. Useful after updating the panel to a new version.
-
-- **SQLite:** Makes an automatic backup of the file (`skypanel.db.0.backup`, `skypanel.db.1.backup`, ...) before migrating.
-- **Other dialects:** Runs migrations directly.
-- If the migration fails, it automatically restores the backup (SQLite).
-
-### 7.2. `db migrate` — Change Engine (Experimental)
-
-```bash
-./skypanel db migrate
-```
-
-> **Note:** This command is currently a **stub** and does not perform any action. It is designed to migrate data between database dialects (e.g., SQLite → MySQL) in the future. **Not for production use.**
-
----
-
-## Global Flags (All Commands)
-
-| Flag | Description |
-|------|-------------|
-| `--workDir` | Changes the working directory before starting |
-| `--config` | Path to the JSON configuration file |
-
-Both flags are available in **all** subcommands.
-
----
-
-## Quick Summary
-
-```bash
-# Compile
-go build -o skypanel ./cmd/panel
-
-# Version
-./skypanel version
-
-# Create admin
-./skypanel user add --name admin --email admin@example.com --admin
-
-# Edit user (interactive)
-./skypanel user edit
-
-# Start panel
-./skypanel run
-
-# Start as service
-./skypanel runService
-
-# Migrate database
-./skypanel db upgrade
-
-# With global flags
-./skypanel --workDir /data/skypanel --config /data/skypanel/config.json run
+# Docker
+docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email admin@example.com --admin
+docker compose logs -f skypanel
 ```

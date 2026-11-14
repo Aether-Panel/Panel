@@ -13,7 +13,9 @@ interface MailTabProps {
     t: (key: string, options?: Record<string, string | number>) => string;
 }
 
-const PROVIDER_NAMES: Record<string, string> = { smtp: 'SMTP', mailgun: 'Mailgun', mailjet: 'Mailjet' };
+// Every provider registered in internal/email. "debug" sends nothing: it writes each
+// email to the panel's debug log, which is handy for testing without real credentials.
+const PROVIDER_NAMES: Record<string, string> = { smtp: 'SMTP', mailgun: 'Mailgun', mailjet: 'Mailjet', sendgrid: 'SendGrid', debug: 'Debug' };
 
 export function MailTab({ localSettings, handleUpdate, handleTestEmail, saving, t }: Readonly<MailTabProps>) {
     const provider: string | undefined = localSettings['panel.email.provider'];
@@ -61,6 +63,8 @@ export function MailTab({ localSettings, handleUpdate, handleTestEmail, saving, 
                                 <SelectItem value="smtp">SMTP</SelectItem>
                                 <SelectItem value="mailgun">Mailgun</SelectItem>
                                 <SelectItem value="mailjet">Mailjet</SelectItem>
+                                <SelectItem value="sendgrid">SendGrid</SelectItem>
+                                <SelectItem value="debug">{t('settings.mail.debug.option')}</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -75,40 +79,52 @@ export function MailTab({ localSettings, handleUpdate, handleTestEmail, saving, 
                 {provider && (
                     <SettingsSection
                         title={t('settings.mail.configTitle', { provider: providerName })}
-                        description={t('settings.mail.configDescription')}
+                        description={t(provider === 'debug' ? 'settings.mail.debug.configDescription' : 'settings.mail.configDescription')}
                     >
-                        <div className="grid gap-5 md:grid-cols-2">
-                            {provider === 'smtp' && (
-                                <>
-                                    {text('panel.email.from', 'smtp-from', t('settings.mail.smtp.fromLabel'), t('settings.mail.smtp.fromPlaceholder'))}
-                                    {text('panel.email.host', 'smtp-host', t('settings.mail.smtp.hostLabel'), t('settings.mail.smtp.hostPlaceholder'), true)}
-                                    {text('panel.email.username', 'smtp-user', t('settings.mail.smtp.userLabel'), t('settings.mail.smtp.userPlaceholder'))}
-                                    <SettingsField id="smtp-pass" label={t('settings.mail.smtp.passLabel')}>
-                                        <SecretInput
-                                            id="smtp-pass"
-                                            value={localSettings['panel.email.password'] || ''}
-                                            onChange={(v) => handleUpdate('panel.email.password', v)}
-                                            placeholder={t('settings.mail.smtp.passPlaceholder')}
-                                            t={t}
-                                        />
-                                    </SettingsField>
-                                </>
-                            )}
-                            {provider === 'mailgun' && (
-                                <>
-                                    {text('panel.email.domain', 'mailgun-domain', t('settings.mail.mailgun.domainLabel'), t('settings.mail.mailgun.domainPlaceholder'), true)}
-                                    {text('panel.email.from', 'mailgun-from', t('settings.mail.mailgun.fromLabel'), t('settings.mail.mailgun.fromPlaceholder'))}
-                                    {secret('panel.email.key', 'mailgun-key', t('settings.mail.mailgun.keyLabel'), t('settings.mail.mailgun.keyPlaceholder'))}
-                                </>
-                            )}
-                            {provider === 'mailjet' && (
-                                <>
-                                    {text('panel.email.domain', 'mailjet-domain', t('settings.mail.mailjet.domainLabel'), t('settings.mail.mailjet.domainPlaceholder'), true)}
-                                    {text('panel.email.from', 'mailjet-from', t('settings.mail.mailjet.fromLabel'), t('settings.mail.mailjet.fromPlaceholder'))}
-                                    {secret('panel.email.key', 'mailjet-key', t('settings.mail.mailjet.keyLabel'), t('settings.mail.mailjet.keyPlaceholder'))}
-                                </>
-                            )}
-                        </div>
+                        {provider === 'debug' ? (
+                            <p className="text-pretty text-sm text-muted-foreground">{t('settings.mail.debug.note')}</p>
+                        ) : (
+                            <div className="grid gap-5 md:grid-cols-2">
+                                {provider === 'smtp' && (
+                                    <>
+                                        {text('panel.email.from', 'smtp-from', t('settings.mail.smtp.fromLabel'), t('settings.mail.smtp.fromPlaceholder'))}
+                                        {text('panel.email.host', 'smtp-host', t('settings.mail.smtp.hostLabel'), t('settings.mail.smtp.hostPlaceholder'), true)}
+                                        {text('panel.email.username', 'smtp-user', t('settings.mail.smtp.userLabel'), t('settings.mail.smtp.userPlaceholder'))}
+                                        <SettingsField id="smtp-pass" label={t('settings.mail.smtp.passLabel')}>
+                                            <SecretInput
+                                                id="smtp-pass"
+                                                value={localSettings['panel.email.password'] || ''}
+                                                onChange={(v) => handleUpdate('panel.email.password', v)}
+                                                placeholder={t('settings.mail.smtp.passPlaceholder')}
+                                                t={t}
+                                            />
+                                        </SettingsField>
+                                    </>
+                                )}
+                                {provider === 'mailgun' && (
+                                    <>
+                                        {text('panel.email.domain', 'mailgun-domain', t('settings.mail.mailgun.domainLabel'), t('settings.mail.mailgun.domainPlaceholder'), true)}
+                                        {text('panel.email.from', 'mailgun-from', t('settings.mail.mailgun.fromLabel'), t('settings.mail.mailgun.fromPlaceholder'))}
+                                        {secret('panel.email.key', 'mailgun-key', t('settings.mail.mailgun.keyLabel'), t('settings.mail.mailgun.keyPlaceholder'))}
+                                    </>
+                                )}
+                                {provider === 'mailjet' && (
+                                    <>
+                                        {/* Mailjet signs in with a key pair: the backend reads the public key
+                                            from panel.email.domain and the secret key from panel.email.key. */}
+                                        {text('panel.email.domain', 'mailjet-public-key', t('settings.mail.mailjet.publicKeyLabel'), t('settings.mail.mailjet.publicKeyPlaceholder'), true)}
+                                        {text('panel.email.from', 'mailjet-from', t('settings.mail.mailjet.fromLabel'), t('settings.mail.mailjet.fromPlaceholder'))}
+                                        {secret('panel.email.key', 'mailjet-key', t('settings.mail.mailjet.secretKeyLabel'), t('settings.mail.mailjet.keyPlaceholder'))}
+                                    </>
+                                )}
+                                {provider === 'sendgrid' && (
+                                    <>
+                                        {text('panel.email.from', 'sendgrid-from', t('settings.mail.sendgrid.fromLabel'), t('settings.mail.sendgrid.fromPlaceholder'))}
+                                        {secret('panel.email.key', 'sendgrid-key', t('settings.mail.sendgrid.keyLabel'), t('settings.mail.sendgrid.keyPlaceholder'))}
+                                    </>
+                                )}
+                            </div>
+                        )}
                     </SettingsSection>
                 )}
             </div>

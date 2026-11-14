@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/empty-state';
+import { useConfig } from '@/contexts/config-context';
 import { useTranslations } from '@/contexts/translations-context';
 import { ApiError, api } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
@@ -222,6 +223,7 @@ export function CrashHistory({ serverId, onOpen }: Readonly<{ serverId: string; 
 /** One crash in full: what happened, the console before it, and the AI's reading of it. */
 export function CrashReportDialog({ serverId, report, onOpenChange }: Readonly<{ serverId: string; report: CrashReport | null; onOpenChange: (open: boolean) => void }>) {
   const { t, language, date, exitMeaning, restartText } = useFormat();
+  const aiHidden = !!useConfig().config?.hideAiAnalysis;
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [analysing, setAnalysing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -253,10 +255,10 @@ export function CrashReportDialog({ serverId, report, onOpenChange }: Readonly<{
 
   return (
     <Dialog open={report !== null} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="gap-5 p-4 sm:max-w-3xl sm:p-6 lg:max-w-4xl">
         {report && (
           <>
-            <DialogHeader>
+            <DialogHeader className="pr-8 text-left">
               <DialogTitle className="flex items-center gap-2">
                 <AlertOctagon className="h-5 w-5 text-destructive-bright" aria-hidden="true" />
                 {t('servers.crashes.dialog.title')}
@@ -264,13 +266,14 @@ export function CrashReportDialog({ serverId, report, onOpenChange }: Readonly<{
               <DialogDescription>{date(report.time)}</DialogDescription>
             </DialogHeader>
 
-            <dl className="grid gap-2 sm:grid-cols-3">
+            <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {[
                 { label: t('servers.crashes.dialog.exitCode'), value: String(report.exitCode), mono: true },
                 { label: t('servers.crashes.dialog.meaning'), value: exitMeaning(report.exitCode) },
                 { label: t('servers.crashes.dialog.recovery'), value: restartText(report) },
-              ].map((item) => (
-                <div key={item.label} className="rounded-lg border border-border/60 bg-background/40 px-3 py-2.5">
+              ].map((item, index) => (
+                // on phones the first two share a row and the recovery note takes the next one
+                <div key={item.label} className={cn('min-w-0 rounded-lg border border-border/60 bg-background/40 px-3 py-2.5', index === 2 && 'col-span-2 sm:col-span-1')}>
                   <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{item.label}</dt>
                   <dd className={cn('mt-1 text-sm text-foreground first-letter:uppercase', item.mono && 'font-mono tabular-nums')}>{item.value}</dd>
                 </div>
@@ -282,23 +285,31 @@ export function CrashReportDialog({ serverId, report, onOpenChange }: Readonly<{
               {report.lines.length === 0 ? (
                 <p className="text-sm text-muted-foreground">{t('servers.crashes.dialog.noLines')}</p>
               ) : (
-                <ol className="custom-scrollbar max-h-64 overflow-auto rounded-lg border border-border/60 bg-background py-2 font-mono text-[12px] leading-5" tabIndex={0} aria-labelledby="crash-log-title">
-                  {keyedByContent(report.lines).map(({ key: lineKey, item: line }, index) => (
-                    <li
-                      key={lineKey}
-                      className={cn(
-                        'flex gap-3 px-3',
-                        ERROR_LINE.test(line) && 'bg-destructive/10 text-destructive-bright',
-                      )}
-                    >
-                      <span aria-hidden="true" className="w-6 shrink-0 select-none text-right text-muted-foreground/40 tabular-nums">{index + 1}</span>
-                      <span className="min-w-0 whitespace-pre-wrap break-words"><AnsiText text={line} /></span>
-                    </li>
-                  ))}
-                </ol>
+                // the scroller stays focusable for keyboard scrolling (as in the console); the list
+                // keeps its own semantics and name
+                <div
+                  tabIndex={0} // NOSONAR: a scrolling region must be focusable to scroll it with the keyboard (WCAG 2.1.1, axe scrollable-region-focusable)
+                  className="custom-scrollbar max-h-[min(24rem,50dvh)] overflow-auto rounded-lg border border-border/60 bg-background py-2 font-mono text-[12px] leading-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                >
+                  <ol aria-labelledby="crash-log-title">
+                    {keyedByContent(report.lines).map(({ key: lineKey, item: line }, index) => (
+                      <li
+                        key={lineKey}
+                        className={cn(
+                          'flex gap-3 px-3',
+                          ERROR_LINE.test(line) && 'bg-destructive/10 text-destructive-bright',
+                        )}
+                      >
+                        <span aria-hidden="true" className="w-6 shrink-0 select-none text-right text-muted-foreground/40 tabular-nums">{index + 1}</span>
+                        <span className="min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]"><AnsiText text={line} /></span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
               )}
             </section>
 
+            {!aiHidden && (
             <section aria-labelledby="crash-ai-title" aria-busy={analysing} className="rounded-xl border border-primary/25 bg-gradient-to-br from-primary/[0.07] via-transparent to-accent/[0.05] p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h3 id="crash-ai-title" className="flex items-center gap-2 text-sm font-semibold">
@@ -325,7 +336,7 @@ export function CrashReportDialog({ serverId, report, onOpenChange }: Readonly<{
 
               {analysis && (
                 <div className="mt-4 space-y-4 text-sm" aria-live="polite">
-                  <p className="leading-relaxed text-foreground animate-in fade-in-0 duration-500">{analysis.summary}</p>
+                  <p className="leading-relaxed text-foreground [overflow-wrap:anywhere] animate-in fade-in-0 duration-500">{analysis.summary}</p>
                   {[
                     { key: 'causes', icon: SearchCheck, title: t('servers.crashes.ai.causes'), items: analysis.rootCauses },
                     { key: 'fixes', icon: Lightbulb, title: t('servers.crashes.ai.fixes'), items: analysis.suggestions },
@@ -343,7 +354,7 @@ export function CrashReportDialog({ serverId, report, onOpenChange }: Readonly<{
                             style={{ animationDelay: `${(groupIndex * 3 + i) * 70 + 150}ms` }}
                           >
                             <span aria-hidden="true" className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                            <span>{item}</span>
+                            <span className="min-w-0 [overflow-wrap:anywhere]">{item}</span>
                           </li>
                         ))}
                       </ul>
@@ -352,6 +363,7 @@ export function CrashReportDialog({ serverId, report, onOpenChange }: Readonly<{
                 </div>
               )}
             </section>
+            )}
           </>
         )}
       </DialogContent>

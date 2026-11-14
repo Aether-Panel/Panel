@@ -2,193 +2,177 @@
   <img src="docs/images/logo.png" alt="Aether Panel Logo" width="200" height="auto" />
 
 # Aether Panel
-### Panel de Gestión de Servidores de Juegos de Código Abierto
+### Panel de gestión de servidores de juegos de código abierto
 </div>
 
-[Documentación](./docs/es/README.md) • [Instalación](./docs/es/setup/01-installation.md) • [API](./docs/es/reference/11-api-reference.md) • [English docs](./docs/en/README.md) • [Discord](https://discord.gg/aetherpanel)
+[Documentación](./docs/es/README.md) • [Instalación](./docs/es/setup/01-installation.md) • [Funcionalidades](./docs/es/features/README.md) • [API](./docs/es/reference/11-api-reference.md) • [Solución de problemas](./docs/es/setup/troubleshooting.md) • [English docs](./docs/en/README.md) • [Discord](https://discord.gg/aetherpanel)
 
 ---
 
-## Sobre el Proyecto
+## Sobre el proyecto
 
-Aether Panel (nombre en clave interno: SkyPanel) es una solución moderna de gestión de servidores de juegos diseñada para proveedores de hosting, comunidades y administradores de servidores.
+Aether Panel (nombre en clave interno: SkyPanel) es un panel de gestión de servidores de juegos para proveedores de hosting, comunidades y administradores de servidores.
 
-Ofrece una arquitectura flexible con dos backends de ejecución —Docker y ejecución directa con aislamiento por namespaces (unshare)—, gestión de usuarios con permisos granulares, servidor SFTP integrado, y monitorización en tiempo real.
+Cada servidor de juego se ejecuta en su propio contenedor Docker, con un usuario sin privilegios y límites de recursos. El panel incluye gestión de usuarios con permisos por servidor, SFTP integrado, consola y métricas en tiempo real, copias de seguridad, tareas programadas, nodos remotos y una API REST.
 
-**Versión:** 2.1.0
+**Versión:** 2.2.0
 
 ---
 
-## Características Principales
+## Características principales
 
-### Gestión de Servidores
-*   **Multi-Servidor:** Capacidad para gestionar instancias ilimitadas de diferentes juegos mediante plantillas descargables.
-*   **Dos Backends de Ejecución:**
-    *   **Docker:** Cada servidor se ejecuta en un contenedor Docker aislado.
-    *   **Host/TTY:** Ejecución directa con aislamiento por contenedores de Linux (namespaces: user, mount, cgroup, ipc, uts) y `pivot_root`.
-*   **Plantillas:** 56 plantillas en el repositorio oficial (Minecraft y sus variantes, Palworld, Rust, ARK, Valheim, FiveM, bases de datos, Node.js, Python…) y repositorios propios.
-*   **Instalación automática:** Al crear un servidor se instala solo, sin pulsar «Instalar».
-*   **Un asistente que evita fallos:** Al crear un servidor avisa de los puertos ya ocupados (por el panel, otro servidor u otro contenedor) y propone uno libre, y avisa si la RAM o el disco pedidos no caben en el nodo.
-*   **Límites reales:** El límite de disco se aplica de verdad (también a las subidas por SFTP) y cada servidor tiene prioridad de E/S de disco configurable.
-*   **Sin cortes al reiniciar:** Si el panel o el daemon se reinician, se vuelven a conectar a los servidores que siguieron en marcha.
-*   **Subdominios automáticos:** Con Cloudflare, cada servidor tiene su subdominio, que se actualiza si cambia su puerto o su nodo.
+### Gestión de servidores
+*   **Multi-servidor y multi-nodo:** gestiona servidores de distintos juegos en el nodo del panel y en nodos secundarios, desde un único panel maestro.
+*   **Plantillas:** descargables del repositorio oficial (`templates.aetherpanel.es`: Minecraft y sus variantes, juegos de Steam, bases de datos, Node.js, Python…) y de repositorios propios.
+*   **Contenedores Docker:** cada servidor en su contenedor, sobre las imágenes base `ghcr.io/aether-panel/{ubuntu,steamcmd,generic}`, que cada nodo descarga y mantiene al día en segundo plano. En la instalación con Docker solo se permiten servidores en contenedores (`docker.disallowHost`); el entorno de ejecución directa con aislamiento por namespaces (`tty` con `unshare`) existe en el código pero queda desactivado.
+*   **Instalación automática:** al crear un servidor se instala solo, sin pulsar «Instalar» (`panel.servers.autoInstall`).
+*   **Un asistente que evita fallos:** al crear un servidor avisa de los puertos ya ocupados (por el panel, otro servidor u otro contenedor) y propone uno libre, y avisa si la RAM o el disco pedidos no caben en el nodo.
+*   **Límites reales:** el límite de disco se aplica de verdad (también a las subidas por SFTP), cada servidor tiene prioridad de E/S de disco configurable y un límite de procesos.
+*   **Disco de los nodos vigilado:** el panel avisa cuando a un nodo le queda poco disco y no deja empezar una instalación sin espacio suficiente (`daemon.minFreeDiskMB`).
+*   **Sin cortes al reiniciar:** si el panel o el daemon se reinician, se vuelven a conectar a los servidores que siguieron en marcha.
+*   **Caídas a la vista:** cuando un servidor se cae, el panel lo avisa al momento con la causa, guarda un informe con las últimas líneas de la consola y puede explicarlo con IA.
+*   **Modpacks y mundos:** instalación de modpacks y plugins (CurseForge, Modrinth) y mapa del mundo.
+*   **Subdominios automáticos:** con Cloudflare, cada servidor tiene su subdominio, que se actualiza si cambia su puerto o su nodo.
+*   **Bases de datos para los servidores:** hosts MySQL/MariaDB desde los que cada servidor crea sus propias bases de datos.
 
-### Administración y Seguridad
-*   **Multi-Usuario:** Sistema completo de usuarios y roles con permisos detallados por servidor.
-*   **Propietario y subusuarios:** Cada servidor tiene un propietario, que invita a subusuarios y les da solo los permisos que elija.
-*   **API keys con permisos:** Cada clave (por ejemplo, la del sistema de facturación) solo puede hacer las acciones que se le dieron.
-*   **Autenticación Múltiple:** Sesiones con cookie/token, API keys (`ak_*`), OAuth2 (client credentials + password grant), JWT con JWKS endpoint.
-*   **2FA/TOTP:** Autenticación de dos factores vía códigos temporales, con inicio de sesión en dos pasos y códigos de recuperación.
-*   **Anti-bots sin configurar nada:** Comprobación anti-bots propia (prueba de trabajo) activada por defecto en el registro, el inicio de sesión y la recuperación de contraseña. Cloudflare Turnstile sigue disponible como opción.
-*   **Aislamiento:** Contenedores Docker o namespaces de Linux con `pivot_root` y mapeo de usuarios.
-*   **Juegos sin root:** En Docker, cada juego corre con un usuario sin privilegios, sin los permisos de Linux que no necesita y con un límite de procesos, como en Pterodactyl. Los servidores existentes se migran solos al arrancar. Ver [Servidores](./docs/es/backend/04-servers.md#usuario-y-aislamiento-del-contenedor).
-*   **Disco de los nodos vigilado:** El panel avisa a los administradores cuando a un nodo le queda poco disco y no deja empezar una instalación si no hay espacio.
+### Administración y seguridad
+*   **Usuarios y roles:** permisos detallados por servidor; cada servidor tiene un propietario que invita a subusuarios y les da solo los permisos que elija.
+*   **Autenticación:** sesiones con cookie, API keys (`ak_*`) con permisos limitados, OAuth2 (client credentials y password grant), JWT con endpoint JWKS.
+*   **2FA/TOTP:** inicio de sesión en dos pasos con códigos de recuperación, y límite de intentos fallidos (compartido con el SFTP).
+*   **Anti-bots sin configurar nada:** comprobación propia (prueba de trabajo) activada por defecto en el registro, el inicio de sesión y la recuperación de contraseña. Cloudflare Turnstile sigue disponible como opción.
+*   **Juegos sin root:** cada juego corre con un usuario sin privilegios (`docker.serverUser`, 988:988), sin las capacidades de Linux que no necesita, con `no-new-privileges` y con un límite de procesos. Ver [Servidores](./docs/es/backend/04-servers.md#usuario-y-aislamiento-del-contenedor).
+*   **Endurecimiento de la web:** cabeceras de seguridad, rechazo de peticiones con la cookie del panel iniciadas desde otra web, descargas de plantillas bloqueadas hacia redes privadas (`security.blockPrivateDownloads`) y límite de copias por servidor (`panel.backups.maxPerServer`). Ver [Seguridad](./docs/es/backend/09-security.md).
 
-### Herramientas Integradas
-*   **Gestión de Archivos:** Servidor SFTP nativo (SSH + SFTP sobre Go) con contraseña o, en el nodo del panel, con claves SSH públicas.
-*   **Panel Web:** Interfaz moderna construida con Astro, React 19 y Tailwind CSS, con menú lateral que se encoge a una barra de iconos y un inicio de sesión y registro en una sola tarjeta.
-*   **Caídas a la vista:** Cuando un servidor se cae, el panel lo avisa al momento con la causa, guarda un informe con las últimas líneas de la consola y puede explicarlo con IA.
-*   **Notificaciones:** Alertas automáticas vía Discord (embeds enriquecidos) y correo electrónico (Mailgun, Mailjet, SendGrid, SMTP).
-*   **API RESTful:** Documentada con Swagger/OpenAPI, disponible en `/swagger/`.
-*   **Monitorización:** Estadísticas de CPU, memoria y disco por servidor vía `gopsutil`; WebSocket en tiempo real para console y métricas.
-*   **Programador de Tareas:** Motor de tareas programadas con gocron.
-*   **AI Asistente:** Integración con Google GenAI para asistencia en consola/logs.
+### Herramientas integradas
+*   **Archivos:** servidor SFTP nativo (SSH + SFTP en Go) con contraseña o con claves SSH públicas, en todos los nodos; editor de archivos con historial.
+*   **Panel web:** Astro, React 19 y Tailwind CSS, en inglés (por defecto) y español, con menú lateral que se encoge a una barra de iconos, consola ampliable e inicio de sesión y registro en una sola tarjeta.
+*   **Monitorización:** CPU, memoria, disco y red por servidor y por nodo, con WebSocket en tiempo real para consola y métricas, e historial de disponibilidad.
+*   **Copias de seguridad:** locales y en S3 o compatible (MinIO, R2…).
+*   **Tareas programadas:** motor de tareas con gocron.
+*   **Notificaciones:** Discord (embeds), Telegram y webhooks JSON por servidor, con idioma configurable (español o inglés), y correo (Mailgun, Mailjet, SendGrid, SMTP).
+*   **Asistente de IA:** Google Gemini para analizar la consola y los logs.
 *   **Facturación:** API de aprovisionamiento para WHMCS u otros sistemas: crea servidores con los límites del plan, cambia de plan y genera enlaces de acceso directo de un solo uso.
-*   **Extensiones:** Instala extensiones (`.zip`) que añaden páginas aisladas al panel y reciben eventos firmados. Ver [Extensiones](./docs/es/reference/15-extensions.md).
+*   **Extensiones:** instala extensiones (`.zip`) que añaden páginas aisladas al panel y reciben eventos firmados. Ver [Extensiones](./docs/es/reference/15-extensions.md).
+*   **API REST:** documentada con Swagger/OpenAPI en `/swagger/` (solo para administradores con sesión iniciada).
+*   **Actualizaciones desde el panel:** **Ajustes → Actualizaciones** actualiza el panel y los nodos.
 
 ---
 
-## Arquitectura del Sistema
+## Arquitectura
 
-Aether Panel opera como una aplicación monolítica modular con capacidad de despliegue distribuido (Panel + Nodos remotos).
+Aether Panel es un único binario en Go que, según su configuración, sirve el panel web y la API, el daemon que gestiona los servidores y el SFTP. En los nodos secundarios solo se activa el daemon (`panel.enable=false`).
 
-### Componentes Principales
-
-1.  **Core (Backend):**
-    *   Escrito en **Go** (1.26).
-    *   Framework web **Gin**, ORM **GORM**, CLI **Cobra**.
-    *   Gestiona la API HTTP, autenticación, base de datos y lógica de negocio.
-    *   Controla el ciclo de vida de servidores (Docker o directo).
-    *   Provee el servidor SFTP integrado y WebSocket para consola/estadísticas.
-
-2.  **Interfaz de Usuario (Frontend):**
-    *   Aplicación SPA construida con **Astro + React 19**.
-    *   Estilizada con **Tailwind CSS 3** y componentes **Radix UI**.
-    *   Se comunica con el backend exclusivamente a través de la API REST.
-
-3.  **Capa de Datos:**
-    *   Soporte para **SQLite** (por defecto), **MySQL/MariaDB**, **PostgreSQL** y **SQL Server**.
-
-4.  **Infraestructura de Ejecución:**
-    *   **Docker:** Contenedores aislados con límites de recursos.
-    *   **Host (directo):** Ejecución con namespaces (user, mount, cgroup, ipc, uts) y `pivot_root` para aislamiento de sistema de archivos.
+1.  **Backend:** Go 1.26, Gin, GORM, Cobra y Viper. API HTTP, autenticación, base de datos, ciclo de vida de los servidores, SFTP y WebSocket.
+2.  **Frontend:** Astro + React 19, Tailwind CSS 3 y Radix UI. Se compila dentro de la imagen, va embebido en el binario y se comunica con el backend solo por la API.
+3.  **Base de datos:** MariaDB en la instalación con Docker. El código también admite SQLite, PostgreSQL y SQL Server.
+4.  **Ejecución:** contenedores Docker a través del socket del host.
 
 ```
-[Cliente Web (Astro/React)] <---> [API (Go/Gin)] <---> [Base de Datos]
-                                      |
-                          +-----------+-----------+
-                          |                       |
-                    [Docker Engine]      [Unshare Namespaces]
-                          |                       |
-              [Contenedores de Juegos]   [Procesos Aislados]
+[Navegador (Astro/React)] <---> [Nginx (HTTPS)] <---> [Panel: API + daemon + SFTP (Go)] <---> [MariaDB]
+                                                                  |
+                                                     [Docker del host]  ---  [Nodos secundarios (daemon)]
+                                                                  |
+                                                     [Contenedores de juego (red skypanel-servers)]
 ```
 
 ---
 
-## Instalación Rápida
+## Instalación rápida
 
-### Opción 1: Instalación Automática (Script)
-El método recomendado. Probado en Ubuntu 22.04, 24.04, 26.04 y 26.10, Debian 12, Rocky Linux 9, Arch Linux y openSUSE (amd64 y arm64).
+### Requisitos
+*   Linux `amd64` o `arm64` con `apt`, `dnf`, `pacman` o `zypper`: probado en Ubuntu 22.04, 24.04, 26.04 y 26.10, Debian 12, Rocky Linux 9, Arch Linux y openSUSE Tumbleweed.
+*   2 GB de RAM (la imagen se compila en el servidor) y 10 GB libres.
+*   Docker Engine y Docker Compose v2 (el instalador los instala si faltan). Para puertos propios o un dominio, Docker Compose 2.24.4 o posterior.
+
+Todos los detalles en la [Guía de instalación](./docs/es/setup/01-installation.md#requisitos-del-sistema).
+
+### Opción 1: instalador automático (recomendado)
+
+Asistente interactivo, como `root`:
 
 ```bash
-curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash
+bash -c "$(curl -fsSL https://install.aetherpanel.es/install.sh)"
 ```
 
-Opciones (`--non-interactive`, `--dry-run`, dominio y SSL…) en la [Guía de Instalación](./docs/es/setup/01-installation.md#opciones-útiles).
-
-### Opción 2: Despliegue con Docker
-Para ejecutar el panel dentro de un contenedor Docker.
+Sin preguntas, con dominio y HTTPS:
 
 ```bash
-docker run -d \
-  --name skypanel \
-  -p 8080:8080 \
-  -p 5657:5657 \
-  -v skypanel-data:/var/lib/skypanel \
-  ghcr.io/aether-panel/panel:latest
+curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash -s -- --non-interactive \
+  --domain panel.ejemplo.com --ssl --email admin@ejemplo.com --admin-email admin@ejemplo.com
 ```
 
-### Opción 3: Construcción Manual
-Requiere Go 1.26+ y Node.js 22+.
+El instalador instala Docker, construye la imagen, configura Nginx, Let's Encrypt y el cortafuegos, y crea el administrador. También actualiza (`--update`, con copia de la base de datos y vuelta atrás automática), reinstala y desinstala. Todas las opciones en la [Guía de instalación](./docs/es/setup/01-installation.md#referencia-de-opciones).
 
-1.  Clonar el repositorio.
-2.  Compilar el frontend (`yarn build` en `client/`).
-3.  Compilar el backend (`make build` en raíz).
-4.  Ejecutar el binario generado (`make run`).
+### Opción 2: Docker Compose a mano
 
-Para instrucciones detalladas, consulte la [Guía de Instalación Completa](./docs/es/setup/01-installation.md).
+```bash
+git clone -b main https://github.com/Aether-Panel/Panel.git /opt/skypanel
+cd /opt/skypanel
+# Cambie antes DB_ROOT_PASSWORD y DB_PASSWORD en .env (trae valores públicos de ejemplo)
+docker compose up -d --build
+docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email admin@ejemplo.com --admin
+```
+
+Ver [Método 2](./docs/es/setup/01-installation.md#método-2-docker-compose-a-mano).
+
+### Desarrollo
+
+Para compilar fuera de Docker hacen falta Go 1.26 o posterior y Node.js 22 o posterior. El frontend se compila primero porque el binario lo embebe:
+
+```bash
+cd client && yarn install && yarn build && cd ..
+go build -o bin/SkyPanel ./cmd/panel
+./bin/SkyPanel run
+```
+
+Con el `Makefile`, `make build` compila el paquete `./cmd/panel` en `bin/skypanel` y `make run` ejecuta `go run ./cmd/panel run` (el frontend se compila igualmente antes).
 
 ---
 
-## Stack Tecnológico
+## Stack tecnológico
 
-**Backend**
-*   Lenguaje: Go 1.26
-*   Framework Web: Gin
-*   ORM: GORM
-*   CLI: Cobra + Viper
-*   Contenedores: Docker SDK
-*   Aislamiento: unshare (namespaces Linux)
-*   Documentación API: Swaggo / Swagger
-*   Tareas programadas: gocron
-*   Estadísticas: gopsutil
+**Backend:** Go 1.26 · Gin · GORM · Cobra + Viper · cliente de Docker (moby) · Swaggo · gocron · gopsutil · Google GenAI
 
-**Frontend**
-*   Framework: Astro + React 19
-*   Componentes: Radix UI
-*   Estilos: Tailwind CSS 3
-*   Editor: Monaco Editor
-*   Charts: Recharts
-*   Formularios: React Hook Form + Zod
+**Frontend:** Astro · React 19 · Radix UI · Tailwind CSS 3 · Monaco Editor · Recharts · React Hook Form + Zod
 
-**Infraestructura**
-*   Base de Datos: SQLite, MySQL/MariaDB, PostgreSQL, SQL Server
-*   Transferencia: SFTP nativo (Go)
-*   Notificaciones: Discord, Mailgun, Mailjet, SendGrid, SMTP
-*   Autenticación: Sesiones, OAuth2, JWT/JWKS, API Keys, 2FA/TOTP, claves SSH (SFTP)
+**Infraestructura:** Docker · MariaDB (también SQLite, PostgreSQL, SQL Server) · Nginx + Let's Encrypt (instalador) · SFTP nativo en Go
 
 ---
 
-## CLI (Command Line Interface)
+## CLI
 
 ```
-SkyPanel run          Inicia el panel completo (web, daemon, SFTP)
-SkyPanel runService   Inicia como servicio systemd
+SkyPanel run          Inicia el panel (web, daemon y SFTP según la configuración)
+SkyPanel runService   Inicia el panel como servicio
 SkyPanel version      Muestra la versión
-SkyPanel user add     Agrega un nuevo usuario
-SkyPanel user edit    Edita un usuario existente
-SkyPanel db upgrade   Ejecuta migraciones de base de datos
-SkyPanel db migrate   Migra entre backends de base de datos (experimental)
+SkyPanel user add     Añade un usuario (--name, --email, --password, --admin, --force)
+SkyPanel user edit    Edita un usuario (nombre, email, contraseña, administrador, quitar 2FA)
+SkyPanel db upgrade   Aplica las migraciones del esquema
+SkyPanel db migrate   Aplica las migraciones pendientes, como `run` al arrancar (no hace nada con el panel desactivado)
 ```
+
+Un comando que falla (desconocido, opciones incorrectas, o un error en `user add`, `user edit` o `db migrate`) termina con código de salida 1. `user edit` valida el nombre de usuario y el correo con las mismas reglas que la API y no acepta valores vacíos.
+
+Opciones globales: `--config` (ruta del `config.json`) y `--workDir`. En Docker: `docker exec -it skypanel /SkyPanel/bin/SkyPanel …`. Ver [Comandos CLI](./docs/es/reference/14-cli-commands.md).
 
 ---
 
 ## CI/CD
 
-El proyecto utiliza **GitHub Actions** para integración continua:
+GitHub Actions ejecuta en cada push y pull request a `main`, `dev2.0` y `fide-dev2.0`:
 
-*   `gofmt`, `go vet`, `golangci-lint`, `staticcheck`, `gosec`
-*   Escaneo de vulnerabilidades con **Trivy**
-*   Tests unitarios con detector de carreras (`-race`)
-*   Tests de frontend (lint, typecheck, build)
-*   Tests E2E en Python
-*   Build multi-arquitectura (amd64 + arm64) y publish a `ghcr.io/aether-panel/panel`
+*   Tests de Go con detector de carreras y cobertura.
+*   `gofmt`, `go vet`, `golangci-lint`, Staticcheck, gosec y Trivy (vulnerabilidades, secretos y configuración).
+*   Frontend: lint, typecheck y compilación.
+*   Tests E2E en Python.
+*   Imagen multi-arquitectura (`amd64` y `arm64`), publicada en `ghcr.io/aether-panel/panel` desde `main`, e imágenes base de los servidores (`ubuntu`, `steamcmd`, `generic`) desde `main` y `dev2.0`.
 
 Ejecución local con Docker:
+
 ```powershell
-.\ci-local.ps1              # Todos los stages
-.\ci-local.ps1 -Only tests  # Solo tests
-.\ci-local.ps1 -Skip docker # Saltar build de Docker
+.\ci-local.ps1                     # Todas las etapas
+.\ci-local.ps1 -Only tests         # Solo tests
+.\ci-local.ps1 -Skip docker,trivy  # Saltar etapas
 ```
 
 ---

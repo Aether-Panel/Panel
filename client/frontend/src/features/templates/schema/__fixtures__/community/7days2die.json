@@ -1,0 +1,92 @@
+{
+  "type": "srcds",
+  "display": "7 Days to Die",
+  "icon": "7days2die",
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "steamgamedl",
+      "appId": "294420"
+    },
+    {
+      "if": "env == 'docker'",
+      "type": "command",
+      "commands": [
+        "steamcmd +force_install_dir /SkyPanel +login anonymous +app_update 294420 +quit"
+      ]
+    },
+    {
+      "if": "os != 'windows'",
+      "type": "command",
+      "commands": [
+        "chmod +x 7DaysToDieServer.x86_64"
+      ]
+    }
+  ],
+  "run": {
+    "command": [
+      {
+        "command": "./7DaysToDieServer.exe -quit -batchmode -nographics -dedicated -configfile=serverconfig.xml",
+        "if": "os == 'windows'"
+      },
+      {
+        "command": "./7DaysToDieServer.x86_64 -quit -batchmode -nographics -dedicated -configfile=serverconfig.xml"
+      }
+    ],
+    "stop": "shutdown",
+    "environmentVars": {
+      "LD_LIBRARY_PATH": "./linux64:$LD_LIBRARY_PATH"
+    },
+    "stdin": {
+      "type": "telnet",
+      "port": "8081"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "steamcmd/steamcmd",
+      "portBindings": [
+        "0.0.0.0:26900:26900/tcp"
+      ]
+    }
+  ],
+  "requirements": {
+    "arch": "amd64"
+  },
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 1024,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    }
+  }
+}

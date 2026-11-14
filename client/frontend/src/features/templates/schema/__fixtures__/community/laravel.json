@@ -1,0 +1,221 @@
+{
+  "type": "laravel",
+  "display": "Laravel",
+  "icon": "laravel",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 1024,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 8000,
+      "display": "Port",
+      "desc": "Port the web server listens on (TCP). It is also passed to the app as the PORT environment variable",
+      "required": true,
+      "userEdit": false
+    },
+    "phpversion": {
+      "type": "option",
+      "value": "8.4",
+      "display": "PHP Version",
+      "desc": "Version of PHP to run",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "8.2",
+          "display": "PHP 8.2"
+        },
+        {
+          "value": "8.3",
+          "display": "PHP 8.3"
+        },
+        {
+          "value": "8.4",
+          "display": "PHP 8.4"
+        }
+      ]
+    },
+    "gitrepo": {
+      "type": "string",
+      "value": "",
+      "display": "Git Repository",
+      "desc": "HTTPS URL of a git repository to download on install, for example https://github.com/user/my-bot.git. Reinstalling pulls the latest commit. Leave empty to upload the files yourself",
+      "required": false,
+      "userEdit": true
+    },
+    "gitbranch": {
+      "type": "string",
+      "value": "",
+      "display": "Git Branch",
+      "desc": "Branch to check out. Empty means the default branch of the repository",
+      "required": false,
+      "userEdit": true
+    },
+    "gittoken": {
+      "type": "string",
+      "value": "",
+      "display": "Git Access Token",
+      "desc": "Personal access token for a private repository (GitHub, GitLab). Leave empty for public repositories",
+      "required": false,
+      "userEdit": true
+    },
+    "createproject": {
+      "type": "boolean",
+      "value": true,
+      "display": "Create a Laravel Project",
+      "desc": "When no git repository is set and the server folder has no Laravel app, the install creates a new one with composer create-project laravel/laravel",
+      "required": false,
+      "userEdit": true
+    },
+    "migrate": {
+      "type": "boolean",
+      "value": false,
+      "display": "Run Migrations on Start",
+      "desc": "Run php artisan migrate --force before every start",
+      "required": false,
+      "userEdit": true
+    },
+    "optimize": {
+      "type": "boolean",
+      "value": false,
+      "display": "Cache Config and Routes on Start",
+      "desc": "Run php artisan optimize (config, events, routes and views caches) before every start. Changes to .env then need a restart",
+      "required": false,
+      "userEdit": true
+    },
+    "installonstart": {
+      "type": "boolean",
+      "value": true,
+      "display": "Install Composer Packages on Start",
+      "desc": "Run composer install before every start when there is a composer.json, so packages added to it are picked up",
+      "required": false,
+      "userEdit": true
+    },
+    "nodev": {
+      "type": "boolean",
+      "value": false,
+      "display": "Skip Dev Packages",
+      "desc": "Install with composer install --no-dev, leaving out require-dev. Only for apps configured for production",
+      "required": false,
+      "userEdit": true
+    },
+    "workers": {
+      "type": "integer",
+      "value": 4,
+      "display": "Workers",
+      "desc": "PHP processes that answer requests at the same time (PHP_CLI_SERVER_WORKERS). 1 answers one request at a time",
+      "required": true,
+      "userEdit": true
+    },
+    "phpflags": {
+      "type": "string",
+      "value": "",
+      "display": "Extra PHP Settings",
+      "desc": "Extra php.ini settings for the web server, for example -d upload_max_filesize=64M -d post_max_size=64M",
+      "required": false,
+      "userEdit": true
+    }
+  },
+  "install": [
+    {
+      "if": "gitrepo != ''",
+      "type": "command",
+      "commands": [
+        "bash -c \"set -e; if [ -z \\\"$GIT_REPO\\\" ]; then exit 0; fi; if ! command -v git >/dev/null 2>&1; then if [ \\\"$(id -u)\\\" = 0 ] && command -v apt-get >/dev/null 2>&1; then echo \\\"Installing git in the install container\\\"; apt-get update -qq >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends git ca-certificates >/dev/null; else echo \\\"git is not installed, it is needed to download the repository\\\"; exit 1; fi; fi; g() { git -c safe.directory='*' -c init.defaultBranch=main -c advice.detachedHead=false \\\"$@\\\"; }; auth=(); if [ -n \\\"$GIT_TOKEN\\\" ]; then auth=(-c \\\"http.extraHeader=Authorization: Basic $(printf 'oauth2:%s' \\\"$GIT_TOKEN\\\" | base64 | tr -d '\\\\n')\\\"); fi; [ -d .git ] || g init -q; echo \\\"Fetching $GIT_REPO ${GIT_BRANCH:-(default branch)}\\\"; g \\\"${auth[@]}\\\" fetch -q --depth 1 \\\"$GIT_REPO\\\" \\\"${GIT_BRANCH:-HEAD}\\\"; g reset -q --hard FETCH_HEAD; echo \\\"Checked out $(g log -1 --format='%h %s')\\\"\""
+      ]
+    },
+    {
+      "if": "gitrepo == '' && createproject && !file_exists('artisan')",
+      "type": "command",
+      "commands": [
+        "bash -c \"set -e; export COMPOSER_HOME=\\\"$PWD/.aether/composer\\\" COMPOSER_CACHE_DIR=\\\"$PWD/.aether/composer/cache\\\" COMPOSER_ALLOW_SUPERUSER=1; echo \\\"Creating a new Laravel project\\\"; rm -rf /tmp/laravel; composer create-project --no-interaction --no-progress --prefer-dist laravel/laravel /tmp/laravel; cp -a /tmp/laravel/. .; rm -rf /tmp/laravel; echo \\\"Created $(php artisan --version)\\\"\""
+      ]
+    },
+    {
+      "type": "command",
+      "commands": [
+        "bash -c \"set -e; export COMPOSER_HOME=\\\"$PWD/.aether/composer\\\" COMPOSER_CACHE_DIR=\\\"$PWD/.aether/composer/cache\\\" COMPOSER_ALLOW_SUPERUSER=1; if [ ! -f artisan ]; then echo \\\"There is no Laravel app (artisan) in the server folder yet\\\"; exit 0; fi; if [ -f composer.json ]; then dev=(); if [ \\\"${nodev}\\\" = true ]; then dev=(--no-dev); fi; echo \\\"Installing Composer packages\\\"; composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader \\\"${dev[@]}\\\"; fi; if [ ! -f .env ] && [ -f .env.example ]; then echo \\\"Creating .env from .env.example\\\"; cp .env.example .env; fi; if [ -f .env ] && ! grep -Eq '^APP_KEY=.+' .env; then php artisan key:generate --force; fi; if [ -f .env ] && grep -q '^DB_CONNECTION=sqlite' .env && ! grep -q '^DB_DATABASE=' .env && [ -d database ] && [ ! -e database/database.sqlite ]; then echo \\\"Creating the SQLite database database/database.sqlite\\\"; touch database/database.sqlite; fi\""
+      ]
+    }
+  ],
+  "run": {
+    "command": "bash -c \"set -e; unset GIT_TOKEN; export COMPOSER_HOME=\\\"$PWD/.aether/composer\\\" COMPOSER_CACHE_DIR=\\\"$PWD/.aether/composer/cache\\\"; if [ ! -f artisan ]; then echo \\\"Aether Panel: there is no Laravel app (artisan) in the server folder. Upload your app, or set a git repository, and reinstall.\\\"; exit 0; fi; if [ \\\"${installonstart}\\\" = true ]; then if [ -f composer.json ]; then dev=(); if [ \\\"${nodev}\\\" = true ]; then dev=(--no-dev); fi; echo \\\"Installing Composer packages\\\"; composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader \\\"${dev[@]}\\\"; fi; fi; if [ ! -f .env ] && [ -f .env.example ]; then echo \\\"Creating .env from .env.example\\\"; cp .env.example .env; fi; if [ -f .env ] && ! grep -Eq '^APP_KEY=.+' .env; then php artisan key:generate --force; fi; if [ -f .env ] && grep -q '^DB_CONNECTION=sqlite' .env && ! grep -q '^DB_DATABASE=' .env && [ -d database ] && [ ! -e database/database.sqlite ]; then echo \\\"Creating the SQLite database database/database.sqlite\\\"; touch database/database.sqlite; fi; if [ ! -e public/storage ] && [ ! -L public/storage ] && [ -d storage/app/public ]; then echo \\\"Linking public/storage to storage/app/public\\\"; ln -s ../storage/app/public public/storage; fi; if [ \\\"${migrate}\\\" = true ]; then php artisan migrate --force; fi; if [ \\\"${optimize}\\\" = true ]; then php artisan optimize; elif [ -f bootstrap/cache/config.php ] || [ -f bootstrap/cache/events.php ] || ls bootstrap/cache/routes-*.php >/dev/null 2>&1; then php artisan config:clear; php artisan route:clear; php artisan event:clear; fi; export AETHER_FRONT_CONTROLLER=1; echo \\\"Serving $(php artisan --version) on port ${port} with ${workers} workers\\\"; exec php -d memory_limit=${memory}M ${phpflags} -S 0.0.0.0:${port} -t public .aether/router.php\"",
+    "stopCode": 15,
+    "environmentVars": {
+      "PORT": "${port}",
+      "PHP_CLI_SERVER_WORKERS": "${workers}",
+      "GIT_REPO": "${gitrepo}",
+      "GIT_BRANCH": "${gitbranch}",
+      "GIT_TOKEN": "${gittoken}"
+    },
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false,
+    "pre": [
+      {
+        "type": "mkdir",
+        "target": ".aether"
+      },
+      {
+        "type": "writefile",
+        "target": ".aether/router.php",
+        "text": "<?php\n// Router for PHP's built-in web server, written by Aether Panel before every start (edits are lost).\n// Hidden files and folders (.env, .git, .aether) are never served, nor vendor/ and the Composer\n// files when the document root is the project folder. With a framework, files that exist are\n// served as they are and every other request goes to the front controller index.php.\n$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');\n$path = rawurldecode(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/');\nif (preg_match('#/\\.(?!well-known/)#', $path) || (is_file($root . '/composer.json') && preg_match('#^/(vendor/|composer\\.(json|lock)$)#', $path))) {\n    http_response_code(404);\n    echo \"Not Found\\n\";\n    return true;\n}\nif (getenv('AETHER_FRONT_CONTROLLER') !== '1') {\n    return false;\n}\n$file = $root . $path;\nif ($path !== '/' && (is_file($file) || (is_dir($file) && (is_file($file . '/index.php') || is_file($file . '/index.html'))))) {\n    return false;\n}\n$_SERVER['SCRIPT_NAME'] = '/index.php';\n$_SERVER['SCRIPT_FILENAME'] = $root . '/index.php';\n$_SERVER['PHP_SELF'] = '/index.php';\nchdir($root);\nrequire $root . '/index.php';\n"
+      }
+    ]
+  },
+  "environment": {
+    "type": "docker",
+    "image": "ghcr.io/aether-panel/php:${phpversion}",
+    "portBindings": [
+      "0.0.0.0:${port}:${port}/tcp"
+    ],
+    "hostConfig": {
+      "Init": true
+    }
+  },
+  "supportedEnvironments": [
+    {
+      "type": "docker",
+      "image": "ghcr.io/aether-panel/php:${phpversion}",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp"
+      ],
+      "hostConfig": {
+        "Init": true
+      }
+    }
+  ]
+}

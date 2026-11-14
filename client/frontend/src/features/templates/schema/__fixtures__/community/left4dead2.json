@@ -1,0 +1,173 @@
+{
+  "type": "left4dead2",
+  "display": "Left 4 Dead 2",
+  "icon": "left4dead2",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads. The Source engine mostly uses one thread",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 20480,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (20480 MB = 20 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 2048,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 27015,
+      "display": "Port",
+      "desc": "Game port (UDP), also used for the Steam query and for RCON over TCP",
+      "required": true,
+      "userEdit": false
+    },
+    "clientport": {
+      "type": "integer",
+      "value": 27005,
+      "display": "Client Port",
+      "desc": "Port srcds uses for its own outgoing client connections. It does not need to be opened, only to be different on each server",
+      "required": true,
+      "userEdit": false
+    },
+    "servername": {
+      "type": "string",
+      "value": "Left 4 Dead 2 Server",
+      "display": "Server Name",
+      "desc": "Name shown in the server browser",
+      "required": true,
+      "userEdit": true
+    },
+    "serverpassword": {
+      "type": "string",
+      "value": "",
+      "display": "Server Password",
+      "desc": "Password players need to join. Empty means anyone can join",
+      "required": false,
+      "userEdit": true
+    },
+    "rconpassword": {
+      "type": "string",
+      "value": "",
+      "display": "RCON Password",
+      "desc": "Password for remote console tools. Empty disables RCON",
+      "required": false,
+      "userEdit": true
+    },
+    "maxplayers": {
+      "type": "integer",
+      "value": 8,
+      "display": "Max Players",
+      "desc": "Player slots. The unmodded game supports 4 in campaign and 8 in versus",
+      "required": true,
+      "userEdit": true
+    },
+    "map": {
+      "type": "string",
+      "value": "c5m1_waterfront",
+      "display": "Map",
+      "desc": "Map loaded at startup, for example c1m1_hotel or c5m1_waterfront",
+      "required": true,
+      "userEdit": true
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "steamgamedl",
+      "appId": "222860"
+    },
+    {
+      "if": "env == 'docker'",
+      "type": "command",
+      "commands": [
+        "bash -c \"for try in 1 2 3 4 5; do steamcmd +@sSteamCmdForcePlatformType windows +force_install_dir /SkyPanel +login anonymous +app_update 222860 +quit && steamcmd +@sSteamCmdForcePlatformType linux +force_install_dir /SkyPanel +login anonymous +app_update 222860 validate +quit && exit 0; echo 'steamcmd could not finish the download, trying again in 15s ($try/5)'; sleep 15; done; exit 1\""
+      ]
+    },
+    {
+      "type": "command",
+      "commands": [
+        "chmod +x srcds_run",
+        "bash -c \"mkdir -p .steam/sdk32 .steam/sdk64; for d in .steam .steam/steamcmd .local/share/Steam/steamcmd steamcmd; do if [ -f $d/linux32/steamclient.so ]; then cp -f $d/linux32/steamclient.so .steam/sdk32/; fi; if [ -f $d/linux64/steamclient.so ]; then cp -f $d/linux64/steamclient.so .steam/sdk64/; fi; done; true\""
+      ]
+    },
+    {
+      "type": "mkdir",
+      "target": "left4dead2/cfg"
+    },
+    {
+      "if": "!file_exists('left4dead2/cfg/server.cfg')",
+      "type": "writefile",
+      "target": "left4dead2/cfg/server.cfg",
+      "text": "// Left 4 Dead 2 server settings, written once by Aether Panel. Your edits are kept.\n// Server name, password and RCON password come from the panel (see aether.cfg),\n// so do not set hostname, sv_password or rcon_password here.\n\n// Let players join with \"connect ip:port\", not only through a lobby\nsv_allow_lobby_connect_only 0\n\n// LAN mode off: heartbeat, Steam authentication and public listing\nsv_lan 0\n\n// Map rotation\nmapcyclefile \"mapcycle.txt\"\n\n// Logging\nsv_logfile 1\nsv_logbans 1\n\n// Voice\nsv_voiceenable 1\nsv_alltalk 1\n"
+    }
+  ],
+  "run": {
+    "command": "./srcds_run -game left4dead2 -console -norestart -strictportbind -ip ${ip} -port ${port} +clientport ${clientport} +map ${map} +servercfgfile aether.cfg -maxplayers ${maxplayers}",
+    "stop": "quit",
+    "pre": [
+      {
+        "type": "mkdir",
+        "target": "left4dead2/cfg"
+      },
+      {
+        "if": "!file_exists('left4dead2/cfg/server.cfg')",
+        "type": "writefile",
+        "target": "left4dead2/cfg/server.cfg",
+        "text": "// Left 4 Dead 2 server settings, written once by Aether Panel. Your edits are kept.\n// Server name, password and RCON password come from the panel (see aether.cfg),\n// so do not set hostname, sv_password or rcon_password here.\n\n// Let players join with \"connect ip:port\", not only through a lobby\nsv_allow_lobby_connect_only 0\n\n// LAN mode off: heartbeat, Steam authentication and public listing\nsv_lan 0\n\n// Map rotation\nmapcyclefile \"mapcycle.txt\"\n\n// Logging\nsv_logfile 1\nsv_logbans 1\n\n// Voice\nsv_voiceenable 1\nsv_alltalk 1\n"
+      },
+      {
+        "type": "writefile",
+        "target": "left4dead2/cfg/aether.cfg",
+        "text": "// Written by Aether Panel before every start. Changes here are overwritten:\n// put your own settings in server.cfg, which is executed first.\nexec server.cfg\nhostname \"${servername}\"\nsv_password \"${serverpassword}\"\nrcon_password \"${rconpassword}\"\n"
+      }
+    ],
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "ghcr.io/aether-panel/steamcmd",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/udp",
+        "0.0.0.0:${port}:${port}/tcp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64"
+  }
+}

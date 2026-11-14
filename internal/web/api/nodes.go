@@ -1,8 +1,11 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
@@ -16,6 +19,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func registerNodes(g *gin.RouterGroup) {
@@ -44,6 +48,9 @@ func registerNodes(g *gin.RouterGroup) {
 
 	g.Handle("GET", "/:id/deployment", middleware.RequiresPermission(scopes.ScopeNodesDeploy), deployNode)
 	g.Handle("OPTIONS", "/:id/deployment", response.CreateOptions("GET"))
+
+	g.Handle("POST", "/:id/join", middleware.RequiresPermission(scopes.ScopeNodesDeploy), createNodeJoinCode)
+	g.Handle("OPTIONS", "/:id/join", response.CreateOptions("POST"))
 }
 
 // @Summary Get nodes
@@ -176,20 +183,24 @@ func updateNode(c *gin.Context) {
 		return
 	}
 
+	previousHost := node.PublicHost
 	viewModel.CopyToModel(node)
 	if err = ns.Update(node); response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
+	// the subdomains of the node's servers point at its address
+	followNodeAddress(node.ID, previousHost, node.PublicHost)
 
 	c.Status(http.StatusNoContent)
 }
 
 // @Summary Deletes a node
-// @Description Deletes the node
+// @Description Deletes the node. Refused while servers are on it or store products create their servers on it.
 // @Success 204 {object} nil
 // @Failure 400 {object} skypanel.ErrorResponse
 // @Failure 403 {object} skypanel.ErrorResponse
 // @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 409 {object} skypanel.ErrorResponse "ErrNodeHasServers or ErrNodeHasProducts: the node is in use"
 // @Failure 500 {object} skypanel.ErrorResponse
 // @Param id path string true "Node Id"
 // @Tags Nodes
@@ -211,7 +222,11 @@ func deleteNode(c *gin.Context) {
 	}
 
 	err = ns.Delete(node.ID)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
+	if errors.Is(err, skypanel.ErrNodeHasServers) || errors.Is(err, skypanel.ErrNodeHasProducts(nil)) {
+		// still in use: the request conflicts with what is on the node, nothing failed
+		response.HandleError(c, err, http.StatusConflict)
+		return
+	} else if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
@@ -293,6 +308,9 @@ func getFeatures(c *gin.Context) {
 	c.JSON(http.StatusOK, features)
 }
 
+// nodeSystemTimeout bounds how long the panel waits for a node's metrics
+const nodeSystemTimeout = 10 * time.Second
+
 // @Summary Gets the system information of a node
 // @Description Gets detailed system information including CPU, memory, and disk
 // @Success 200 {object} daemon.SystemInfo
@@ -319,11 +337,24 @@ func getSystemInfo(c *gin.Context) {
 		return
 	}
 
-	res, err := ns.CallNode(node, "GET", "/daemon/system", nil, nil)
+	// the nodes page asks every few seconds: a node that does not answer must not hold it
+	ctx, cancel := context.WithTimeout(c.Request.Context(), nodeSystemTimeout)
+	defer cancel()
+	res, err := ns.CallNodeContext(ctx, node, "GET", "/daemon/system", nil, nil)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 	defer utils.CloseResponse(res)
+	// the node's refusal is not its metrics: passing its error body on as a 200 showed the node
+	// online with empty metrics
+	if answerNodeAuthFailure(c, node, res) {
+		return
+	}
+	if res.StatusCode != http.StatusOK {
+		logging.Error.Printf("Node %d answered %d to the panel's request for its metrics", node.ID, res.StatusCode)
+		c.AbortWithStatusJSON(http.StatusBadGateway, &skypanel.ErrorResponse{Error: skypanel.ErrInternal})
+		return
+	}
 
 	var systemInfo map[string]interface{}
 	err = json.NewDecoder(res.Body).Decode(&systemInfo)

@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +21,9 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/transport"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
+	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"gorm.io/gorm"
 )
 
@@ -111,6 +115,7 @@ func summarizeTemplate(name string, v *models.Template) *models.Template {
 		Name: name,
 		Server: skypanel.Server{
 			Display:               v.Server.Display,
+			Icon:                  v.Server.Icon,
 			Type:                  v.Server.Type,
 			Environment:           v.Server.Environment,
 			SupportedEnvironments: v.Server.SupportedEnvironments,
@@ -260,7 +265,17 @@ func (t *Template) Save(template *models.Template) error {
 	return t.DB.Save(template).Error
 }
 
+// Delete removes a local template, unless a store product creates its servers with it and no
+// other repo has a template of that name (ErrTemplateInUse)
 func (t *Template) Delete(name string) error {
+	products, err := t.productsLeftWithout(localRepo.ID, name)
+	if err != nil {
+		return err
+	}
+	if len(products) > 0 {
+		return skypanel.ErrTemplateInUse(products)
+	}
+
 	model := &models.Template{
 		Name: name,
 	}
@@ -288,8 +303,102 @@ func (t *Template) AddRepo(repo *models.TemplateRepo) error {
 	return t.DB.Save(repo).Error
 }
 
+// DeleteRepo removes the repo and its git checkout, which nothing else would ever reuse or
+// remove, unless a store product finds its template only in this repo (ErrTemplateRepoInUse)
 func (t *Template) DeleteRepo(id uint) error {
-	return t.DB.Where(&models.TemplateRepo{ID: id}).Delete(&models.TemplateRepo{ID: id}).Error
+	// with templates.url set the panel reads none of the repos it stores: removing one changes
+	// nothing a product uses
+	if config.TemplatesURL.Value() == "" {
+		products, err := t.productsLeftWithout(id, "")
+		if err != nil {
+			return err
+		}
+		if len(products) > 0 {
+			return skypanel.ErrTemplateRepoInUse(products)
+		}
+	}
+
+	if err := t.DB.Where(&models.TemplateRepo{ID: id}).Delete(&models.TemplateRepo{ID: id}).Error; err != nil {
+		return err
+	}
+	// the repo is gone either way: a checkout that cannot be removed is only logged
+	if err := forgetRepoCheckout(id); err != nil {
+		logging.Error.Printf("template repo %d: its checkout could not be removed: %s", id, err)
+	}
+	return nil
+}
+
+// productsLeftWithout lists the ids of the store products whose template is in the repo and in
+// no other the panel reads: provisioning looks a product's template up by name in every repo,
+// so only those would fail once it is gone from this one. name limits it to the products of
+// that template; "" takes them all. A repo that cannot be read leaves no product without its
+// template, as provisioning cannot read it either.
+func (t *Template) productsLeftWithout(repoID uint, name string) ([]string, error) {
+	query := t.DB.Model(&models.ProvisionProduct{}).Where("template <> ''")
+	if name != "" {
+		query = query.Where("template = ?", name)
+	}
+	var products []models.ProvisionProduct
+	if err := query.Order("product_id").Find(&products).Error; err != nil {
+		return nil, err
+	}
+	if len(products) == 0 {
+		return nil, nil
+	}
+
+	repos, err := t.GetRepos()
+	if err != nil {
+		return nil, err
+	}
+	onlyHere := make(map[string]bool)
+	var left []string
+	for _, product := range products {
+		only, checked := onlyHere[product.Template]
+		if !checked {
+			only = t.hasTemplate(repoID, product.Template) && !t.anotherRepoHas(repos, repoID, product.Template)
+			onlyHere[product.Template] = only
+		}
+		if only {
+			left = append(left, product.ProductID)
+		}
+	}
+	return left, nil
+}
+
+func (t *Template) hasTemplate(repoID uint, name string) bool {
+	template, err := t.Get(repoID, name)
+	return err == nil && template != nil
+}
+
+// anotherRepoHas is whether a repo other than skip has the template; one that cannot be read
+// counts as not having it, so a delete is refused rather than let through
+func (t *Template) anotherRepoHas(repos []*models.TemplateRepo, skip uint, name string) bool {
+	for _, repo := range repos {
+		if repo.ID != skip && t.hasTemplate(repo.ID, name) {
+			return true
+		}
+	}
+	return false
+}
+
+// repoCheckoutPath is the folder a repo is cloned into
+func repoCheckoutPath(id uint) string {
+	return filepath.Join(config.CacheFolder.Value(), "template-repos", fmt.Sprintf("%d", id))
+}
+
+// forgetRepoCheckout removes the repo's checkout from disk and from the in-memory cache
+func forgetRepoCheckout(id uint) error {
+	pathLock.Lock()
+	defer pathLock.Unlock()
+	delete(existingPaths, id)
+
+	// only ever a folder inside template-repos, never the cache folder or anything above it
+	base := filepath.Clean(filepath.Join(config.CacheFolder.Value(), "template-repos"))
+	path := filepath.Clean(repoCheckoutPath(id))
+	if filepath.Dir(path) != base {
+		return fmt.Errorf("invalid template repo path: %s", path)
+	}
+	return os.RemoveAll(path)
 }
 
 func readTemplateFromDisk(name, path string) (*models.Template, error) {
@@ -347,11 +456,17 @@ func pullRepo(repo *models.TemplateRepo, cache repoCache) error {
 		return err
 	}
 
+	auth, err := repoAuth(repo)
+	if err != nil {
+		return err
+	}
+
 	err = w.Pull(&git.PullOptions{
 		SingleBranch:  true,
 		ReferenceName: plumbing.ReferenceName("refs/heads/" + repo.Branch),
-		RemoteName:    "origin"},
-	)
+		RemoteName:    "origin",
+		Auth:          auth,
+	})
 	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return err
 	}
@@ -365,7 +480,7 @@ func pullRepo(repo *models.TemplateRepo, cache repoCache) error {
 
 // cloneRepo makes a fresh checkout of the repo; callers must hold pathLock
 func cloneRepo(repo *models.TemplateRepo) error {
-	path := filepath.Join(config.CacheFolder.Value(), "template-repos", fmt.Sprintf("%d", repo.ID))
+	path := repoCheckoutPath(repo.ID)
 
 	// if the directory already exists, we may need to nuke it
 	fi, err := os.Stat(path)
@@ -380,11 +495,17 @@ func cloneRepo(repo *models.TemplateRepo) error {
 		return err
 	}
 
+	auth, err := repoAuth(repo)
+	if err != nil {
+		return err
+	}
+
 	logging.Debug.Printf("Checking out repo %s: %s", repo.Name, path)
 	_, err = git.PlainClone(path, false, &git.CloneOptions{
 		URL:           repo.URL,
 		SingleBranch:  true,
 		ReferenceName: plumbing.ReferenceName("refs/heads/" + repo.Branch),
+		Auth:          auth,
 	})
 	if err != nil {
 		return err
@@ -393,6 +514,62 @@ func cloneRepo(repo *models.TemplateRepo) error {
 	existingPaths[repo.ID] = repoCache{
 		LastRefreshed: time.Now(),
 		Path:          path,
+	}
+	return nil
+}
+
+// repoAuth is how to sign in to a private repo, nil for a public one. An SSH address uses
+// the SSH key (Password unlocks it when it is encrypted; the host must be in known_hosts);
+// an HTTP(S) address uses the personal access token, else the username and password. The
+// credentials are never logged: errors only say which kind failed.
+func repoAuth(repo *models.TemplateRepo) (transport.AuthMethod, error) {
+	endpoint, err := transport.NewEndpoint(repo.URL)
+	if err != nil {
+		// not err itself: it quotes the address, which can hold a user:password
+		return nil, fmt.Errorf("the address of template repo %s is not valid", repo.Name)
+	}
+
+	switch endpoint.Protocol {
+	case "ssh":
+		return sshRepoAuth(repo, endpoint.User)
+	case "http", "https":
+		return httpRepoAuth(repo), nil
+	}
+	return nil, nil
+}
+
+// sshRepoAuth signs in with the repo's SSH key: the user is Username, else the one in the
+// address, else "git"
+func sshRepoAuth(repo *models.TemplateRepo, addressUser string) (transport.AuthMethod, error) {
+	if repo.SSHKey == "" {
+		return nil, nil
+	}
+	user := repo.Username
+	if user == "" {
+		user = addressUser
+	}
+	if user == "" {
+		user = gitssh.DefaultUsername
+	}
+	auth, err := gitssh.NewPublicKeys(user, []byte(repo.SSHKey), repo.Password)
+	if err != nil {
+		return nil, fmt.Errorf("the SSH key of template repo %s cannot be read", repo.Name)
+	}
+	return auth, nil
+}
+
+// httpRepoAuth signs in with the personal access token, else the username and password
+func httpRepoAuth(repo *models.TemplateRepo) transport.AuthMethod {
+	if repo.PAT != "" {
+		// GitHub and GitLab take a token with any username; Bitbucket needs the real one
+		user := repo.Username
+		if user == "" {
+			user = "git"
+		}
+		return &githttp.BasicAuth{Username: user, Password: repo.PAT}
+	}
+	if repo.Username != "" || repo.Password != "" {
+		return &githttp.BasicAuth{Username: repo.Username, Password: repo.Password}
 	}
 	return nil
 }
@@ -431,29 +608,88 @@ func httpGetJSON(url string, target interface{}) error {
 	return dec.Decode(target)
 }
 
-func (t *Template) getAllFromVps(indexURL string) ([]*models.Template, error) {
+// vpsCacheTTL is how long what templates.url served is reused. Every list request used to
+// download the index and every template in it again.
+const vpsCacheTTL = 5 * time.Minute
+
+// vpsCacheEntry is the index downloaded from url and, once a list was asked for, the
+// templates it lists
+type vpsCacheEntry struct {
+	url       string
+	fetched   time.Time
+	index     map[string]vpsIndexEntry
+	templates []*models.Template
+}
+
+var (
+	vpsCache     vpsCacheEntry
+	vpsCacheLock sync.Mutex
+)
+
+// fresh reports whether the cache holds the index of indexURL and is recent enough; a
+// changed templates.url is never served from the old one
+func (c *vpsCacheEntry) fresh(indexURL string) bool {
+	return c.index != nil && c.url == indexURL && time.Since(c.fetched) < vpsCacheTTL
+}
+
+// vpsIndex is the index at indexURL, downloaded only when the cached one is not fresh
+func vpsIndex(indexURL string) (map[string]vpsIndexEntry, error) {
+	vpsCacheLock.Lock()
+	defer vpsCacheLock.Unlock()
+	if vpsCache.fresh(indexURL) {
+		return vpsCache.index, nil
+	}
+
 	var idx map[string]vpsIndexEntry
-	err := httpGetJSON(indexURL, &idx)
+	if err := httpGetJSON(indexURL, &idx); err != nil {
+		return nil, err
+	}
+	if idx == nil {
+		idx = map[string]vpsIndexEntry{}
+	}
+	vpsCache = vpsCacheEntry{url: indexURL, fetched: time.Now(), index: idx}
+	return idx, nil
+}
+
+func (t *Template) getAllFromVps(indexURL string) ([]*models.Template, error) {
+	vpsCacheLock.Lock()
+	if vpsCache.fresh(indexURL) && vpsCache.templates != nil {
+		result := slices.Clone(vpsCache.templates)
+		vpsCacheLock.Unlock()
+		return result, nil
+	}
+	vpsCacheLock.Unlock()
+
+	idx, err := vpsIndex(indexURL)
 	if err != nil {
 		return nil, err
 	}
 	result := make([]*models.Template, 0, len(idx))
-	indexBase := indexURL
+	complete := true
 	for name, entry := range idx {
-		target := resolveURL(indexBase, entry.URL)
+		target := resolveURL(indexURL, entry.URL)
 		tmp, err := t.getTemplateFromURL(name, target)
 		if err != nil {
 			logging.Error.Printf("Error reading template from %s: %s", target, err.Error())
+			complete = false
 			continue
 		}
 		result = append(result, tmp)
+	}
+
+	// a list missing a template that failed is not kept: the next request tries again
+	if complete {
+		vpsCacheLock.Lock()
+		if vpsCache.fresh(indexURL) {
+			vpsCache.templates = slices.Clone(result)
+		}
+		vpsCacheLock.Unlock()
 	}
 	return result, nil
 }
 
 func (t *Template) getFromVps(indexURL, name string) (*models.Template, error) {
-	var idx map[string]vpsIndexEntry
-	err := httpGetJSON(indexURL, &idx)
+	idx, err := vpsIndex(indexURL)
 	if err != nil {
 		return nil, err
 	}

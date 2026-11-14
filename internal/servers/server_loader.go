@@ -264,9 +264,12 @@ func Delete(id string) (err error) {
 	if err != nil {
 		return
 	}
-	err = os.Remove(filepath.Join(config.ServersFolder.Value(), safeID+".json"))
-	if err != nil {
+	// one already gone is fine; any other failure is returned at the end, after the rest of the
+	// clean-up, so the panel keeps the row of a server whose .json would load again at boot
+	var definitionErr error
+	if err := os.Remove(filepath.Join(config.ServersFolder.Value(), safeID+".json")); err != nil && !os.IsNotExist(err) {
 		logging.Error.Printf("Error removing server: %s", err)
+		definitionErr = err
 	}
 	// and so does the folder a Docker server used as /tmp
 	if tmp := program.RunningEnvironment.GetTmpDirectory(); tmp != "" {
@@ -274,9 +277,9 @@ func Delete(id string) (err error) {
 			logging.Error.Printf("Error removing the temporary folder of server %s: %s", safeID, err)
 		}
 	}
-	// the server's tasks, crash reports and notification settings go with it
+	// the server's tasks, crash reports, notification and off-site settings go with it
 	forgetMetrics(safeID)
-	for _, ext := range []string{".cron", ".crashes", ".notify", ".metrics", ".worldmap"} {
+	for _, ext := range []string{".cron", ".crashes", ".notify", ".offsite", ".metrics", ".worldmap"} {
 		if err := os.Remove(filepath.Join(config.ServersFolder.Value(), safeID+ext)); err != nil && !os.IsNotExist(err) {
 			logging.Error.Printf("Error removing %s for server %s: %s", ext, safeID, err)
 		}
@@ -287,7 +290,30 @@ func Delete(id string) (err error) {
 		logging.Error.Printf("Error removing the file history of server %s: %s", safeID, err)
 	}
 	removeFromCache(id)
-	return
+	// after leaving the cache, so a periodic pass still on the server cannot bring it back
+	forgetPeriodic(safeID)
+	forgetServerState(safeID)
+	return definitionErr
+}
+
+// DeleteBackups removes every backup of the server kept on this node, for when the server
+// itself is deleted or has been moved to another node with its backups. It is apart from
+// Delete: a server created again over itself, or removed from a node by a transfer that is
+// undone, keeps the backups it has there.
+func DeleteBackups(id string) error {
+	safeID, err := validateServerID(id)
+	if err != nil {
+		return err
+	}
+	// "." or a path would reach past this server's own folder, to every server's backups
+	if safeID == "." || filepath.Base(safeID) != safeID {
+		return fmt.Errorf("invalid server id: %s", id)
+	}
+	folder := config.BackupsFolder.Value()
+	if folder == "" {
+		return nil
+	}
+	return os.RemoveAll(filepath.Join(folder, safeID))
 }
 
 func GetFromCache(id string) *Server {

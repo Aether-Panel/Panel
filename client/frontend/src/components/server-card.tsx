@@ -7,6 +7,8 @@ import { cn, formatBytes } from '@/lib/utils';
 import { useAuth } from '@/contexts/providers';
 import { AnimatedNumber } from '@/components/animated-number';
 import { LiveDot, PlayerStack } from '@/components/player-presence';
+import { TemplateLogo } from '@/components/template-logo';
+import { templateLogo } from '@/lib/template-logos';
 
 export const usageColor = (value: number) => {
   if (value >= 85) return 'bg-destructive [--meter:var(--destructive)]';
@@ -115,18 +117,27 @@ export function ServerCard({ server, t }: Readonly<{ server: Server; t: (key: st
       <div className="relative z-10 flex flex-1 flex-col gap-5 p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
-            <a
-              href={detailHref}
-              className="focus-ring block truncate rounded-sm font-headline text-[15px] font-semibold leading-tight text-foreground transition-colors duration-200 hover:text-primary-bright"
-            >
-              {server.name}
-            </a>
+            <div className="flex min-w-0 items-center gap-2">
+              {/* the logo of the template it was made from (its icon, else its type); nothing without one */}
+              <TemplateLogo logo={templateLogo({ icon: server.icon, name: server.type })} className="h-[18px] w-[18px]" />
+              <a
+                href={detailHref}
+                className="focus-ring block min-w-0 truncate rounded-sm font-headline text-[15px] font-semibold leading-tight text-foreground transition-colors duration-200 hover:text-primary-bright"
+              >
+                {server.name}
+              </a>
+            </div>
             <p className="flex items-center gap-1.5 font-mono text-xs tabular-nums text-muted-foreground">
               <Globe className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" aria-hidden="true" />
-              <span className="truncate">
-                {server.ipAddress}
-                <span className="text-muted-foreground/50">:</span>
-                {server.port || '—'}
+              {/* the subdomain when it has one; the IP stays in the tooltip */}
+              <span className="truncate" title={server.subdomain ? `${server.ipAddress}:${server.port || '—'}` : undefined}>
+                {server.subdomain ?? server.ipAddress}
+                {!(server.subdomain && server.subdomainSrv) && (
+                  <>
+                    <span className="text-muted-foreground/50">:</span>
+                    {server.port || '—'}
+                  </>
+                )}
               </span>
             </p>
           </div>

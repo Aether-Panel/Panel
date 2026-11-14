@@ -46,6 +46,8 @@ var dbObjects = []interface{}{
 	&models.ServerActivity{},
 	&models.SSHKey{},
 	&models.Extension{},
+	&models.NodeTransfer{},
+	&models.GitHubAccount{},
 }
 
 func Upgrade(dbConn *gorm.DB, prettyPrint bool) error {
@@ -846,6 +848,14 @@ var migrations = [][]*gormigrate.Migration{
 				}
 
 				return nil
+			},
+		},
+		{
+			// node transfers in progress, so a panel that restarts in the middle of one can
+			// undo or finish it
+			ID: "20261102-node-transfers",
+			Migrate: func(db *gorm.DB) error {
+				return db.Migrator().AutoMigrate(&models.NodeTransfer{})
 			},
 		},
 	},

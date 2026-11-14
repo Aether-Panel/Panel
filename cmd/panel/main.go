@@ -14,6 +14,14 @@ import (
 )
 
 func main() {
+	// a failed command (unknown, bad flags, an error it returned) exits non-zero, so the
+	// Docker entrypoint and the installer can tell it did not work
+	if err := runCLI(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func runCLI() error {
 	/*if !groups.IsUserIn(groups.SkyPanelGroup) {
 		fmt.Println("You do not have permission to use this command")
 		return
@@ -30,7 +38,7 @@ func main() {
 		}
 	}()
 
-	Execute()
+	return Execute()
 }
 
 var rootCmd = &cobra.Command{
@@ -75,10 +83,10 @@ func loadConfig() {
 	}
 }
 
-func Execute() {
+// Execute runs the command line. Cobra already prints the error (as "Error: ..."), so it is
+// only returned here, for the exit code.
+func Execute() error {
 	rootCmd.SetVersionTemplate(skypanel.Display)
 
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-	}
+	return rootCmd.Execute()
 }

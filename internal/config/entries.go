@@ -28,6 +28,10 @@ var ServersAutoInstall = asBool("panel.servers.autoInstall", true)
 // customer could fill the node's backup disk.
 var BackupsMaxPerServer = asInt("panel.backups.maxPerServer", 10)
 
+// StatsEnabled sends the anonymous daily usage count (a one-way id, the version and the number
+// of servers) behind the active-panel figure on aetherpanel.es; see internal/stats
+var StatsEnabled = asBool("panel.stats.enabled", true)
+
 var DatabaseDialect = asString("panel.database.dialect", "sqlite3")
 var DatabaseURL = asString("panel.database.url", "")
 var DatabaseLoggingEnabled = asBool("panel.database.log", false)
@@ -57,6 +61,18 @@ var NodeIP = asString("panel.settings.nodeIp", "0.0.0.0")
 var GeminiAPIKey = asString("panel.settings.geminiApiKey", "")
 var HideAIAnalysis = asBool("panel.settings.hideAiAnalysis", false)
 
+// AIFileTools lets the server assistant read and change the files of the server it is opened
+// on, within the user's file permissions; it asks before it changes or deletes anything. Off,
+// the assistant only answers questions, as it did before it had tools.
+var AIFileTools = asBool("panel.settings.aiFileTools", true)
+
+// NotificationLanguage is the language ("es" or "en") of what the panel sends outside its own
+// pages: Discord, Telegram and webhook alerts, the panel's Discord reports and extension
+// events. Spanish by default, which is what installs sent before it existed. Remote nodes get
+// the panel's value with every status poll; one set in a node's own config or environment
+// wins there.
+var NotificationLanguage = asString("panel.settings.notificationLanguage", "es")
+
 // Experimental features are off until an admin turns them on in the panel settings
 var ExperimentalVersionSwitch = asBool("panel.experimental.versionSwitch", false)
 var ExperimentalPropertiesEditor = asBool("panel.experimental.propertiesEditor", false)
@@ -72,6 +88,10 @@ var LicenseServerID = asString("panel.license.serverId", "")
 var LicenseServerIP = asString("panel.license.serverIp", "")
 var SessionKey = asString("panel.sessionKey", "")
 var RegistrationEnabled = asBool("panel.registrationEnabled", true)
+
+// RegistrationApproval keeps every account made through public registration unable to sign in
+// until an administrator approves it in Users
+var RegistrationApproval = asBool("panel.registrationApproval", true)
 var PrivateKey = asString("panel.token", "")
 
 // ExTransferKey is the seed of the key this panel signs federated transfer requests with. It
@@ -116,6 +136,12 @@ var BackupsS3Prefix = asString("daemon.backups.s3.prefix", "aether-backups")
 // BackupsS3Insecure talks plain http to the endpoint, for a MinIO on the local network
 var BackupsS3Insecure = asBool("daemon.backups.s3.insecure", false)
 
+// BackupsS3PeriodicHours is how often every server gets a copy in the bucket of its own,
+// apart from its tasks (0 = never); BackupsS3PeriodicKeep is how many of those copies stay
+// there. A server can set its own values in its <id>.offsite file.
+var BackupsS3PeriodicHours = asInt("daemon.backups.s3.periodicHours", 0)
+var BackupsS3PeriodicKeep = asInt("daemon.backups.s3.periodicKeep", 4)
+
 // Automatic subdomains: servers get <name>.<base domain> through Cloudflare DNS. The token
 // only needs Zone → DNS → Edit on that zone. DNSTarget is where records point when a node is
 // registered by hostname or a private address; empty uses each node's public address.
@@ -124,6 +150,10 @@ var CloudflareZoneID = asString("panel.dns.cloudflare.zoneId", "")
 var DNSBaseDomain = asString("panel.dns.baseDomain", "")
 var DNSTarget = asString("panel.dns.target", "")
 var DNSAutoAssign = asBool("panel.dns.autoAssign", false)
+
+// GitHubClientID is the Client ID of a GitHub OAuth App with Device Flow on: users connect
+// their account with a code and install repositories into their servers. No secret is needed.
+var GitHubClientID = asString("panel.github.clientId", "")
 
 var CurseForgeKey = asString("daemon.curseforge.key", curseforgeKey)
 var DataRootFolder = asString("daemon.data.root", "")

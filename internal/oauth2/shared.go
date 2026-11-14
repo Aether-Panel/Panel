@@ -6,15 +6,39 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
+// oauth2EndpointPath is the panel route that answers token requests (internal/web/oauth2).
+// It is a URL path, not a credential (gosec G101 matches on names like "token").
+const oauth2EndpointPath = "/oauth2/token" // #nosec G101
+
+// SFTPNoAccess is the error_description of the panel's refusal of an SFTP key or access check.
+// A node takes a 400 as "no" only with it: a 400 from a proxy in between says nothing about
+// the user, and must not close every SFTP connection on the node.
+const SFTPNoAccess = "no access"
+
 func createRequest(data url.Values) (request *http.Request) {
-	authURL := config.AuthURL.Value()
+	authURL := tokenURL(config.AuthURL.Value())
 	request, _ = http.NewRequest("POST", authURL, bytes.NewBufferString(data.Encode()))
 
 	request.Header.Add("Authorization", "Bearer "+config.ClientSecret.Value())
 	request.Header.Add("Content-Type", binding.MIMEPOSTForm)
 	return
+}
+
+// tokenURL returns the URL the daemon sends its token requests to. daemon.auth.url is meant
+// to be the panel's full token URL, but its default (http://localhost:8080) is only the
+// panel's address, and a remote node configured the same way got the web page instead of a
+// token. A URL with no path gets the token path added; full URLs, and anything that does
+// not parse as an absolute URL, are used as they are.
+func tokenURL(configured string) string {
+	u, err := url.Parse(configured)
+	if err != nil || u.Host == "" || strings.Trim(u.Path, "/") != "" {
+		return configured
+	}
+	u.Path = oauth2EndpointPath
+	return u.String()
 }
 
 type TokenInfoResponse struct {

@@ -61,6 +61,7 @@ func registerServers(g *gin.RouterGroup) {
 	registerServerActivity(g)
 	registerServerDNS(g)
 	registerServerModpacks(g)
+	registerServerGitHub(g)
 	registerServerWorldMap(g)
 	registerServerFileHistory(g)
 	registerServerClone(g)
@@ -109,6 +110,8 @@ func registerServers(g *gin.RouterGroup) {
 
 	g.POST("/:serverId/ai/analyze", middleware.RequiresPermission(scopes.ScopeServerConsole), middleware.ResolveServerPanel, analyzeServerLogs)
 	g.POST("/:serverId/ai/chat", middleware.RequiresPermission(scopes.ScopeServerConsole), middleware.ResolveServerPanel, chatWithAssistant)
+	g.POST("/:serverId/ai/chat/confirm", middleware.RequiresPermission(scopes.ScopeServerConsole), middleware.ResolveServerPanel, confirmAssistantChanges)
+	g.OPTIONS("/:serverId/ai/chat/confirm", response.CreateOptions("POST"))
 	g.OPTIONS("/:serverId/ai/analyze", response.CreateOptions("POST"))
 
 	g.POST("/:serverId/extransfer/create", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, CreateExTransfer)
@@ -159,6 +162,9 @@ func registerServers(g *gin.RouterGroup) {
 	g.OPTIONS("/:serverId/notifications", response.CreateOptions("GET", "PUT"))
 	g.POST("/:serverId/notifications/test", middleware.RequiresPermission(scopes.ScopeServerEditFlags), middleware.ResolveServerPanel, proxyServerRequest)
 	g.OPTIONS("/:serverId/notifications/test", response.CreateOptions("POST"))
+	g.GET("/:serverId/offsite", middleware.RequiresPermission(scopes.ScopeServerBackupView), middleware.ResolveServerPanel, proxyServerRequest)
+	g.PUT("/:serverId/offsite", middleware.RequiresPermission(scopes.ScopeServerBackupCreate), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/offsite", response.CreateOptions("GET", "PUT"))
 
 	g.POST("/:serverId/reload", middleware.RequiresPermission(scopes.ScopeServerReload), middleware.ResolveServerPanel, proxyServerRequest)
 	g.OPTIONS("/:serverId/reload", response.CreateOptions("POST"))
@@ -465,7 +471,7 @@ func createServer(c *gin.Context) {
 	}
 
 	if hasParentServer(server) {
-		updateParentServerLimitsOnNode(c, db, ns, node, server, parentAvailableCPU, parentAvailableMemory, parentAvailableDisk)
+		updateParentServerLimitsOnNode(c, db, ns, node, server, parentLimits{CPU: parentAvailableCPU, Memory: parentAvailableMemory, Disk: parentAvailableDisk})
 	}
 
 	startFirstInstall(ns, node, server.Identifier)
@@ -473,7 +479,7 @@ func createServer(c *gin.Context) {
 	sendServerCreationEmails(users, server)
 	// a new server gets its subdomain once; editing it later must not give back one the owner removed
 	scheduleAutoSubdomain(server.Identifier)
-	extensions.Publish(extensions.EventServerCreated, extensions.ServerData(server.Identifier, server.Name))
+	extensions.Publish(extensions.EventServerCreated, extensions.ServerData(server.Identifier, server.Name, server.Type, server.Icon))
 	c.JSON(http.StatusOK, &models.CreateServerResponse{ID: serverID})
 }
 
@@ -590,6 +596,9 @@ func editServer(c *gin.Context) {
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
+	if answerNodeAuthFailure(c, &server.Node, nodeResponse) {
+		return
+	}
 
 	if nodeResponse.StatusCode != http.StatusNoContent {
 		resData, err := io.ReadAll(nodeResponse.Body)
@@ -614,9 +623,22 @@ func editServer(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// dropServerDatabases drops the server's MySQL databases and users from their hosts and
+// returns the ones a host could not drop. A variable so tests can see when it runs.
+var dropServerDatabases = func(db *gorm.DB, serverID string) ([]services.LeftoverDatabase, error) {
+	return (&services.Database{DB: db}).DropAllForServer(serverID)
+}
+
+// ServerDeleteResponse is the answer to a delete that went through but left MySQL databases
+// on a host that could not be reached
+type ServerDeleteResponse struct {
+	LeftoverDatabases []services.LeftoverDatabase `json:"leftoverDatabases"`
+} // @name ServerDeleteResponse
+
 // @Summary Deletes a server
-// @Description Deletes a server from the panel
+// @Description Deletes a server from the panel. 204 when everything was removed; 200 with the MySQL databases a host could not drop, which stay there to be removed by hand.
 // @Success 204 {object} nil
+// @Success 200 {object} ServerDeleteResponse
 // @Param id path string true "Server ID"
 // @Tags Daemon Servers
 // @Router /api/servers/{id} [delete]
@@ -653,16 +675,16 @@ func deleteServer(c *gin.Context) {
 
 	releaseSubdomain(db, server)
 
+	// before the rows go: on MySQL/Postgres deleting the server cascades its database rows,
+	// and without them nothing knows which schemas and users to drop from the hosts
+	leftovers, err := dropServerDatabases(db, server.Identifier)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
 	if err := db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where(serverIdentifierRefQuery, server.Identifier).Delete(&models.Permissions{}).Error; err != nil {
 			return err
-		}
-
-		var clientIDs []uint
-		if err := tx.Model(&models.Client{}).Where(serverIDQuery, server.Identifier).Pluck("id", &clientIDs).Error; err == nil && len(clientIDs) > 0 {
-			if err := tx.Where("client_id IN ?", clientIDs).Delete(&models.Permissions{}).Error; err != nil {
-				return err
-			}
 		}
 
 		if err := tx.Where(serverIDQuery, server.Identifier).Delete(&models.UptimeStatus{}).Error; err != nil {
@@ -671,10 +693,16 @@ func deleteServer(c *gin.Context) {
 		if err := tx.Where(serverIDQuery, server.Identifier).Delete(&models.Backup{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Where(serverIDQuery, server.Identifier).Delete(&models.Client{}).Error; err != nil {
+		if err := tx.Where(serverIDQuery, server.Identifier).Delete(&models.Database{}).Error; err != nil {
+			return err
+		}
+		if err := services.DeleteServerClients(tx, server.Identifier); err != nil {
 			return err
 		}
 		if err := tx.Where(serverIdentifierRefQuery, server.Identifier).Delete(&models.Session{}).Error; err != nil {
+			return err
+		}
+		if err := services.DeleteServerTransfers(tx, server.Identifier); err != nil {
 			return err
 		}
 
@@ -690,7 +718,12 @@ func deleteServer(c *gin.Context) {
 	}
 
 	sendServerDeletionEmails(users, server)
-	extensions.Publish(extensions.EventServerDeleted, extensions.ServerData(server.Identifier, server.Name))
+	extensions.Publish(extensions.EventServerDeleted, extensions.ServerData(server.Identifier, server.Name, server.Type, server.Icon))
+	if len(leftovers) > 0 {
+		// the server is gone either way; whoever deleted it must know what is left on a host
+		c.JSON(http.StatusOK, &ServerDeleteResponse{LeftoverDatabases: leftovers})
+		return
+	}
 	c.Status(http.StatusNoContent)
 }
 
@@ -1271,6 +1304,9 @@ func sendDataToNode(c *gin.Context, db *gorm.DB, server *models.Server, postBody
 	if response.HandleError(c, err, http.StatusBadGateway) {
 		return false
 	}
+	if answerNodeAuthFailure(c, &server.Node, res) {
+		return false
+	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		details, _ := io.ReadAll(res.Body)
 		c.Header(headerContentType, res.Header.Get(headerContentType))
@@ -1493,7 +1529,7 @@ func saveAdminServerChanges(c *gin.Context, db *gorm.DB, server *models.Server, 
 
 	node, nodeErr := (&services.Node{DB: db}).Get(server.NodeID)
 	if nodeErr == nil && node != nil {
-		updateParentServerLimitsOnNode(c, db, &services.Node{DB: db}, node, server, parentAvailableCPU, parentAvailableMemory, parentAvailableDisk)
+		updateParentServerLimitsOnNode(c, db, &services.Node{DB: db}, node, server, parentLimits{CPU: parentAvailableCPU, Memory: parentAvailableMemory, Disk: parentAvailableDisk})
 	}
 	return true
 }
@@ -1647,6 +1683,24 @@ func getBackup(c *gin.Context) {
 	c.JSON(http.StatusOK, records)
 }
 
+// overBackupLimit says whether the server already keeps as many backups on the node as its
+// users may. The cap is there so one customer cannot fill the node's backup disk, so a copy
+// kept only in the bucket (a periodic copy once uploaded, a task's copy pruned on the node) does
+// not count; one whose location is not known yet may be on the node, so it does.
+func overBackupLimit(bs *services.Backup, serverID string, limit int) (bool, error) {
+	records, err := bs.GetAllForServer(serverID)
+	if err != nil {
+		return false, err
+	}
+	onNode := 0
+	for _, r := range records {
+		if r.Location != "offsite" {
+			onNode++
+		}
+	}
+	return onNode >= limit, nil
+}
+
 // @Summary Create backup
 // @Description Creates a full backup of the server
 // @Success 204 {object} nil
@@ -1668,11 +1722,11 @@ func createBackup(c *gin.Context) {
 		return
 	}
 	if limit := config.BackupsMaxPerServer.Value(); limit > 0 && !callerIsAdmin(c) {
-		existing, err := bs.GetAllForServer(server.Identifier)
+		full, err := overBackupLimit(bs, server.Identifier, limit)
 		if response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
-		if len(existing) >= limit {
+		if full {
 			response.HandleError(c, skypanel.ErrBackupLimit, http.StatusConflict)
 			return
 		}
@@ -1691,6 +1745,9 @@ func createBackup(c *gin.Context) {
 		return
 	}
 
+	if answerNodeAuthFailure(c, node, callResponse) {
+		return
+	}
 	// any refusal from the node (bad request, server running, backup in progress...) is
 	// passed through; only a 400 used to be, so other errors were reported as success
 	if callResponse.StatusCode >= http.StatusMultipleChoices {
@@ -1722,7 +1779,7 @@ func createBackup(c *gin.Context) {
 // @Param id path string true "Server ID"
 // @Param backupID path string true "Backup ID"
 // @Tags Daemon Servers
-// @Router /api/servers/{id}/backup/Delete/{backupID} [delete]
+// @Router /api/servers/{id}/backup/{backupID} [delete]
 // @Security OAuth2Application[server.backup.delete]
 func deleteBackup(c *gin.Context) {
 	server := getServerFromGin(c)
@@ -1753,6 +1810,9 @@ func deleteBackup(c *gin.Context) {
 		return
 	}
 
+	if answerNodeAuthFailure(c, node, callResponse) {
+		return
+	}
 	// any refusal from the node (bad request, server running, backup in progress...) is
 	// passed through; only a 400 used to be, so other errors were reported as success
 	if callResponse.StatusCode >= http.StatusMultipleChoices {
@@ -1777,7 +1837,7 @@ func deleteBackup(c *gin.Context) {
 // @Param id path string true "Server ID"
 // @Param backupID path string true "Backup ID"
 // @Tags Daemon Servers
-// @Router /api/servers/{id}/backup/Delete/{backupID} [delete]
+// @Router /api/servers/{id}/backup/restore/{backupID} [post]
 // @Security OAuth2Application[server.backup.restore]
 func restoreBackup(c *gin.Context) {
 	server := getServerFromGin(c)
@@ -1808,6 +1868,9 @@ func restoreBackup(c *gin.Context) {
 		return
 	}
 
+	if answerNodeAuthFailure(c, node, callResponse) {
+		return
+	}
 	// any refusal from the node (bad request, server running, backup in progress...) is
 	// passed through; only a 400 used to be, so other errors were reported as success
 	if callResponse.StatusCode >= http.StatusMultipleChoices {
@@ -1823,12 +1886,13 @@ func restoreBackup(c *gin.Context) {
 
 // @Summary Download backup
 // @Description Download a server backup
-// @Success 204 {object} nil
+// @Produce octet-stream
+// @Success 200 {file} binary "Backup archive"
 // @Param id path string true "Server ID"
 // @Param backupID path string true "Backup ID"
 // @Tags Daemon Servers
-// @Router /api/servers/{id}/backup/Delete/{backupID} [delete]
-// @Security OAuth2Application[server.backup.restore]
+// @Router /api/servers/{id}/backup/download/{backupID} [get]
+// @Security OAuth2Application[server.backup.view]
 func downloadBackup(c *gin.Context) {
 	server := getServerFromGin(c)
 	db := middleware.GetDatabase(c)
@@ -1855,6 +1919,9 @@ func downloadBackup(c *gin.Context) {
 	callResponse, err := ns.CallNode(node, "GET", resolvedPath, nil, nil)
 	defer utils.CloseResponse(callResponse)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	if answerNodeAuthFailure(c, node, callResponse) {
 		return
 	}
 
@@ -1919,17 +1986,18 @@ func validatePortsAgainstNode(db *gorm.DB, nodeID uint, excludeIdentifier string
 		if p == 0 {
 			continue
 		}
+		port := strconv.Itoa(int(p))
 		if p < 1024 {
-			return fmt.Errorf("el puerto %d está fuera del rango permitido (1024-65535)", p)
+			return skypanel.ErrPortOutOfRange(port)
 		}
 		if seen[p] {
-			return fmt.Errorf("el puerto %d está duplicado", p)
+			return skypanel.ErrPortDuplicated(port)
 		}
 		if reserved[p] {
-			return fmt.Errorf("el puerto %d lo usa el propio panel en este nodo", p)
+			return skypanel.ErrPortUsedByPanel(port)
 		}
 		if used[p] {
-			return fmt.Errorf("el puerto %d ya está en uso por otro servidor en este nodo", p)
+			return skypanel.ErrPortTaken(port)
 		}
 		seen[p] = true
 		used[p] = true
@@ -1969,14 +2037,15 @@ func validateOtherPorts(db *gorm.DB, nodeID uint, variables map[string]skypanel.
 			continue
 		}
 		p := servers.PortValue(variables[key].Value)
+		port := fmt.Sprintf("%d (%s)", p, key)
 		switch {
 		case p == 0:
 		case p < 1024:
-			return fmt.Errorf("el puerto %d (%s) está fuera del rango permitido (1024-65535)", p, key)
+			return skypanel.ErrPortOutOfRange(port)
 		case reserved[p]:
-			return fmt.Errorf("el puerto %d (%s) lo usa el propio panel en este nodo", p, key)
+			return skypanel.ErrPortUsedByPanel(port)
 		case used[p]:
-			return fmt.Errorf("el puerto %d (%s) ya está en uso por otro servidor en este nodo", p, key)
+			return skypanel.ErrPortTaken(port)
 		}
 	}
 	return nil
@@ -2059,7 +2128,6 @@ func proxyServerRequest(c *gin.Context) {
 		resolvedPath += "?" + c.Request.URL.RawQuery
 	}
 
-	user := c.MustGet("user").(*models.User)
 	server := c.MustGet("server").(*models.Server)
 	node := &server.Node
 
@@ -2083,11 +2151,7 @@ func proxyServerRequest(c *gin.Context) {
 	c.Request.Header.Set("Authorization", bearerPrefix+token)
 
 	if c.IsWebsocket() {
-		socketPath, ok := websocketPathWithGrants(c, db, user, server, resolvedPath)
-		if !ok {
-			return
-		}
-		proxySocketRequest(c, socketPath, ns, node)
+		proxySocketRequest(c, websocketPathWithGrants(c, resolvedPath), ns, node)
 	} else {
 		proxyHTTPRequest(c, resolvedPath, ns, node)
 	}
@@ -2096,29 +2160,18 @@ func proxyServerRequest(c *gin.Context) {
 }
 
 // websocketPathWithGrants replaces the query of a websocket path with the
-// streams (console, status, stats) the user is allowed to receive. It writes
-// the error response itself and returns false when the request must stop.
-func websocketPathWithGrants(c *gin.Context, db *gorm.DB, user *models.User, server *models.Server, resolvedPath string) (string, bool) {
+// streams (console, status, stats) the user is allowed to receive. The scopes
+// are the ones checkPermission resolved for this request, so the owner's scopes,
+// the panel-wide row and an OAuth2 client's bounds count as they do on every
+// other route.
+func websocketPathWithGrants(c *gin.Context, resolvedPath string) string {
 	// for websocket, nuke the query params to avoid trying to escalate
 	resolvedPath = strings.SplitN(resolvedPath, "?", 2)[0]
 	if !strings.HasPrefix(resolvedPath, "/") {
 		resolvedPath = "/" + resolvedPath
 	}
 
-	permService := &services.Permission{DB: db}
-	perms, err := permService.GetForUserAndServer(user.ID, server.Identifier)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return "", false
-	}
-
-	allScopes := perms.Scopes
-
-	perms, err = permService.GetForUserAndServer(user.ID, "")
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return "", false
-	}
-
-	allScopes = append(allScopes, perms.Scopes...)
+	allScopes := callerScopes(c)
 
 	// add the params we can grant for this request
 	var params []string
@@ -2131,7 +2184,7 @@ func websocketPathWithGrants(c *gin.Context, db *gorm.DB, user *models.User, ser
 	if scopes.ContainsScope(allScopes, scopes.ScopeServerStats) {
 		params = append(params, "stats")
 	}
-	return resolvedPath + "?" + strings.Join(params, "&"), true
+	return resolvedPath + "?" + strings.Join(params, "&")
 }
 
 var wsupgrader = websocket.Upgrader{
@@ -2154,6 +2207,10 @@ func proxyHTTPRequest(c *gin.Context, path string, ns *services.Node, node *mode
 
 	defer utils.CloseResponse(callResponse)
 
+	if answerNodeAuthFailure(c, node, callResponse) {
+		return
+	}
+
 	// Intercept 404 for stats/status/console to avoid errors in console for "ghost" servers (non-local or fallback)
 	if callResponse.StatusCode == http.StatusNotFound && c.Request.Method == "GET" && writeIdleServerStub(c, path) {
 		return
@@ -2175,7 +2232,7 @@ func answerLocalGhostServer(c *gin.Context, path string, node *models.Node) bool
 	}
 	// For ghost servers, return 200 with an error description instead of a red 404
 	c.JSON(http.StatusOK, gin.H{
-		"error": "El servidor existe en la base de datos pero sus archivos no se encuentran en este nodo. Por favor, reintenta instalarlo o elimínalo.",
+		"error": "The server exists in the database but its files are not on this node. Install it again or delete it.",
 	})
 	return true
 }
@@ -2225,7 +2282,7 @@ func proxySocketRequest(c *gin.Context, path string, ns *services.Node, node *mo
 			}
 			// Enviar un mensaje de advertencia simulado
 			msg := skypanel.ServerLogs{
-				Logs: []byte("> Error: Los archivos de este servidor han desaparecido del nodo. No se puede conectar a la consola."),
+				Logs: []byte("> Error: this server's files are gone from the node, so its console cannot be opened."),
 			}
 			data, _ := json.Marshal(msg)
 			_ = conn.WriteMessage(websocket.TextMessage, data)
@@ -2466,6 +2523,9 @@ func executeServerDeletionOnNode(c *gin.Context, ns *services.Node, node *models
 		return err
 	}
 
+	if answerNodeAuthFailure(c, node, nodeResponse) {
+		return errors.New("the node refused the panel's token")
+	}
 	if nodeResponse.StatusCode != http.StatusNoContent && nodeResponse.StatusCode != http.StatusNotFound {
 		resData, err := io.ReadAll(nodeResponse.Body)
 		if err != nil {
@@ -2512,7 +2572,7 @@ func updateParentServerLimitsAfterDeletion(db *gorm.DB, ns *services.Node, node 
 func sendServerDeletionEmails(users []models.User, server *models.Server) {
 	es := services.GetEmailService()
 	for _, user := range users {
-		err := es.SendEmail(user.Email, "deletedFromServer", map[string]interface{}{
+		err := es.SendEmail(user.Email, "deletedServer", map[string]interface{}{
 			"Server": server,
 		}, true)
 		if err != nil {
@@ -2979,6 +3039,9 @@ func notifyNodeOfServerCreation(c *gin.Context, ns *services.Node, node *models.
 		return err
 	}
 
+	if answerNodeAuthFailure(c, node, nodeResponse) {
+		return errors.New("the node refused the panel's token")
+	}
 	if nodeResponse.StatusCode != http.StatusOK {
 		resData, err := io.ReadAll(nodeResponse.Body)
 		if err != nil {
@@ -2994,9 +3057,17 @@ func notifyNodeOfServerCreation(c *gin.Context, ns *services.Node, node *models.
 	return nil
 }
 
-func updateParentServerLimitsOnNode(c *gin.Context, db *gorm.DB, ns *services.Node, node *models.Node, server *models.Server, parentAvailableCPU int, parentAvailableMemory int64, parentAvailableDisk int64) {
+// parentLimits is the cpu, memory and disk a parent server has left once its sub-servers
+// took their share
+type parentLimits struct {
+	CPU    int
+	Memory int64
+	Disk   int64
+}
+
+func updateParentServerLimitsOnNode(c *gin.Context, db *gorm.DB, ns *services.Node, node *models.Node, server *models.Server, limits parentLimits) {
 	// the admin PUT: the plain POST only changes values the owner may edit, which these are not
-	updateBytes, _ := json.Marshal(parentLimitsData(parentAvailableCPU, parentAvailableMemory, parentAvailableDisk))
+	updateBytes, _ := json.Marshal(parentLimitsData(limits.CPU, limits.Memory, limits.Disk))
 	parentReqBody := io.NopCloser(bytes.NewReader(updateBytes))
 
 	var parent models.Server

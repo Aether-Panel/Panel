@@ -123,43 +123,48 @@ fi
 # Verificar permisos del binario
 ls -la /SkyPanel/bin/SkyPanel
 
-# Esperar a que MySQL esté disponible (máximo 60 segundos)
-echo "Esperando a que MySQL esté disponible..."
-DB_HOST=$(echo "$SKYPANEL_PANEL_DATABASE_URL" | sed -n 's/.*@tcp(\([^:]*\):.*/\1/p')
-DB_PORT=$(echo "$SKYPANEL_PANEL_DATABASE_URL" | sed -n 's/.*@tcp([^:]*:\([0-9]*\)).*/\1/p')
-if [ -z "$DB_HOST" ]; then
-    DB_HOST="mysql"
-fi
-if [ -z "$DB_PORT" ]; then
-    DB_PORT="3306"
-fi
-
-MAX_ATTEMPTS=60
-ATTEMPT=0
-while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-    if nc -z "$DB_HOST" "$DB_PORT" 2>/dev/null; then
-        echo "MySQL está disponible en $DB_HOST:$DB_PORT"
-        break
-    fi
-    ATTEMPT=$((ATTEMPT + 1))
-    echo "Intento $ATTEMPT/$MAX_ATTEMPTS: MySQL no disponible aún, esperando..."
-    sleep 1
-done
-
-if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-    echo "ERROR: MySQL no está disponible después de $MAX_ATTEMPTS intentos"
-    exit 1
-fi
-
-# Ejecutar migraciones de base de datos
-echo "Ejecutando migraciones de base de datos..."
-/SkyPanel/bin/SkyPanel db migrate
-exitCode=$?
-if [ $exitCode -eq 0 ] || [ $exitCode -eq 9 ]; then
-    echo "Migraciones completadas (código: $exitCode)"
+# Un nodo (solo daemon) no tiene panel web ni base de datos: no se espera a MySQL ni se migra
+if [ "$SKYPANEL_PANEL_ENABLE" = "false" ]; then
+    echo "Nodo (solo daemon): sin base de datos, no se esperan MySQL ni migraciones"
 else
-    echo "ERROR: Fallo en migraciones (código: $exitCode)"
-    echo "Intentando continuar de todas formas..."
+    # Esperar a que MySQL esté disponible (máximo 60 segundos)
+    echo "Esperando a que MySQL esté disponible..."
+    DB_HOST=$(echo "$SKYPANEL_PANEL_DATABASE_URL" | sed -n 's/.*@tcp(\([^:]*\):.*/\1/p')
+    DB_PORT=$(echo "$SKYPANEL_PANEL_DATABASE_URL" | sed -n 's/.*@tcp([^:]*:\([0-9]*\)).*/\1/p')
+    if [ -z "$DB_HOST" ]; then
+        DB_HOST="mysql"
+    fi
+    if [ -z "$DB_PORT" ]; then
+        DB_PORT="3306"
+    fi
+
+    MAX_ATTEMPTS=60
+    ATTEMPT=0
+    while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+        if nc -z "$DB_HOST" "$DB_PORT" 2>/dev/null; then
+            echo "MySQL está disponible en $DB_HOST:$DB_PORT"
+            break
+        fi
+        ATTEMPT=$((ATTEMPT + 1))
+        echo "Intento $ATTEMPT/$MAX_ATTEMPTS: MySQL no disponible aún, esperando..."
+        sleep 1
+    done
+
+    if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+        echo "ERROR: MySQL no está disponible después de $MAX_ATTEMPTS intentos"
+        exit 1
+    fi
+
+    # Ejecutar migraciones de base de datos
+    echo "Ejecutando migraciones de base de datos..."
+    /SkyPanel/bin/SkyPanel db migrate
+    exitCode=$?
+    if [ $exitCode -eq 0 ] || [ $exitCode -eq 9 ]; then
+        echo "Migraciones completadas (código: $exitCode)"
+    else
+        echo "ERROR: Fallo en migraciones (código: $exitCode)"
+        echo "Intentando continuar de todas formas..."
+    fi
 fi
 
 # Iniciar el panel (debe quedarse corriendo)

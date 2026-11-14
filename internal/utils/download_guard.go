@@ -63,8 +63,8 @@ func DownloadFile(url string, onPrivate func(net.IP), save func(name string, con
 	return DownloadWith(NewDownloadHTTPClient(onPrivate), url, save)
 }
 
-// DownloadWith is DownloadFile with the given client, for URLs that do not come from a
-// template (a GitHub release asset); nil is grab's default client
+// DownloadWith is DownloadFile with the given client; nil is grab's default client, which
+// has no address guard (tests use it to reach their local server)
 func DownloadWith(httpClient *http.Client, url string, save func(name string, content io.Reader) error) error {
 	// the cache folder is on the data disk, where the server's files go anyway; the system's
 	// temporary folder only when it cannot be made

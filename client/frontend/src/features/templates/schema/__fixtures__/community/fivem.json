@@ -1,0 +1,187 @@
+{
+  "type": "fivem",
+  "display": "FiveM (GTA V)",
+  "icon": "fivem",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 200,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 20480,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (20480 MB = 20 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 4096,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 30120,
+      "display": "Port",
+      "desc": "Game port (TCP and UDP) players connect to",
+      "required": true,
+      "userEdit": false
+    },
+    "txadminport": {
+      "type": "integer",
+      "value": 40120,
+      "display": "txAdmin Port",
+      "desc": "Web port of txAdmin, the FiveM control panel",
+      "required": true,
+      "userEdit": false
+    },
+    "licensekey": {
+      "type": "string",
+      "value": "",
+      "display": "License Key",
+      "desc": "Server license key from https://portal.cfx.re (Server Registration Keys). The server will not start without it",
+      "required": true,
+      "userEdit": true
+    },
+    "hostname": {
+      "type": "string",
+      "value": "Aether FiveM Server",
+      "display": "Server Name",
+      "desc": "Name shown in the FiveM server list (without txAdmin)",
+      "required": true,
+      "userEdit": true
+    },
+    "maxclients": {
+      "type": "integer",
+      "value": 48,
+      "display": "Max Players",
+      "desc": "Most players at once (without txAdmin). Over 48 needs OneSync and a Cfx.re subscription",
+      "required": true,
+      "userEdit": true
+    },
+    "txadmin": {
+      "type": "boolean",
+      "value": true,
+      "display": "Use txAdmin",
+      "desc": "Run through txAdmin, which sets the server up from its own web page on the txAdmin port. Off: plain FXServer with server.cfg and the default resources",
+      "required": false,
+      "userEdit": true
+    },
+    "fxbuild": {
+      "type": "string",
+      "value": "",
+      "display": "FXServer Build",
+      "desc": "Internal, the artifact build that was installed",
+      "required": true,
+      "userEdit": true,
+      "internal": true
+    }
+  },
+  "install": [
+    {
+      "type": "scraperdl",
+      "url": "https://changelogs-live.fivem.net/api/changelog/versions/linux/server",
+      "regex": "\"recommended_download\":\"https://runtime\\.fivem\\.net/artifacts/fivem/build_proot_linux/master/([^\"]+)/fx\\.tar\\.xz\"",
+      "downloadUrl": "https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/${match}/fx.tar.xz",
+      "outputVariable": "fxbuild"
+    },
+    {
+      "type": "command",
+      "commands": [
+        "tar -xJf fx.tar.xz",
+        "rm -f fx.tar.xz"
+      ]
+    },
+    {
+      "if": "!txadmin && !file_exists('resources')",
+      "type": "download",
+      "files": [
+        "https://github.com/citizenfx/cfx-server-data/archive/refs/heads/master.zip"
+      ]
+    },
+    {
+      "if": "!txadmin && !file_exists('resources')",
+      "type": "extract",
+      "source": "cfx-server-data-master.zip",
+      "destination": "."
+    },
+    {
+      "if": "!txadmin && !file_exists('resources')",
+      "type": "command",
+      "commands": [
+        "mv cfx-server-data-master/resources resources"
+      ]
+    },
+    {
+      "if": "!txadmin",
+      "type": "command",
+      "commands": [
+        "rm -rf cfx-server-data-master.zip cfx-server-data-master"
+      ]
+    },
+    {
+      "if": "!txadmin && !file_exists('server.cfg')",
+      "type": "writefile",
+      "target": "server.cfg",
+      "text": "endpoint_add_tcp \"${ip}:${port}\"\nendpoint_add_udp \"${ip}:${port}\"\n\nensure mapmanager\nensure chat\nensure spawnmanager\nensure sessionmanager\nensure basic-gamemode\nensure hardcap\nensure rconlog\n\nsv_scriptHookAllowed 0\nsets tags \"default\"\nsets locale \"es-ES\"\n\nsv_hostname \"${hostname}\"\nsets sv_projectName \"${hostname}\"\nsets sv_projectDesc \"\"\nsv_maxclients ${maxclients}\nset steam_webApiKey \"none\"\nsv_licenseKey \"${licensekey}\"\n"
+    }
+  ],
+  "run": {
+    "command": [
+      {
+        "if": "txadmin",
+        "command": "bash ./run.sh +set serverProfile default"
+      },
+      {
+        "command": "bash ./run.sh +exec server.cfg"
+      }
+    ],
+    "environmentVars": {
+      "TXHOST_TXA_PORT": "${txadminport}"
+    },
+    "stop": "quit",
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "ghcr.io/aether-panel/ubuntu:latest",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp",
+        "0.0.0.0:${port}:${port}/udp",
+        "0.0.0.0:${txadminport}:${txadminport}/tcp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64"
+  }
+}

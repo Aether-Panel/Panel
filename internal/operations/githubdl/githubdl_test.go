@@ -5,15 +5,18 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/extract"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 )
 
@@ -76,6 +79,13 @@ func TestGithubDl_OutputVariableIsLocalFilename(t *testing.T) {
 	origBase := githubAPIBase
 	githubAPIBase = ts.URL
 	defer func() { githubAPIBase = origBase }()
+	// the guarded downloader refuses the loopback test server, so this test downloads with
+	// grab's default client; TestGithubDl_RefusesInternalAssetAddresses covers the guard
+	origDownload := downloadFile
+	downloadFile = func(url string, _ func(net.IP), save func(string, io.Reader) error) error {
+		return utils.DownloadWith(nil, url, save)
+	}
+	defer func() { downloadFile = origDownload }()
 
 	rootDir := t.TempDir()
 	env := &skypanel.Environment{
@@ -136,5 +146,47 @@ func TestGithubDl_OutputVariableIsLocalFilename(t *testing.T) {
 	// local filename and removes the downloaded archive.
 	if err := os.Remove(filepath.Join(rootDir, got)); err != nil {
 		t.Fatalf("rm of downloaded asset failed: %v", err)
+	}
+}
+
+// TestGithubDl_RefusesInternalAssetAddresses checks the asset is downloaded with the guarded
+// client: a release whose asset points at the node itself must not be fetched.
+func TestGithubDl_RefusesInternalAssetAddresses(t *testing.T) {
+	var assetHits atomic.Int32
+	var ts *httptest.Server
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/owner/repo/releases/latest":
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"assets":[{"name":"server.zip","browser_download_url":%q}]}`, ts.URL+"/download/server.zip")
+		case "/download/server.zip":
+			assetHits.Add(1)
+			_, _ = w.Write([]byte("secret"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	origBase := githubAPIBase
+	githubAPIBase = ts.URL
+	defer func() { githubAPIBase = origBase }()
+
+	rootDir := t.TempDir()
+	env := &skypanel.Environment{
+		Type:           "host",
+		RootDirectory:  rootDir,
+		ConsoleBuffer:  skypanel.CreateCache(),
+		ConsoleTracker: skypanel.CreateTracker(),
+	}
+	res := GithubDl{Repository: "owner/repo", AssetMatch: "server.zip"}.Run(skypanel.RunOperatorArgs{Environment: env})
+	if res.Error == nil {
+		t.Fatal("an asset on a loopback address must be refused")
+	}
+	if assetHits.Load() != 0 {
+		t.Fatal("the request reached the local service")
+	}
+	if _, err := os.Stat(filepath.Join(rootDir, "server.zip")); !os.IsNotExist(err) {
+		t.Fatalf("nothing must be saved, stat: %v", err)
 	}
 }

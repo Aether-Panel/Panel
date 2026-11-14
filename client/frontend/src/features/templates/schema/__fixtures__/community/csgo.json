@@ -1,0 +1,124 @@
+{
+  "type": "srcds",
+  "display": "Counter-Strike 2",
+  "icon": "csgo",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 61440,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (61440 MB = 60 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "gamemap": {
+      "type": "string",
+      "value": "de_dust2",
+      "display": "Map",
+      "desc": "Map to load by default",
+      "required": true,
+      "userEdit": true
+    },
+    "gslt": {
+      "type": "string",
+      "value": "",
+      "display": "GSLT Token",
+      "desc": "Required to make your server public (App ID 730). Visit http://steamcommunity.com/dev/managegameservers to get a token",
+      "required": true,
+      "userEdit": true
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "maxplayers": {
+      "type": "integer",
+      "value": 20,
+      "display": "Max Players",
+      "desc": "Max players allowed on server",
+      "required": true,
+      "userEdit": true
+    },
+    "port": {
+      "type": "integer",
+      "value": 27015,
+      "display": "Port",
+      "desc": "What port to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "tvport": {
+      "type": "integer",
+      "value": 27017,
+      "display": "GOTV Port",
+      "desc": "What port to bind the GOTV to",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 1024,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "steamgamedl",
+      "appId": "730"
+    },
+    {
+      "if": "env == 'docker'",
+      "type": "command",
+      "commands": [
+        "steamcmd +force_install_dir /SkyPanel +login anonymous +app_update 730 validate +quit",
+        "bash -c \"mkdir -p /SkyPanel/.steam/sdk64 && ln -sf /SkyPanel/.steam/steamcmd/linux64/steamclient.so /SkyPanel/.steam/sdk64/steamclient.so\""
+      ]
+    }
+  ],
+  "run": {
+    "command": "./game/cs2.sh -dedicated -ip ${ip} -port ${port} +tv_port ${tvport} +map ${gamemap} -maxplayers ${maxplayers} +sv_setsteamaccount ${gslt} -norestart",
+    "stop": "exit",
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "steamcmd/steamcmd:ubuntu-20",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/udp",
+        "0.0.0.0:${tvport}:${tvport}/udp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64"
+  }
+}

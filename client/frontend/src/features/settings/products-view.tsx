@@ -17,11 +17,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Trash2, Plus, Pencil, Package } from '@/components/icons';
 import { sileo } from "@/lib/toast";
-import { api } from '@/lib/api-client';
+import { api, ApiError } from '@/lib/api-client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslations } from '@/contexts/translations-context';
 import { SettingsCard, SettingsCardHeader } from './general-tab';
 import { EmptyState } from '@/components/empty-state';
+import { MibEquivalent } from '@/features/servers/mib';
 
 export function ProductsView() {
     const { t } = useTranslations();
@@ -43,6 +44,8 @@ export function ProductsView() {
         port_range_max: 0,
     });
     const [usePortRange, setUsePortRange] = useState(false);
+    // why the panel refused the product (an unknown template or node), shown in the form
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     const fetchData = async () => {
         try {
@@ -62,6 +65,7 @@ export function ProductsView() {
     }, []);
 
     const handleSubmit = async () => {
+        setSaveError(null);
         try {
             const url = editingId ? `/api/provision/products/${editingId}` : '/api/provision/products';
 
@@ -86,7 +90,9 @@ export function ProductsView() {
             sileo.success({ title: t('common.success'), description: t('settings.products.toast.saved') });
         } catch (e) {
             console.error(e);
-            sileo.error({ title: t('common.error'), description: t('settings.products.toast.saveFailed') });
+            const reason = e instanceof ApiError && e.message ? e.message : null;
+            setSaveError(reason);
+            sileo.error({ title: t('common.error'), description: reason ?? t('settings.products.toast.saveFailed') });
         }
     };
 
@@ -114,6 +120,7 @@ export function ProductsView() {
         });
         setUsePortRange(false);
         setEditingId(null);
+        setSaveError(null);
         setIsDialogOpen(true);
     };
 
@@ -131,6 +138,7 @@ export function ProductsView() {
         });
         setUsePortRange(!!(product.port_range_min && product.port_range_max));
         setEditingId(product.id);
+        setSaveError(null);
         setIsDialogOpen(true);
     };
 
@@ -178,6 +186,7 @@ export function ProductsView() {
                 />
                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{unit}</span>
             </div>
+            {unit === 'MiB' && <MibEquivalent mib={form[key]} className="-mt-1" />}
         </div>
     );
 
@@ -276,8 +285,8 @@ export function ProductsView() {
                             <Input id="product-template" spellCheck={false} value={form.template} onChange={e => setForm({...form, template: e.target.value})} placeholder="minecraft" className="font-mono md:text-[13px]" />
                         </div>
                         {numberField('product-cpu', t('settings.products.form.cpu'), '%', 'cpu')}
-                        {numberField('product-memory', t('settings.products.form.memory'), 'MB', 'memory')}
-                        {numberField('product-disk', t('settings.products.form.disk'), 'MB', 'disk')}
+                        {numberField('product-memory', t('settings.products.form.memory'), 'MiB', 'memory')}
+                        {numberField('product-disk', t('settings.products.form.disk'), 'MiB', 'disk')}
                         <div className="space-y-2">
                             <Label htmlFor="product-node">{t('settings.products.form.defaultNode')}</Label>
                             <Select value={form.default_node.toString()} onValueChange={v => setForm({...form, default_node: Number(v)})}>
@@ -333,6 +342,11 @@ export function ProductsView() {
                             )}
                         </div>
                     </div>
+                    {saveError && (
+                        <p role="alert" className="break-words rounded-lg border border-destructive/30 bg-destructive/[0.07] px-3 py-2 text-sm text-destructive-bright">
+                            {saveError}
+                        </p>
+                    )}
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsDialogOpen(false)}>{t('common.cancel')}</Button>
                         <Button onClick={handleSubmit}>{t('settings.products.save')}</Button>

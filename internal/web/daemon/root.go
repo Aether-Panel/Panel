@@ -20,6 +20,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers/docker"
+	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/update"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
@@ -52,13 +53,54 @@ func RegisterDaemonRoutes(e *gin.RouterGroup) {
 	e.GET("network/history", middleware.ValidateJWT, getNetworkHistory)
 	e.Handle("OPTIONS", "network/history", response.CreateOptions("GET"))
 
+	// the state of every server on this node in one answer, for the panel's uptime poller
+	e.GET("servers/status", middleware.ValidateJWT, getServersStatus)
+	e.Handle("OPTIONS", "servers/status", response.CreateOptions("GET"))
+
 	e.POST("update", middleware.ValidateJWT, daemonUpdate)
 	e.Handle("OPTIONS", "update", response.CreateOptions("POST"))
 
 	e.GET("update-status", middleware.ValidateJWT, daemonUpdateStatus)
 	e.Handle("OPTIONS", "update-status", response.CreateOptions("GET"))
 
+	// the settings the panel hands to every node (S3, CurseForge): only the panel, with a token
+	// signed for this node, may read their hash or change them
+	e.GET("settings", middleware.ValidateJWT, getNodeSettings)
+	e.PUT("settings", middleware.ValidateJWT, putNodeSettings)
+	e.Handle("OPTIONS", "settings", response.CreateOptions("GET", "PUT"))
+
 	RegisterServerRoutes(e)
+}
+
+// @Summary Get the status of every server
+// @Description Whether each server on this node is running or installing, keyed by server ID. The panel polls it to record the uptime of servers on remote nodes. A server whose state cannot be read is left out. The X-Aether-Notification-Language header (es or en), when sent, sets the language of this node's alerts unless its own config sets one.
+// @Success 200 {object} map[string]interface{} "servers: server ID to ServerRunning"
+// @Tags Daemon Root
+// @Router /daemon/servers/status [get]
+// @Security OAuth2Application[none]
+func getServersStatus(c *gin.Context) {
+	// the panel repeats its notification language on every poll, so the alerts of this node's
+	// servers follow the panel's setting (unless this node's own config sets one)
+	services.SetPanelNotificationLanguage(c.GetHeader(services.NotificationLanguageHeader))
+	c.JSON(http.StatusOK, gin.H{"servers": serverStatuses(servers.GetAll())})
+}
+
+// serverStatuses is what /daemon/server/:id/status answers, for every server at once. A server
+// whose state cannot be read is left out, so the panel takes it as unknown rather than stopped.
+func serverStatuses(list []*servers.Server) map[string]skypanel.ServerRunning {
+	statuses := make(map[string]skypanel.ServerRunning, len(list))
+	for _, server := range list {
+		if server.GetEnvironment().IsInstalling() {
+			statuses[server.ID()] = skypanel.ServerRunning{Installing: true}
+			continue
+		}
+		running, err := server.IsRunning()
+		if err != nil {
+			continue
+		}
+		statuses[server.ID()] = skypanel.ServerRunning{Running: running}
+	}
+	return statuses
 }
 
 // @Summary Update this node
@@ -200,6 +242,9 @@ type SystemInfo struct {
 	Uptime           uint64            `json:"uptime"`
 	NetworkBytesSent uint64            `json:"networkBytesSent"`
 	NetworkBytesRecv uint64            `json:"networkBytesRecv"`
+	// SampledAt is when the counters above were read (Unix milliseconds), so a rate between two
+	// readings divides by the time that really passed on the node, not by when each answer arrived
+	SampledAt int64 `json:"sampledAt"`
 } // @name SystemInfo
 
 // @Summary Get system information
@@ -257,6 +302,7 @@ func getSystemInfo(c *gin.Context) {
 
 	// Get network statistics
 	sysInfo.NetworkBytesSent, sysInfo.NetworkBytesRecv = totalNetworkBytes()
+	sysInfo.SampledAt = time.Now().UnixMilli()
 
 	c.JSON(http.StatusOK, sysInfo)
 }

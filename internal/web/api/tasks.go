@@ -35,14 +35,16 @@ type userTaskOperation struct {
 
 // userTaskOperations is what a task made by someone without admin may do. Everything else
 // (shell commands, downloads, file writes) stays with administrators, since a task runs on
-// the node with nobody watching and those reach beyond the game.
+// the node with nobody watching and those reach beyond the game. A backup step never takes
+// taskId: only the scheduler sets it, or a user could name another task and prune its copies
+// in the bucket.
 var userTaskOperations = map[string]userTaskOperation{
 	"stdin":   {keys: []string{"command"}, scopes: []*scopes.Scope{scopes.ScopeServerSendCommand}},
 	"sleep":   {keys: []string{"duration"}},
 	"start":   {scopes: []*scopes.Scope{scopes.ScopeServerStart}},
 	"stop":    {scopes: []*scopes.Scope{scopes.ScopeServerStop}},
 	"restart": {scopes: []*scopes.Scope{scopes.ScopeServerStart, scopes.ScopeServerStop}},
-	"backup":  {keys: []string{"keep"}, scopes: []*scopes.Scope{scopes.ScopeServerBackupCreate}},
+	"backup":  {keys: []string{"keep", "offsite", "offsiteKeep"}, scopes: []*scopes.Scope{scopes.ScopeServerBackupCreate}},
 }
 
 const (
@@ -144,6 +146,12 @@ func validateUserTaskStep(op skypanel.ConditionalMetadataType) error {
 		if _, err := servers.AutoBackupKeep(op.Metadata["keep"]); err != nil {
 			return err
 		}
+		if _, err := servers.ParseOffsiteFrequency(op.Metadata["offsite"]); err != nil {
+			return err
+		}
+		if _, err := servers.OffsiteKeep(op.Metadata["offsiteKeep"]); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -186,10 +194,12 @@ func putServerTask(c *gin.Context) {
 // syncAutomaticBackupsLock keeps two requests for the same list from adding a backup twice
 var syncAutomaticBackupsLock sync.Mutex
 
-// syncAutomaticBackups brings the panel's list in line with the node: backups scheduled tasks
-// made are added and ones removed by retention are dropped, and every backup gets its size
-// once its archive is written. Backups made by hand are recorded when they are made, so only
-// automatic ones are added or removed. It is best effort: when the node cannot be reached the
+// syncAutomaticBackups brings the panel's list in line with the node: the backups of scheduled
+// tasks, restore points and periodic off-site copies (which only the bucket keeps) are added,
+// ones removed by retention are dropped, and every backup gets its size once its archive is
+// written. Backups made by hand are recorded when they are made,
+// so only automatic ones are added, and one made by hand is only removed when the node reports
+// that its archive could not be written. It is best effort: when the node cannot be reached the
 // stored list is shown as it is.
 func syncAutomaticBackups(ctx context.Context, db *gorm.DB, server *models.Server) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -211,34 +221,109 @@ func syncAutomaticBackups(ctx context.Context, db *gorm.DB, server *models.Serve
 	defer syncAutomaticBackupsLock.Unlock()
 
 	bs := &services.Backup{DB: db}
-	records, err := bs.GetAllForServer(server.Identifier)
+	failed, err := applyNodeBackups(bs, server, onNode, nodeListedBucket(res.Header))
 	if err != nil {
 		return
 	}
-
-	present := make(map[string]skypanel.BackupFile, len(onNode))
-	for _, f := range onNode {
-		present[f.FileName] = f
+	// the node keeps a mark for each failed backup until it is told the panel dropped it
+	for _, name := range failed {
+		res, err := ns.CallNodeContext(ctx, &server.Node, http.MethodDelete, daemonServerPrefix+server.Identifier+"/backup"+fileNameParam+name, nil, nil)
+		utils.CloseResponse(res)
+		if err != nil {
+			logging.Error.Printf("Error clearing the failed backup %s on the node: %s", name, err)
+		}
 	}
+}
+
+// nodeListedBucket is whether the node's backup list includes what its bucket holds. A node
+// that could not list the bucket says so in a header; an older node never does, and is taken
+// at its word as before.
+func nodeListedBucket(header http.Header) bool {
+	return header.Get(servers.BackupsOffsiteHeader) != servers.BackupsOffsiteUnavailable
+}
+
+// applyNodeBackups updates the panel's records of the server's backups from the node's list
+// and returns the backups the node reports as failed, whose record it removed. bucketListed
+// false means the list lacks the copies only the bucket has, so a record with a copy in the
+// bucket is neither removed nor taken for local only.
+func applyNodeBackups(bs *services.Backup, server *models.Server, onNode []skypanel.BackupFile, bucketListed bool) ([]string, error) {
+	records, err := bs.GetAllForServer(server.Identifier)
+	if err != nil {
+		return nil, err
+	}
+
+	present, finished, failed := splitNodeBackups(onNode)
+	isFailed := make(map[string]bool, len(failed))
+	for _, name := range failed {
+		isFailed[name] = true
+	}
+
 	known := make(map[string]bool, len(records))
 	for _, r := range records {
 		known[r.FileName] = true
 		file, onDisk := present[r.FileName]
-		if isSystemBackup(r.FileName) && !onDisk {
-			if err := bs.Delete(r.ID); err != nil {
-				logging.Error.Printf("Error removing the record of deleted backup %s: %s", r.FileName, err)
-			}
+		syncBackupRecord(bs, r, file, onDisk, isFailed[r.FileName], bucketListed)
+	}
+	addSystemBackups(bs, server, finished, known)
+	return failed, nil
+}
+
+// splitNodeBackups sorts the node's list into the finished backups (by name, and in order)
+// and the names of the backups it reports as failed
+func splitNodeBackups(onNode []skypanel.BackupFile) (present map[string]skypanel.BackupFile, finished []skypanel.BackupFile, failed []string) {
+	present = make(map[string]skypanel.BackupFile, len(onNode))
+	finished = make([]skypanel.BackupFile, 0, len(onNode))
+	failed = make([]string, 0)
+	for _, f := range onNode {
+		if f.Location == servers.BackupFailedLocation {
+			failed = append(failed, f.FileName)
 			continue
 		}
-		if onDisk && (file.Size != r.FileSize || file.Location != r.Location) {
-			r.FileSize = file.Size
-			r.Location = file.Location
-			if err := bs.Update(r); err != nil {
-				logging.Error.Printf("Error recording the size of backup %s: %s", r.FileName, err)
-			}
+		present[f.FileName] = f
+		finished = append(finished, f)
+	}
+	return present, finished, failed
+}
+
+// syncBackupRecord brings one record in line with the node's entry for it: removed when the
+// backup is gone or failed, its size and location updated when the node has it
+func syncBackupRecord(bs *services.Backup, r *models.Backup, file skypanel.BackupFile, onDisk, failed, bucketListed bool) {
+	if !bucketListed && !failed {
+		var keep bool
+		if file, keep = withUnlistedBucket(r.Location, file, onDisk); keep {
+			return
 		}
 	}
-	addSystemBackups(bs, server, onNode, known)
+	// a backup made by hand is recorded when it is asked for, before its archive is
+	// written; when writing it failed there is no file behind the record
+	if (isSystemBackup(r.FileName) && !onDisk) || failed {
+		if err := bs.Delete(r.ID); err != nil {
+			logging.Error.Printf("Error removing the record of deleted backup %s: %s", r.FileName, err)
+		}
+		return
+	}
+	if onDisk && (file.Size != r.FileSize || file.Location != r.Location) {
+		r.FileSize = file.Size
+		r.Location = file.Location
+		if err := bs.Update(r); err != nil {
+			logging.Error.Printf("Error recording the size of backup %s: %s", r.FileName, err)
+		}
+	}
+}
+
+// withUnlistedBucket reads the node's entry for a record when the node could not list its
+// bucket. keep is true for a record with a copy in the bucket that the node does not have: that
+// copy may well still be there, and dropping the record would change its id and break open
+// links until the next good listing. A copy in both places stays in both, since the node only
+// saw its own.
+func withUnlistedBucket(recorded string, file skypanel.BackupFile, onDisk bool) (skypanel.BackupFile, bool) {
+	if !onDisk {
+		return file, recorded == "offsite" || recorded == "both"
+	}
+	if recorded == "both" {
+		file.Location = "both"
+	}
+	return file, false
 }
 
 // addSystemBackups records the backups the node made by itself that the panel does not list yet
@@ -248,8 +333,11 @@ func addSystemBackups(bs *services.Backup, server *models.Server, onNode []skypa
 			continue
 		}
 		name := "Automatic backup"
-		if strings.HasPrefix(f.FileName, servers.RestorePointPrefix) {
+		switch {
+		case strings.HasPrefix(f.FileName, servers.RestorePointPrefix):
 			name = "Restore point"
+		case strings.HasPrefix(f.FileName, servers.OffsiteBackupPrefix):
+			name = "Periodic backup (S3)"
 		}
 		record := &models.Backup{Name: name, FileName: f.FileName, FileSize: f.Size, Location: f.Location, ServerID: server.Identifier, CreatedAt: f.ModTime}
 		if err := bs.Create(record); err != nil {
@@ -258,8 +346,12 @@ func addSystemBackups(bs *services.Backup, server *models.Server, onNode []skypa
 	}
 }
 
-// isSystemBackup tells backups the node makes by itself (scheduled tasks, restore points), which
-// the panel adds and removes as they come and go, from those made by hand
+// isSystemBackup tells backups the node makes by itself (scheduled tasks, restore points, the
+// periodic off-site copy), which the panel adds and removes as they come and go, from those made
+// by hand. The node lists the periodic copy with Location "offsite" once only the bucket has it,
+// so it stays recorded until the retention removes it there.
 func isSystemBackup(fileName string) bool {
-	return strings.HasPrefix(fileName, servers.AutoBackupPrefix) || strings.HasPrefix(fileName, servers.RestorePointPrefix)
+	return strings.HasPrefix(fileName, servers.AutoBackupPrefix) ||
+		strings.HasPrefix(fileName, servers.RestorePointPrefix) ||
+		strings.HasPrefix(fileName, servers.OffsiteBackupPrefix)
 }

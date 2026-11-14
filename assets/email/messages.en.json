@@ -1,0 +1,209 @@
+{
+  "common": {
+    "greeting": "Hello,",
+    "stamp": "MAIL",
+    "ref": "Ref.",
+    "fallback": "If the button does not work, copy this link into your browser:",
+    "signoff": "Kind regards,",
+    "signature": "the {{ .COMPANY_NAME }} team",
+    "footer": "You are receiving this email because you have an account on {{ .HOST_NAME }}.",
+    "openPanel": "Open the panel"
+  },
+  "emails": {
+    "accountCreation": {
+      "subject": "Your {{ .COMPANY_NAME }} account is ready",
+      "preheader": "You can now sign in to {{ .HOST_NAME }}.",
+      "title": "Your account is ready",
+      "paragraphs": [
+        "An account has been created for you on {{ .HOST_NAME }}.",
+        "Sign in with this email address and your password to see your servers."
+      ],
+      "details": [
+        { "label": "Account", "value": "{{ .TO }}" },
+        { "label": "Panel", "value": "{{ .HOST_NAME }}" }
+      ],
+      "action": { "label": "Sign in to the panel", "url": "{{ if .BASE_URL }}{{ .BASE_URL }}/login/{{ end }}" }
+    },
+    "passwordReset": {
+      "subject": "Reset your password",
+      "preheader": "The link expires in 30 minutes.",
+      "title": "Reset your password",
+      "paragraphs": [
+        "We received a request to reset the password of your account. If it was you, press the button and choose a new one.",
+        "The link expires in 30 minutes. If you did not ask for it, ignore this email: your password does not change."
+      ],
+      "details": [
+        { "label": "Account", "value": "{{ .TO }}" },
+        { "label": "Expires in", "value": "30 minutes" }
+      ],
+      "action": { "label": "Reset password", "url": "{{ .RESET_LINK }}" }
+    },
+    "login": {
+      "subject": "New sign-in to your account",
+      "preheader": "Someone signed in to your {{ .HOST_NAME }} account.",
+      "title": "New sign-in",
+      "paragraphs": [
+        "Someone signed in to your account on {{ .HOST_NAME }}.",
+        "If it was you, there is nothing to do. If not, change your password now."
+      ],
+      "details": [
+        { "label": "Account", "value": "{{ .TO }}" },
+        { "label": "Date", "value": "{{ .DATE }}, {{ .TIME }}" }
+      ],
+      "action": { "label": "Change the password", "url": "{{ if .BASE_URL }}{{ .BASE_URL }}/forgot-password/{{ end }}" }
+    },
+    "passwordChanged": {
+      "subject": "Your password has changed",
+      "preheader": "Your account's password was changed on {{ .DATE }}.",
+      "title": "Your password has changed",
+      "paragraphs": [
+        "The password of your account on {{ .HOST_NAME }} has been changed.",
+        "If it was you, there is nothing to do. If not, reset it now: whoever changed it can sign in to your account."
+      ],
+      "details": [
+        { "label": "Account", "value": "{{ .TO }}" },
+        { "label": "Date", "value": "{{ .DATE }}, {{ .TIME }}" }
+      ],
+      "action": { "label": "Reset password", "url": "{{ if .BASE_URL }}{{ .BASE_URL }}/forgot-password/{{ end }}" }
+    },
+    "emailChanged": {
+      "subject": "Your account's email has changed",
+      "preheader": "Notices will now go to {{ .NEW_EMAIL }}.",
+      "title": "Your email address has changed",
+      "paragraphs": [
+        "The email address of your account on {{ .HOST_NAME }} has changed. From now on, notices and password reset links go to the new address.",
+        "If it was not you, write to {{ .COMPANY_NAME }} support from this address as soon as possible."
+      ],
+      "details": [
+        { "label": "Previous email", "value": "{{ .TO }}" },
+        { "label": "New email", "value": "{{ .NEW_EMAIL }}" }
+      ]
+    },
+    "otpEnabled": {
+      "subject": "Two-step verification turned on",
+      "preheader": "Signing in will also ask for a code.",
+      "title": "Two-step verification turned on",
+      "paragraphs": [
+        "You turned on two-step verification. From now on, signing in to {{ .HOST_NAME }} also asks for the code from your authenticator app.",
+        "Keep the recovery codes somewhere safe: they are how you sign in if you lose your phone.",
+        "If it was not you, change your password and check your account."
+      ],
+      "details": [
+        { "label": "Account", "value": "{{ .TO }}" },
+        { "label": "Date", "value": "{{ .DATE }}, {{ .TIME }}" }
+      ]
+    },
+    "otpDisabled": {
+      "subject": "Two-step verification turned off",
+      "preheader": "Signing in now only needs the password.",
+      "title": "Two-step verification turned off",
+      "paragraphs": [
+        "Two-step verification was turned off for your account. Signing in to {{ .HOST_NAME }} now only needs the password.",
+        "If it was not you, change your password and turn it back on in your profile."
+      ],
+      "details": [
+        { "label": "Account", "value": "{{ .TO }}" },
+        { "label": "Date", "value": "{{ .DATE }}, {{ .TIME }}" }
+      ],
+      "action": { "label": "Go to my profile", "url": "{{ if .BASE_URL }}{{ .BASE_URL }}/profile/settings/{{ end }}" }
+    },
+    "recoveryCodesRegenerated": {
+      "subject": "New recovery codes",
+      "preheader": "The previous codes no longer work.",
+      "title": "New recovery codes",
+      "paragraphs": [
+        "New recovery codes were generated for your account's two-step verification. The previous ones no longer work.",
+        "If it was not you, change your password and check your account."
+      ],
+      "details": [
+        { "label": "Account", "value": "{{ .TO }}" },
+        { "label": "Date", "value": "{{ .DATE }}, {{ .TIME }}" }
+      ]
+    },
+    "oauthCreated": {
+      "subject": "New OAuth client on your account",
+      "preheader": "An application can use the panel on your behalf.",
+      "title": "New OAuth client",
+      "paragraphs": [
+        "An OAuth client was created on your account. With its credentials, an application can use the panel on your behalf.",
+        "If you did not create it, delete it from your profile and change your password."
+      ],
+      "details": [
+        { "label": "Account", "value": "{{ .TO }}" },
+        { "label": "Date", "value": "{{ .DATE }}, {{ .TIME }}" }
+      ],
+      "action": { "label": "Go to my profile", "url": "{{ if .BASE_URL }}{{ .BASE_URL }}/profile/settings/{{ end }}" }
+    },
+    "oauthDeleted": {
+      "subject": "OAuth client deleted",
+      "preheader": "Applications that used it can no longer sign in.",
+      "title": "OAuth client deleted",
+      "paragraphs": [
+        "An OAuth client was deleted from your account. Applications that used its credentials can no longer reach the panel.",
+        "If it was not you, change your password and check your account."
+      ],
+      "details": [
+        { "label": "Account", "value": "{{ .TO }}" },
+        { "label": "Date", "value": "{{ .DATE }}, {{ .TIME }}" }
+      ]
+    },
+    "addedToServer": {
+      "subject": "You now have access to {{ .Server.Name }}",
+      "preheader": "{{ .Server.Name }} is now in your panel.",
+      "title": "You have a new server",
+      "paragraphs": [
+        "You now have access to the server {{ .Server.Name }} on {{ .HOST_NAME }}.",
+        "{{ if .RegisterToken }}We created an account for you with this email. To choose your password, press the button, enter {{ .TO }} and you will get a link to set it.{{ else }}Sign in with your account to see and manage it.{{ end }}"
+      ],
+      "details": [
+        { "label": "Server", "value": "{{ .Server.Name }}" },
+        { "label": "Identifier", "value": "{{ .Server.Identifier }}" }
+      ],
+      "action": {
+        "label": "{{ if .RegisterToken }}Choose my password{{ else }}Open the server{{ end }}",
+        "url": "{{ if .BASE_URL }}{{ if .RegisterToken }}{{ .BASE_URL }}/forgot-password/{{ else }}{{ .BASE_URL }}/servers/view/?id={{ .Server.Identifier }}{{ end }}{{ end }}"
+      }
+    },
+    "deletedServer": {
+      "subject": "The server {{ .Server.Name }} was deleted",
+      "preheader": "It is no longer in your server list.",
+      "title": "Server deleted",
+      "paragraphs": [
+        "The server {{ .Server.Name }}, which you had access to, was deleted. It is no longer in your server list.",
+        "If you think this is a mistake, write to {{ .COMPANY_NAME }} support."
+      ],
+      "details": [
+        { "label": "Server", "value": "{{ .Server.Name }}" },
+        { "label": "Identifier", "value": "{{ .Server.Identifier }}" }
+      ]
+    },
+    "removedFromServer": {
+      "subject": "You no longer have access to {{ .Server.Name }}",
+      "preheader": "The server still exists, but it is no longer in your list.",
+      "title": "You no longer have access to a server",
+      "paragraphs": [
+        "Your access to the server {{ .Server.Name }} was removed. The server still exists, but it is no longer in your list.",
+        "If you think this is a mistake, talk to whoever manages the server."
+      ],
+      "details": [
+        { "label": "Server", "value": "{{ .Server.Name }}" },
+        { "label": "Identifier", "value": "{{ .Server.Identifier }}" }
+      ]
+    },
+    "test": {
+      "subject": "{{ .COMPANY_NAME }} test email",
+      "preheader": "Sending email works.",
+      "title": "Test email",
+      "paragraphs": [
+        "If you can read this, sending email from {{ .HOST_NAME }} works.",
+        "There is nothing else to do."
+      ],
+      "details": [
+        { "label": "Panel", "value": "{{ .HOST_NAME }}" },
+        { "label": "Provider", "value": "{{ .PROVIDER }}" },
+        { "label": "Sent", "value": "{{ .DATE }}, {{ .TIME }}" }
+      ],
+      "action": { "label": "Open the panel", "url": "{{ .BASE_URL }}" }
+    }
+  }
+}

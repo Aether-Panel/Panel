@@ -19,6 +19,7 @@ import NotificationsCard from './notifications-card';
 import AddressCard from './address-card';
 import VersionCard from './version-card';
 import { useExperimental } from '@/contexts/config-context';
+import { MibEquivalent } from '../mib';
 
 type SettingsViewProps = {
   serverId: string;
@@ -49,6 +50,21 @@ function readPorts(variables: ServerSettings['variables']): number[] {
   return lp;
 }
 
+/**
+ * Stable React keys for the port rows, which can be removed from the middle: keyed by index,
+ * removing a row would hand its inputs to the row after it. Each row keeps the id it got when
+ * it appeared; `remove` goes with removing the row itself.
+ */
+function useRowIds(length: number) {
+  const idsRef = useRef<number[]>([]);
+  const nextIdRef = useRef(0);
+  const ids = idsRef.current;
+  while (ids.length < length) ids.push(nextIdRef.current++);
+  ids.length = length;
+  const remove = (idx: number) => { ids.splice(idx, 1); };
+  return [ids, remove] as const;
+}
+
 export default function SettingsView({ serverId, serverStatus, onPortsSaved }: Readonly<SettingsViewProps>) {
   const { t } = useTranslations();
   const { features: experimental } = useExperimental();
@@ -67,6 +83,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
   const canManagePorts = canEditAdminData;
 
   const [ports, setPorts] = useState<number[]>([]);
+  const [portRowIds, removePortRowId] = useRowIds(ports.length);
   const [portNotes, setPortNotes] = useState<Record<string, string>>({});
   const initialPrimaryRef = useRef<number | null>(null);
   const savedPortsRef = useRef<number[]>([]);
@@ -93,7 +110,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
 
   useEffect(() => {
     if (!settings) return;
-    setLocalSettings(JSON.parse(JSON.stringify(settings)));
+    setLocalSettings(structuredClone(settings));
     baseSettingsRef.current = JSON.stringify(settings);
     const stored = localStorage.getItem(`pluginsEnabled_${serverId}`);
     if (stored !== null) setPluginsEnabled(stored === 'true');
@@ -123,6 +140,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
   };
   const removePort = (idx: number) => {
     if (idx === 0 && isRunning) { sileo.error({ title: t('common.error'), description: t('servers.settings.portsRequireOffline') }); return; }
+    removePortRowId(idx);
     setPorts(prev => prev.filter((_, i) => i !== idx));
   };
 
@@ -326,8 +344,8 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
 
   const resourceFields = [
     { key: 'cpu', label: t('servers.settings.cpuLabel'), unit: '%', defaultVal: 100, hint: t('servers.settings.cpuHint') },
-    { key: 'memory', label: t('servers.settings.memoryLabel'), unit: 'MB', defaultVal: 1024, hint: t('servers.settings.memoryHint') },
-    { key: 'disk', label: t('servers.settings.diskLabel'), unit: 'MB', defaultVal: 10240, hint: t('servers.settings.diskHint') },
+    { key: 'memory', label: t('servers.settings.memoryLabel'), unit: 'MiB', defaultVal: 1024, hint: t('servers.settings.memoryHint') },
+    { key: 'disk', label: t('servers.settings.diskLabel'), unit: 'MiB', defaultVal: 10240, hint: t('servers.settings.diskHint') },
     { key: 'io', label: t('servers.settings.ioLabel'), unit: '', defaultVal: 500, hint: t('servers.settings.ioHint') },
   ];
 
@@ -397,6 +415,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
                       />
                       {unit && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{unit}</span>}
                     </div>
+                    {unit === 'MiB' && <MibEquivalent mib={val} className="-mt-1 font-medium text-foreground/80" />}
                     <p className="text-xs text-muted-foreground">{hint}</p>
                   </div>
                 );
@@ -423,7 +442,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
                 </div>
                 <ul className="divide-y divide-border/50">
                   {ports.map((p, idx) => (
-                    <li key={idx} className={cn('grid items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:py-2', portGrid)}>
+                    <li key={portRowIds[idx]} className={cn('grid items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:py-2', portGrid)}>
                       <span className={cn('text-xs', idx === 0 ? 'font-medium text-primary-bright' : 'text-muted-foreground')}>
                         {idx === 0 ? t('servers.settings.primaryPortLabel') : `#${idx + 1}`}
                       </span>

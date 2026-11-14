@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Blocks, Check, Copy, ExternalLink, Loader2, Send, Trash2, Upload } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -104,6 +104,32 @@ export function ExtensionsView() {
         </Button>
     );
 
+    let content: ReactNode;
+    if (list === null) {
+        content = (
+            <div className="flex h-24 items-center justify-center text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" aria-label={t('common.loading')} />
+            </div>
+        );
+    } else if (list.length === 0) {
+        content = (
+            <EmptyState
+                icon={Blocks}
+                title={t('extensions.emptyTitle')}
+                description={t('extensions.emptyDescription')}
+                action={installButton}
+            />
+        );
+    } else {
+        content = (
+            <ul className="space-y-4">
+                {list.map((ext) => (
+                    <ExtensionItem key={ext.id} ext={ext} onUpdate={update} onRemove={() => setPendingRemove(ext)} />
+                ))}
+            </ul>
+        );
+    }
+
     return (
         <SettingsCard>
             <SettingsCardHeader
@@ -121,24 +147,7 @@ export function ExtensionsView() {
                 onChange={(e) => void handleFile(e.target.files?.[0])}
             />
             <div className="p-5 md:p-6">
-                {list === null ? (
-                    <div className="flex h-24 items-center justify-center text-muted-foreground">
-                        <Loader2 className="h-5 w-5 animate-spin" aria-label={t('common.loading')} />
-                    </div>
-                ) : list.length === 0 ? (
-                    <EmptyState
-                        icon={Blocks}
-                        title={t('extensions.emptyTitle')}
-                        description={t('extensions.emptyDescription')}
-                        action={installButton}
-                    />
-                ) : (
-                    <ul className="space-y-4">
-                        {list.map((ext) => (
-                            <ExtensionItem key={ext.id} ext={ext} onUpdate={update} onRemove={() => setPendingRemove(ext)} />
-                        ))}
-                    </ul>
-                )}
+                {content}
             </div>
 
             <AlertDialog open={pendingRemove !== null} onOpenChange={(open) => !open && setPendingRemove(null)}>

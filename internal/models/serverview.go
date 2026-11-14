@@ -26,6 +26,10 @@ type ServerView struct {
 	TotalMemory    int64             `json:"total_memory,omitempty"`
 	TotalDisk      int64             `json:"total_disk,omitempty"`
 	Suspended      bool              `json:"suspended"`
+	// Subdomain is the name players use instead of the IP (survival.play.example.com), and
+	// SubdomainSRV tells that Minecraft Java finds the port by itself, so it is left out
+	Subdomain    string `json:"subdomain,omitempty"`
+	SubdomainSRV bool   `json:"subdomainSrv,omitempty"`
 } // @name ServerInfo
 
 type ServerUserView struct {
@@ -56,6 +60,10 @@ func FromServer(server *Server) *ServerView {
 		TotalMemory:    server.TotalMemory,
 		TotalDisk:      server.TotalDisk,
 		Suspended:      server.Suspended,
+	}
+	if address := server.SubdomainAddress(); address != "" {
+		model.Subdomain = address
+		model.SubdomainSRV = server.WantsSRVRecord()
 	}
 
 	return model

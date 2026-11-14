@@ -20,4 +20,9 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("challenge", ChallengeGet)
 
 	rg.GET("publickey", TokenServiceGetPublicKey)
+
+	// remote nodes check SFTP key logins here, signed in with their secret
+	rg.POST("sftp-key", middleware.NeedsDatabase, SFTPKeyPost)
+	// and ask here whether their open SFTP connections may stay open
+	rg.POST("sftp-check", middleware.NeedsDatabase, SFTPCheckPost)
 }

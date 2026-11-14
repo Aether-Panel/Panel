@@ -29,6 +29,8 @@ func registerUsers(g *gin.RouterGroup) {
 	g.Handle("GET", "/:id/perms", middleware.RequiresPermission(scopes.ScopeUserPermsView), getUserPerms)
 	g.Handle("PUT", "/:id/perms", middleware.RequiresPermission(scopes.ScopeUserPermsEdit), setUserPerms)
 	g.Handle("OPTIONS", "/:id/perms", response.CreateOptions("PUT", "GET"))
+
+	registerUserApproval(g)
 }
 
 // @Summary Get users
@@ -337,7 +339,7 @@ func setUserPerms(c *gin.Context) {
 		// server scopes in the global row apply on every server; only an administrator may
 		// grant those, or a user with this permission could open every customer's server
 		editable := panelWideScopes(editorScopes)
-		allowedScopes := utils.Union(viewModel.Scopes, editable)
+		allowedScopes := utils.Intersection(viewModel.Scopes, editable)
 		// update perms to match this "setup", but not stomp over what the user can't change
 		replacement := scopes.UpdateScopesWhereGranted(perms.Scopes, allowedScopes, editable)
 		perms.Scopes = replacement

@@ -4,7 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Blocks, Cpu, HardDrive, MemoryStick, Gauge, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, ArrowRightLeft, GitBranch, ServerOff, ArrowLeft, CalendarClock, ScrollText, Package, Map as MapIcon, SlidersHorizontal, type AppIcon } from '@/components/icons';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { ServerTabNav } from './server-tab-nav';
+import { ServerTabNav, type ServerTab } from './server-tab-nav';
 import { Progress } from '@/components/ui/progress';
 import ConsoleView, { type ConsoleStatus } from './console-view';
 import FileManagerView from './file-manager-view';
@@ -25,6 +25,8 @@ import NetworkUsageChart from './network-usage-chart';
 import { cn, formatBytes } from '@/lib/utils';
 import { keyedByContent } from '@/lib/keyed';
 import { StatusBadge, usageColor } from '@/components/server-card';
+import { TemplateLogo } from '@/components/template-logo';
+import { templateLogo } from '@/lib/template-logos';
 import { useState, useEffect, useRef } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -37,7 +39,7 @@ import { api, ApiError } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
 import { Loader2 } from '@/components/icons';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import { useActiveExtensions, pagesFor } from '@/hooks/use-extensions';
+import { useActiveExtensions, pagesFor, extensionFitsServer } from '@/hooks/use-extensions';
 import { ExtensionFrame } from '@/features/extensions/extension-frame';
 import { useAuth } from '@/contexts/providers';
 import { EmptyState } from '@/components/empty-state';
@@ -93,6 +95,52 @@ function ServerActions({ server, isActionPending, handleAction, showKill, can, t
   const canStop = can('server.stop');
   const canKill = can('server.kill');
   if (!canStart && !canStop && !canKill) return null;
+  // once the stop is taking too long, Force stop takes its place for whoever may kill
+  let stopControl: React.ReactNode = null;
+  if (showKill && canKill) {
+    // Killing skips the graceful shutdown and can lose unsaved world data, so confirm first
+    stopControl = (
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button
+            size="sm"
+            disabled={isActionPending}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {isActionPending ? pendingIcon : <ShieldAlert aria-hidden="true" />}
+            {t('servers.detail.forceStop')}
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('servers.detail.forceStopDialog.title')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('servers.detail.forceStopDialog.description')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => handleAction('kill')}
+            >
+              {t('servers.detail.forceStopDialog.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  } else if (canStop) {
+    stopControl = (
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => handleAction('stop')}
+        disabled={isActionPending || server.status === 'offline'}
+      >
+        {isActionPending ? pendingIcon : <Square aria-hidden="true" />}
+        {t('servers.detail.stop')}
+      </Button>
+    );
+  }
   return (
     <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end [&>button]:flex-1 sm:[&>button]:flex-none">
       {canStart && (
@@ -117,46 +165,7 @@ function ServerActions({ server, isActionPending, handleAction, showKill, can, t
           {t('servers.detail.restart')}
         </Button>
       )}
-      {!canStop && !canKill ? null : !showKill || !canKill ? canStop && (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => handleAction('stop')}
-          disabled={isActionPending || server.status === 'offline'}
-        >
-          {isActionPending ? pendingIcon : <Square aria-hidden="true" />}
-          {t('servers.detail.stop')}
-        </Button>
-      ) : (
-        // Killing skips the graceful shutdown and can lose unsaved world data, so confirm first
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              size="sm"
-              disabled={isActionPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isActionPending ? pendingIcon : <ShieldAlert aria-hidden="true" />}
-              {t('servers.detail.forceStop')}
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{t('servers.detail.forceStopDialog.title')}</AlertDialogTitle>
-              <AlertDialogDescription>{t('servers.detail.forceStopDialog.description')}</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-              <AlertDialogAction
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                onClick={() => handleAction('kill')}
-              >
-                {t('servers.detail.forceStopDialog.confirm')}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
+      {stopControl}
     </div>
   );
 }
@@ -290,6 +299,29 @@ function ServerOverviewCards({ server, t }: any) {
   );
 }
 
+/**
+ * The crash toast's text. The socket's crash message only carries {id, exitCode, restarted},
+ * so for an automatic restart the saved report is read for which attempt it was and the limit
+ * (the crash report shows the same numbers). Without the report the toast just says the
+ * server restarted, rather than "attempt 1 of 1".
+ */
+async function crashToastText(t: Parameters<typeof crashSummary>[0], serverId: string, crash: Partial<CrashReport>): Promise<string> {
+  if (!crash.restarted) return crashSummary(t, crash);
+  try {
+    const reports = await api.get<CrashReport[]>(`/api/servers/${serverId}/crashes`);
+    const report = Array.isArray(reports) ? reports.find((r) => r.id === crash.id) : undefined;
+    if (report) return crashSummary(t, report);
+  } catch {
+    // no permission to read the reports, or an older node: fall back below
+  }
+  return t('servers.crashes.autoRestarted');
+}
+
+/** The tabs when the condition holds, else none: each tab's rule stays on its own line. */
+function tabsIf(condition: unknown, ...tabs: ServerTab[]): ServerTab[] {
+  return condition ? tabs : [];
+}
+
 export default function ServerDetailPage({ params }: Readonly<{ params: { id: string } }>) {
   // only this server's live stats are needed here, not those of every server in the list
   const { servers: allServers, loading, refresh } = useServers((s) => s.id === params.id);
@@ -397,12 +429,11 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
 
           if (parsed) {
             if (parsed.type === 'crash') {
-              window.dispatchEvent(new CustomEvent(CRASH_EVENT, { detail: parsed.data }));
-              setAnnouncement(t('servers.console.announce.crashed', { code: parsed.data?.exitCode ?? '?' }));
-              sileo.error({
-                title: t('servers.console.announce.crashed', { code: parsed.data?.exitCode ?? '?' }),
-                description: crashSummary(t, parsed.data ?? {}),
-              });
+              const crash: Partial<CrashReport> = parsed.data ?? {};
+              window.dispatchEvent(new CustomEvent(CRASH_EVENT, { detail: crash }));
+              const title = t('servers.console.announce.crashed', { code: crash.exitCode ?? '?' });
+              setAnnouncement(title);
+              void crashToastText(t, server.id, crash).then((description) => sileo.error({ title, description }));
               return;
             }
             if (parsed.type === 'stat' || parsed.type === 'status') return;
@@ -511,9 +542,11 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
   // game settings, modpacks and the world map only make sense for Minecraft: Java Edition
   const isMinecraftJava = serverDetail?.type === 'minecraft-java';
   const { features: experimental, ready: experimentalReady } = useExperimental();
-  // pages that installed extensions add to every server
+  // pages that installed extensions add to servers: every one, or only those of the types
+  // or games the extension is for (an Arma Reforger tool shows on Arma Reforger servers)
   const { extensions, ready: extensionsReady } = useActiveExtensions();
-  const extensionTabs = pagesFor(extensions, 'server').map(({ extension, page }) => ({
+  const serverKind = { type: serverDetail?.type, icon: serverDetail?.icon };
+  const extensionTabs = pagesFor(extensions.filter((ext) => extensionFitsServer(ext, serverKind)), 'server').map(({ extension, page }) => ({
     value: `ext:${extension.id}:${page.id}`,
     label: page.title,
     icon: Blocks,
@@ -528,32 +561,33 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
     return serverScopes.has('admin') || serverScopes.has('server.admin') || serverScopes.has(scope);
   };
 
-  const serverTabs = [
-    ...(can('server.console') ? [{ value: 'console', label: t('servers.detail.tabs.console'), icon: Terminal }] : []),
+  const serverTabs: ServerTab[] = [
+    ...tabsIf(can('server.console'), { value: 'console', label: t('servers.detail.tabs.console'), icon: Terminal }),
     { value: 'overview', label: t('servers.detail.tabs.overview'), icon: Gauge },
-    ...(can('server.files.view') ? [{ value: 'files', label: t('servers.detail.tabs.files'), icon: Folder }] : []),
-    ...(can('server.data.view') || can('server.flags.view') ? [{ value: 'settings', label: t('servers.detail.tabs.settings'), icon: SettingsIcon }] : []),
-    ...(isMinecraftJava && experimental.propertiesEditor && can('server.files.edit') ? [{ value: 'properties', label: t('servers.detail.tabs.properties'), icon: SlidersHorizontal, beta: true }] : []),
-    ...(can('server.users.view') ? [{ value: 'users', label: t('servers.detail.tabs.users'), icon: Users }] : []),
-    ...(can('server.data.edit') ? [{ value: 'database', label: t('servers.detail.tabs.database'), icon: Database }] : []),
-    ...(can('server.backup.view') ? [{ value: 'backups', label: t('servers.detail.tabs.backups'), icon: Archive }] : []),
-    ...(can('server.tasks.view') ? [{ value: 'tasks', label: t('servers.detail.tabs.tasks'), icon: CalendarClock }] : []),
+    ...tabsIf(can('server.files.view'), { value: 'files', label: t('servers.detail.tabs.files'), icon: Folder }),
+    ...tabsIf(can('server.data.view') || can('server.flags.view'), { value: 'settings', label: t('servers.detail.tabs.settings'), icon: SettingsIcon }),
+    ...tabsIf(isMinecraftJava && experimental.propertiesEditor && can('server.files.edit'), { value: 'properties', label: t('servers.detail.tabs.properties'), icon: SlidersHorizontal, beta: true }),
+    ...tabsIf(can('server.users.view'), { value: 'users', label: t('servers.detail.tabs.users'), icon: Users }),
+    ...tabsIf(can('server.data.edit'), { value: 'database', label: t('servers.detail.tabs.database'), icon: Database }),
+    ...tabsIf(can('server.backup.view'), { value: 'backups', label: t('servers.detail.tabs.backups'), icon: Archive }),
+    ...tabsIf(can('server.tasks.view'), { value: 'tasks', label: t('servers.detail.tabs.tasks'), icon: CalendarClock }),
     { value: 'activity', label: t('servers.detail.tabs.activity'), icon: ScrollText },
-    ...(can('server.sftp') ? [{ value: 'sftp', label: t('servers.detail.tabs.sftp'), icon: Key }] : []),
+    ...tabsIf(can('server.sftp'), { value: 'sftp', label: t('servers.detail.tabs.sftp'), icon: Key }),
     // every external transfer route checks server.data.edit.admin
-    ...(can('server.data.edit.admin') ? [{ value: 'extransfer', label: t('servers.detail.tabs.extransfer'), icon: ArrowRightLeft }] : []),
+    ...tabsIf(can('server.data.edit.admin'), { value: 'extransfer', label: t('servers.detail.tabs.extransfer'), icon: ArrowRightLeft }),
     // splitting takes resources out of the plan: the owner's (or an administrator's) call
-    ...(isOwner || can('server.data.edit.admin') ? [{ value: 'splitter', label: t('servers.detail.tabs.splitter'), icon: GitBranch }] : []),
-    ...(pluginsTabEnabled && can('server.files.edit') ? [{ value: 'plugins', label: t('servers.detail.tabs.plugins'), icon: Puzzle }] : []),
-    ...(isMinecraftJava ? [
+    ...tabsIf(isOwner || can('server.data.edit.admin'), { value: 'splitter', label: t('servers.detail.tabs.splitter'), icon: GitBranch }),
+    // plugins and mods come from Modrinth: only Minecraft: Java Edition runs them
+    ...tabsIf(isMinecraftJava && pluginsTabEnabled && can('server.files.edit'), { value: 'plugins', label: t('servers.detail.tabs.plugins'), icon: Puzzle }),
+    ...tabsIf(isMinecraftJava,
       { value: 'modpacks', label: t('servers.detail.tabs.modpacks'), icon: Package },
       { value: 'map', label: t('servers.detail.tabs.map'), icon: MapIcon },
-    ] : []),
-    ...(can('server.admin.view') || can('server.admin.install.view') || can('server.install')
+    ),
+    ...tabsIf(can('server.admin.view') || can('server.admin.install.view') || can('server.install')
       || can('server.admin.transfer.view') || can('server.data.edit.admin')
       || can('server.admin.config.view') || can('server.definition.edit')
-      || can('server.admin.assignments.view') || can('server.delete')
-      ? [{ value: 'admin', label: t('servers.detail.tabs.admin'), icon: Shield }] : []),
+      || can('server.admin.assignments.view') || can('server.delete'),
+      { value: 'admin', label: t('servers.detail.tabs.admin'), icon: Shield }),
     ...extensionTabs.map(({ value, label, icon }) => ({ value, label, icon })),
   ];
 
@@ -672,7 +706,10 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0 space-y-3">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <h1 className="min-w-0 break-words font-headline text-2xl font-semibold tracking-[-0.03em]">{server.name}</h1>
+                <div className="flex min-w-0 items-center gap-3">
+                  <TemplateLogo logo={templateLogo({ icon: server.icon, name: server.type })} className="h-7 w-7 rounded-md" />
+                  <h1 className="min-w-0 break-words font-headline text-2xl font-semibold tracking-[-0.03em]">{server.name}</h1>
+                </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge status={server.status} label={t(`servers.status.${server.status}`)} />
                   {server.suspended && (
@@ -744,7 +781,7 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
         </TabsContent>
         <TabsContent value="files">
           <ErrorBoundary name="FileManagerView">
-            <FileManagerView serverId={server.id} />
+            <FileManagerView serverId={server.id} canEdit={can('server.files.edit')} />
           </ErrorBoundary>
         </TabsContent>
         <TabsContent value="settings">

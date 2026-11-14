@@ -1,0 +1,203 @@
+{
+  "type": "nodejs",
+  "display": "Node.js App",
+  "icon": "nodejs",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "integer",
+      "value": 1024,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate",
+      "required": true,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "port": {
+      "type": "integer",
+      "value": 3000,
+      "display": "Port",
+      "desc": "Port your app can listen on (TCP). It is also passed to the app as the PORT environment variable",
+      "required": true,
+      "userEdit": false
+    },
+    "nodeversion": {
+      "type": "option",
+      "value": "24",
+      "display": "Node.js Version",
+      "desc": "Major version of Node.js to run",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "22",
+          "display": "Node.js 22 (LTS)"
+        },
+        {
+          "value": "24",
+          "display": "Node.js 24 (LTS)"
+        },
+        {
+          "value": "26",
+          "display": "Node.js 26"
+        }
+      ]
+    },
+    "gitrepo": {
+      "type": "string",
+      "value": "",
+      "display": "Git Repository",
+      "desc": "HTTPS URL of a git repository to download on install, for example https://github.com/user/my-bot.git. Reinstalling pulls the latest commit. Leave empty to upload the files yourself",
+      "required": false,
+      "userEdit": true
+    },
+    "gitbranch": {
+      "type": "string",
+      "value": "",
+      "display": "Git Branch",
+      "desc": "Branch to check out. Empty means the default branch of the repository",
+      "required": false,
+      "userEdit": true
+    },
+    "gittoken": {
+      "type": "string",
+      "value": "",
+      "display": "Git Access Token",
+      "desc": "Personal access token for a private repository (GitHub, GitLab). Leave empty for public repositories",
+      "required": false,
+      "userEdit": true
+    },
+    "startfile": {
+      "type": "string",
+      "value": "index.js",
+      "display": "Start File",
+      "desc": "File to run with node, relative to the server folder. A .env file next to it is loaded automatically",
+      "required": true,
+      "userEdit": true
+    },
+    "npmstart": {
+      "type": "boolean",
+      "value": false,
+      "display": "Use npm start",
+      "desc": "Run npm start (the start script of package.json) instead of the start file",
+      "required": false,
+      "userEdit": true
+    },
+    "installonstart": {
+      "type": "boolean",
+      "value": true,
+      "display": "Install Dependencies on Start",
+      "desc": "Run npm install (or pnpm/yarn when their lockfile is present) before every start, so packages added to package.json are picked up",
+      "required": false,
+      "userEdit": true
+    },
+    "nodeenv": {
+      "type": "option",
+      "value": "production",
+      "display": "NODE_ENV",
+      "desc": "Value of NODE_ENV. production skips devDependencies when installing",
+      "required": true,
+      "userEdit": true,
+      "options": [
+        {
+          "value": "production",
+          "display": "production"
+        },
+        {
+          "value": "development",
+          "display": "development"
+        }
+      ]
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host'",
+      "type": "nodejsdl",
+      "version": "${nodeversion}"
+    },
+    {
+      "if": "gitrepo != ''",
+      "type": "command",
+      "commands": [
+        "bash -c \"set -e; if [ -z \\\"$GIT_REPO\\\" ]; then exit 0; fi; if ! command -v git >/dev/null 2>&1; then if [ \\\"$(id -u)\\\" = 0 ] && command -v apt-get >/dev/null 2>&1; then echo \\\"Installing git in the install container\\\"; apt-get update -qq >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends git ca-certificates >/dev/null; else echo \\\"git is not installed, it is needed to download the repository\\\"; exit 1; fi; fi; g() { git -c safe.directory='*' -c init.defaultBranch=main -c advice.detachedHead=false \\\"$@\\\"; }; auth=(); if [ -n \\\"$GIT_TOKEN\\\" ]; then auth=(-c \\\"http.extraHeader=Authorization: Basic $(printf 'oauth2:%s' \\\"$GIT_TOKEN\\\" | base64 | tr -d '\\\\n')\\\"); fi; [ -d .git ] || g init -q; echo \\\"Fetching $GIT_REPO ${GIT_BRANCH:-(default branch)}\\\"; g \\\"${auth[@]}\\\" fetch -q --depth 1 \\\"$GIT_REPO\\\" \\\"${GIT_BRANCH:-HEAD}\\\"; g reset -q --hard FETCH_HEAD; echo \\\"Checked out $(g log -1 --format='%h %s')\\\"\""
+      ]
+    },
+    {
+      "if": "gitrepo == '' && !npmstart && !file_exists(startfile)",
+      "type": "writefile",
+      "target": "${startfile}",
+      "text": "// Placeholder written by Aether Panel. Replace this file with your app, or set a git\n// repository in the server settings and reinstall.\nconsole.log(\"Aether Panel: Node.js \" + process.version + \" is running ${startfile}. Upload your app, or set a git repository and reinstall.\");\n"
+    },
+    {
+      "type": "command",
+      "commands": [
+        "bash -c \"set -e; N=\\\"$(command -v node${nodeversion} 2>/dev/null || true)\\\"; if [ -n \\\"$N\\\" ]; then export PATH=\\\"$(dirname \\\"$(readlink -f \\\"$N\\\")\\\"):$PATH\\\"; fi; if [ -f package.json ]; then if [ -f pnpm-lock.yaml ]; then pm=pnpm; elif [ -f yarn.lock ]; then pm=yarn; else pm=npm; fi; echo \\\"Installing dependencies with $pm\\\"; if [ \\\"$pm\\\" = npm ]; then npm install --no-audit --no-fund; elif command -v corepack >/dev/null 2>&1; then COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack \\\"$pm\\\" install; else npx --yes \\\"$pm\\\" install; fi; fi\""
+      ]
+    }
+  ],
+  "run": {
+    "command": "bash -c \"set -e; unset GIT_TOKEN; N=\\\"$(command -v node${nodeversion} 2>/dev/null || true)\\\"; if [ -n \\\"$N\\\" ]; then export PATH=\\\"$(dirname \\\"$(readlink -f \\\"$N\\\")\\\"):$PATH\\\"; fi; if [ \\\"${installonstart}\\\" = true ]; then if [ -f package.json ]; then if [ -f pnpm-lock.yaml ]; then pm=pnpm; elif [ -f yarn.lock ]; then pm=yarn; else pm=npm; fi; echo \\\"Installing dependencies with $pm\\\"; if [ \\\"$pm\\\" = npm ]; then npm install --no-audit --no-fund; elif command -v corepack >/dev/null 2>&1; then COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack \\\"$pm\\\" install; else npx --yes \\\"$pm\\\" install; fi; fi; fi; if [ \\\"${npmstart}\\\" = true ]; then exec npm start; fi; envfile=(); if [ -f .env ]; then envfile=(--env-file=.env); fi; exec node \\\"${envfile[@]}\\\" \\\"${startfile}\\\"\"",
+    "stopCode": 15,
+    "environmentVars": {
+      "PORT": "${port}",
+      "NODE_ENV": "${nodeenv}",
+      "NPM_CONFIG_UPDATE_NOTIFIER": "false",
+      "GIT_REPO": "${gitrepo}",
+      "GIT_BRANCH": "${gitbranch}",
+      "GIT_TOKEN": "${gittoken}"
+    },
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "node:${nodeversion}",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp"
+      ],
+      "hostConfig": {
+        "Init": true
+      }
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "binaries": [
+      "bash"
+    ]
+  }
+}

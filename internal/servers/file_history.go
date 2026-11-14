@@ -19,6 +19,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
@@ -212,24 +213,9 @@ func (p *Server) recordFileVersionLocked(relPath string, now time.Time) (bool, e
 	if fileServer == nil {
 		return false, nil
 	}
-
-	file, err := fileServer.OpenFile(relPath, os.O_RDONLY, 0)
-	if err != nil {
-		// a new file has nothing to keep yet
-		return false, nil
-	}
-	defer utils.Close(file)
-
-	info, err := file.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Size() > fileHistoryMaxFileBytes {
-		return false, nil
-	}
-	data, err := io.ReadAll(io.LimitReader(file, fileHistoryMaxFileBytes+1))
-	if err != nil {
-		return false, fmt.Errorf("reading current file: %w", err)
-	}
-	if int64(len(data)) > fileHistoryMaxFileBytes || !looksLikeText(relPath, data) {
-		return false, nil
+	data, info, err := readVersionCandidate(fileServer, relPath)
+	if data == nil || err != nil {
+		return false, err
 	}
 
 	root, err := fileHistoryRoot(p.ID())
@@ -237,14 +223,7 @@ func (p *Server) recordFileVersionLocked(relPath string, now time.Time) (bool, e
 		return false, err
 	}
 	folder := fileHistoryFolder(root, relPath)
-
-	index, err := loadFileHistoryIndex(folder)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			logging.Error.Printf("Starting a new file history for %s: %s", relPath, err)
-		}
-		index = &fileHistoryIndex{Path: relPath}
-	}
+	index := loadOrStartIndex(folder, relPath)
 
 	sumBytes := sha256.Sum256(data)
 	sum := hex.EncodeToString(sumBytes[:])
@@ -252,21 +231,77 @@ func (p *Server) recordFileVersionLocked(relPath string, now time.Time) (bool, e
 		return false, nil
 	}
 
-	if err := os.MkdirAll(folder, 0700); err != nil {
-		return false, fmt.Errorf("creating file history folder: %w", err)
-	}
-
-	savedAt := info.ModTime().UnixMilli()
-	if info.ModTime().IsZero() || savedAt <= 0 {
-		savedAt = now.UnixMilli()
-	}
 	version := storedFileVersion{
-		FileVersion: FileVersion{ID: newFileVersionID(now), SavedAt: savedAt, Size: int64(len(data))},
+		FileVersion: FileVersion{ID: newFileVersionID(now), SavedAt: versionSavedAt(info, now), Size: int64(len(data))},
 		RecordedAt:  now.UnixNano(),
 		Sum:         sum,
 	}
+	if err := addFileVersion(folder, relPath, index, version, data); err != nil {
+		return false, err
+	}
+
+	if err := pruneFileHistory(root); err != nil {
+		logging.Error.Printf("Error trimming file history for server %s: %s", p.ID(), err)
+	}
+	return true, nil
+}
+
+// readVersionCandidate reads the text a save is about to replace. data is nil, with no error,
+// for a file there is no point keeping: missing (a new file), not a regular file, too big, or
+// not text.
+func readVersionCandidate(fileServer files.FileServer, relPath string) ([]byte, os.FileInfo, error) {
+	file, err := fileServer.OpenFile(relPath, os.O_RDONLY, 0)
+	if err != nil {
+		// a new file has nothing to keep yet
+		return nil, nil, nil
+	}
+	defer utils.Close(file)
+
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Size() > fileHistoryMaxFileBytes {
+		return nil, nil, nil
+	}
+	data, err := io.ReadAll(io.LimitReader(file, fileHistoryMaxFileBytes+1))
+	if err != nil {
+		return nil, nil, fmt.Errorf("reading current file: %w", err)
+	}
+	if int64(len(data)) > fileHistoryMaxFileBytes || !looksLikeText(relPath, data) {
+		return nil, nil, nil
+	}
+	return data, info, nil
+}
+
+// loadOrStartIndex is the file's history index, or a new empty one when it has none (or its
+// index cannot be read, which is logged)
+func loadOrStartIndex(folder, relPath string) *fileHistoryIndex {
+	index, err := loadFileHistoryIndex(folder)
+	if err == nil {
+		return index
+	}
+	if !os.IsNotExist(err) {
+		logging.Error.Printf("Starting a new file history for %q: %s", relPath, err)
+	}
+	return &fileHistoryIndex{Path: relPath}
+}
+
+// versionSavedAt is when the kept text was last saved: its modification time, or now when the
+// file has none
+func versionSavedAt(info os.FileInfo, now time.Time) int64 {
+	savedAt := info.ModTime().UnixMilli()
+	if info.ModTime().IsZero() || savedAt <= 0 {
+		return now.UnixMilli()
+	}
+	return savedAt
+}
+
+// addFileVersion writes the version's text and puts it first in the index, dropping the
+// versions past the per-file limit. When the index cannot be saved, the new text goes too.
+func addFileVersion(folder, relPath string, index *fileHistoryIndex, version storedFileVersion, data []byte) error {
+	if err := os.MkdirAll(folder, 0700); err != nil {
+		return fmt.Errorf("creating file history folder: %w", err)
+	}
 	if err := os.WriteFile(versionFile(folder, version.ID), data, 0600); err != nil {
-		return false, fmt.Errorf("writing file version: %w", err)
+		return fmt.Errorf("writing file version: %w", err)
 	}
 
 	index.Path = relPath
@@ -278,16 +313,12 @@ func (p *Server) recordFileVersionLocked(relPath string, now time.Time) (bool, e
 	}
 	if err := saveFileHistoryIndex(folder, index); err != nil {
 		_ = os.Remove(versionFile(folder, version.ID))
-		return false, err
+		return err
 	}
 	for _, v := range dropped {
 		_ = os.Remove(versionFile(folder, v.ID))
 	}
-
-	if err := pruneFileHistory(root); err != nil {
-		logging.Error.Printf("Error trimming file history for server %s: %s", p.ID(), err)
-	}
-	return true, nil
+	return nil
 }
 
 // pruneFileHistory drops the oldest versions across every file until the server's history fits
@@ -475,6 +506,80 @@ func (p *Server) RestoreFileVersion(name, versionID string) error {
 		return fmt.Errorf("writing restored file: %w", err)
 	}
 	return nil
+}
+
+// eachHistoryUnder calls fn, holding the server's history lock, with the folder and index of
+// the history of relPath and of every file under it when relPath is a folder. A server with no
+// history at all is fine; the errors fn returns are gathered, so one bad folder stops no other.
+func (p *Server) eachHistoryUnder(relPath string, fn func(root, folder string, index *fileHistoryIndex) error) error {
+	root, err := fileHistoryRoot(p.ID())
+	if err != nil {
+		return err
+	}
+	lock := fileHistoryLock(p.ID())
+	lock.Lock()
+	defer lock.Unlock()
+
+	entries, err := os.ReadDir(root)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var errs []error
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		folder := filepath.Join(root, e.Name())
+		index, err := loadFileHistoryIndex(folder)
+		if err != nil || (index.Path != relPath && !strings.HasPrefix(index.Path, relPath+"/")) {
+			continue
+		}
+		errs = append(errs, fn(root, folder, index))
+	}
+	return errors.Join(errs...)
+}
+
+// ForgetFileHistory removes the stored versions of a deleted file, or of every file that was
+// inside a deleted folder. Left behind, they would come back as the history of a new file
+// given the same name, and keep taking space the owner can no longer see or free.
+func (p *Server) ForgetFileHistory(name string) error {
+	relPath, err := NormalizeHistoryPath(name)
+	if err != nil {
+		return err
+	}
+	return p.eachHistoryUnder(relPath, func(_, folder string, _ *fileHistoryIndex) error {
+		return os.RemoveAll(folder)
+	})
+}
+
+// MoveFileHistory carries the stored versions of a moved or renamed file along with it (of every
+// file inside, for a folder): left at the old name, the history would vanish for the file and
+// come back for whatever is given that name next.
+func (p *Server) MoveFileHistory(from, to string) error {
+	fromRel, err := NormalizeHistoryPath(from)
+	if err != nil {
+		return err
+	}
+	toRel, err := NormalizeHistoryPath(to)
+	if err != nil {
+		return err
+	}
+	return p.eachHistoryUnder(fromRel, func(root, folder string, index *fileHistoryIndex) error {
+		newPath := toRel + strings.TrimPrefix(index.Path, fromRel)
+		newFolder := fileHistoryFolder(root, newPath)
+		// a history an earlier file of that name left behind is not this file's
+		if err := os.RemoveAll(newFolder); err != nil {
+			return err
+		}
+		if err := os.Rename(folder, newFolder); err != nil {
+			return err
+		}
+		index.Path = newPath
+		return saveFileHistoryIndex(newFolder, index)
+	})
 }
 
 // DeleteFileHistory removes every stored version of a server; call it when the server is deleted

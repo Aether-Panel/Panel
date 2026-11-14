@@ -2,6 +2,7 @@ package services
 
 import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"gorm.io/gorm"
 )
 
@@ -33,7 +34,18 @@ func (dhs *DatabaseHost) Update(model *models.DatabaseHost) error {
 	return res.Error
 }
 
+// Delete removes the host, or returns skypanel.ErrDatabaseHostInUse while it still has
+// databases: removing it would drop their rows (the foreign key cascades) and leave the
+// databases and their users on the MySQL server with nothing in the panel to delete them.
 func (dhs *DatabaseHost) Delete(id uint) error {
+	var databases int64
+	if err := dhs.DB.Model(&models.Database{}).Where("database_host_id = ?", id).Count(&databases).Error; err != nil {
+		return err
+	}
+	if databases > 0 {
+		return skypanel.ErrDatabaseHostInUse
+	}
+
 	model := &models.DatabaseHost{
 		ID: id,
 	}

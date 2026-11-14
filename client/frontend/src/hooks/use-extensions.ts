@@ -9,11 +9,23 @@ export type ExtensionPage = {
     url: string;
 };
 
+/** The servers an extension is for, by their template's type or icon; absent means all. */
+export type ServerFilter = { types?: string[]; icons?: string[] };
+
 export type ActiveExtension = {
     id: string;
     name: string;
     pages: ExtensionPage[];
+    servers?: ServerFilter;
 };
+
+/** Whether an extension is for a server of that type and icon. */
+export function extensionFitsServer(ext: ActiveExtension, server: { type?: string; icon?: string }): boolean {
+    if (!ext.servers) return true;
+    const type = server.type?.toLowerCase();
+    const icon = server.icon?.toLowerCase();
+    return Boolean((type && ext.servers.types?.includes(type)) || (icon && ext.servers.icons?.includes(icon)));
+}
 
 // one request per page load, shared by the menu and the server tabs
 let request: Promise<ActiveExtension[]> | null = null;

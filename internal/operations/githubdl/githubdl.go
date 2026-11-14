@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"path"
 	"strings"
 
@@ -22,6 +23,12 @@ type GithubDl struct {
 
 var (
 	githubAPIBase = "https://api.github.com"
+
+	// downloadFile fetches the asset. The address comes from the release (and GitHub
+	// redirects it to its storage), so it goes through the same guarded client as the
+	// template downloads: no loopback or link-local addresses, and no private ones with
+	// security.blockPrivateDownloads. Tests swap it to reach their local server.
+	downloadFile = utils.DownloadFile
 )
 
 func (op GithubDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
@@ -68,7 +75,9 @@ func (op GithubDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env.DisplayToConsole(true, "Downloading %s\n", downloadURL)
 	// saved under the URL's name, the one the output variable hands to the template
 	localName := path.Base(downloadURL)
-	err = utils.DownloadWith(nil, downloadURL, func(_ string, content io.Reader) error {
+	err = downloadFile(downloadURL, func(ip net.IP) {
+		env.DisplayToConsole(true, "Warning: downloading from private network address %s\n", ip)
+	}, func(_ string, content io.Reader) error {
 		return files.WriteFile(content, env.GetRootDirectory(), localName)
 	})
 	if err != nil {

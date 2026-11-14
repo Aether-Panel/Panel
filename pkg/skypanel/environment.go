@@ -135,8 +135,14 @@ func (e *Environment) CreateConsoleStdinProxy(config StdinConsoleConfiguration, 
 			IP:       config.IP,
 			Port:     config.Port,
 			Password: config.Password,
+			NoTLS:    !config.UsesTLS(),
 		}
+	case "", "stdin":
+		e.Console = &NoStartConsole{Base: base}
 	default:
+		// a misspelled type (say "rcon-ws") still works through the standard input, but the
+		// template meant something else, and the game may ignore what arrives there
+		logging.Error.Printf("[%s] Unknown console type %q (known: stdin, rcon, telnet, rconws): commands go to the standard input", e.ServerID, config.Type)
 		e.Console = &NoStartConsole{Base: base}
 	}
 }
@@ -280,23 +286,33 @@ func (e *Environment) WaitForMainProcess() error {
 	return e.WaitForMainProcessFor(0)
 }
 
-func (e *Environment) WaitForMainProcessFor(timeout time.Duration) (err error) {
-	running, err := e.IsRunning()
-	if err != nil {
-		return
+// WaitForMainProcessFor waits until the main process has exited and its exit has been handled
+// (crash check, post-execution steps), killing it after timeout when timeout is set. It waits
+// on Wait whether or not the process still runs: a process that stops quickly is no longer
+// running while its exit is still being handled, and a restart that went on in between started
+// the server again before that, so the old exit counted as a crash. With no process, Wait is
+// already free and this returns at once.
+func (e *Environment) WaitForMainProcessFor(timeout time.Duration) error {
+	if e.Wait == nil {
+		// an environment that never ran a process has nothing to wait for
+		return nil
 	}
-	if running {
-		if timeout > 0 {
-			var timer = time.AfterFunc(timeout, func() {
-				err = e.Kill()
-			})
-			e.Wait.Wait()
-			timer.Stop()
-		} else {
-			e.Wait.Wait()
-		}
+	if timeout <= 0 {
+		e.Wait.Wait()
+		return nil
 	}
-	return
+	var killErr error
+	killed := make(chan struct{})
+	timer := time.AfterFunc(timeout, func() {
+		killErr = e.Kill()
+		close(killed)
+	})
+	e.Wait.Wait()
+	if !timer.Stop() {
+		// the timer fired: its kill finishes before what it returned is read
+		<-killed
+	}
+	return killErr
 }
 
 func (e *Environment) CreateWrapper() {

@@ -1,237 +1,175 @@
 # Docker Documentation
 
-## Overview
+Aether Panel is deployed with Docker only. This document describes the panel image, the Docker Compose files and the base images for game servers. To install, use the [Installation Guide](../setup/01-installation.md); everyday commands are in the [Quick reference](./DOCKER-QUICKREF.md).
 
-The project includes 4 Dockerfiles and 2 Docker Compose configurations for different purposes.
+## Files
 
 | File | Purpose |
 |---|---|
-| `Dockerfile` | Main production image (multi-stage) |
-| `Dockerfile-curseforge` | CurseForge integration tester |
-| `Dockerfile-templatetester` | Template tester (Ubuntu + Mono + Node) |
-| `Dockerfile-formatter` | Source code formatter |
-| `docker-compose.yml` | Production: Panel + MariaDB |
-| `docker-compose.dev.yml` | Development: Standalone panel with SQLite |
+| `Dockerfile` | Panel image (multi-stage) |
+| `docker-compose.yml` | Production: MariaDB, panel and Adminer. Used by the installer and by updates |
+| `docker-compose.dev.yml` | Development: the panel only (see [limitations](#development-docker-composedevyml)) |
+| `config.docker.json` | `config.json` the image copies to `/etc/SkyPanel/config.json` |
+| `docker/runtime-images/{ubuntu,steamcmd,generic,php}/Dockerfile` | Base images for servers |
+| `Dockerfile-curseforge` | CurseForge modpack test tool |
+| `Dockerfile-templatetester` | Template test tool |
+| `Dockerfile-formatter` | Tool that reorders template JSON files |
 
-## Main Image (`Dockerfile`)
+## Panel image (`Dockerfile`)
 
-Multi-stage build:
+| Stage | Base | What it does |
+|---|---|---|
+| `node` | `node:26-alpine` | Installs dependencies with Yarn 1.22.22 (`--frozen-lockfile`) and builds the Astro frontend (`yarn build`) |
+| `xx` | `tonistiigi/xx:1.10.0` | Cross-compilation helpers |
+| `builder` | `golang:1.27-alpine` | Generates the Swagger docs (`swag init`) and builds the binary with CGO for the target platform, with the version, commit and CurseForge key in `-ldflags` |
+| final | `alpine:3.24` | Binary in `/SkyPanel/bin/SkyPanel`, frontend in `/var/www/SkyPanel`, `netcat-openbsd` and `git` |
 
-```
-Stage 1 (node):26-alpine
-  → Build frontend (Yarn workspaces, Astro)
+The build stages run on the machine's platform (`BUILDPLATFORM`) and the binary is built for `TARGETPLATFORM`, so the same recipe produces `amd64` and `arm64` images. It needs BuildKit (the default builder in current Docker).
 
-Stage 2 (golang:1.26-alpine + tonistiigi/xx)
-  → Compiles Go binary with CGO, swag, ldflags
-  → Frontend build copied from stage 1
+### Build arguments
 
-Stage 3 (alpine:3.24)
-  → Minimal final image (3.24 MB base + binary + frontend)
-```
+| Argument | Default | Usage |
+|---|---|---|
+| `version` | `devel` | Version shown by `SkyPanel version` (`docker-compose.yml` uses `2.2.0`) |
+| `sha` | `devel` | Commit (`docker-compose.yml` uses `local-build`) |
+| `tags` | — | Go build tags |
+| `curseforgeKey` | empty | CurseForge key built into the binary (default value of `daemon.curseforge.key`) |
 
-### Exposed Ports
+### Final image contents
 
-| Port | Service |
-|---|---|
-| `8080` | Web Panel (API + frontend) |
-| `5657` | SFTP |
+- **Exposed ports:** `8080` (web, API and daemon) and `5657` (SFTP).
+- **User:** `SkyPanel` (UID/GID 1000). `docker-compose.yml` switches it to root (`user: "0:0"`) so the panel can use the Docker socket and run games as an unprivileged user (`docker.serverUser`).
+- **Environment variables:** `GIN_MODE=release`, `SKYPANEL_PLATFORM=docker`, `SKYPANEL_DOCKER_ROOT=""`, `SKYPANEL_DOCKER_DISALLOWHOST=true`.
+- **Configuration:** `config.docker.json` in `/etc/SkyPanel/config.json` (MySQL at `mysql:3306`, frontend in `/var/www/SkyPanel`, data in `/var/lib/SkyPanel`, `docker.disallowHost` on).
+- **Volumes:** `/etc/SkyPanel`, `/var/lib/SkyPanel` and `/var/log/SkyPanel`. The frontend is not a volume: it is copied on every build, and it is also embedded in the binary (`go:embed`); `panel.web.files` points at the on-disk copy, which takes precedence.
+- **Healthcheck:** `nc -z localhost 8080`.
 
 ### Entrypoint
 
 `/SkyPanel/bin/entrypoint.sh`:
-1. Waits for MySQL to be available (up to 60s, via `nc`)
-2. Executes `SkyPanel db migrate`
-3. Starts `SkyPanel run`
 
-### Environment Variables
+1. Prints the platform, the listen address and the database URL with the password hidden, and warns if the password is `skypanel_secret`.
+2. Waits up to 60 seconds for the host and port in `SKYPANEL_PANEL_DATABASE_URL` (`mysql:3306` if not set). If it does not answer, it exits with an error. This wait always happens, also with SQLite or with the panel off, so the image needs a reachable MySQL/MariaDB.
+3. Runs `SkyPanel db migrate`, which applies the pending migrations (the same ones `run` applies) and exits non-zero when they fail. On failure the `entrypoint` prints the error and carries on; with the panel turned off it does nothing.
+4. Starts `SkyPanel run`, which applies schema migrations and starts the web panel, the daemon and SFTP.
 
-| Variable | Description | Default in Docker |
-|---|---|---|
-| `GIN_MODE` | Gin Mode | `release` |
-| `SKYPANEL_PLATFORM` | Platform | `docker` |
-| `SKYPANEL_DOCKER_ROOT` | Docker Root | `""` |
-| `SKYPANEL_DOCKER_DISALLOWHOST` | Force Docker | `true` |
-| `SKYPANEL_WEB_HOST` | Bind address | `0.0.0.0:8080` |
-| `SKYPANEL_PANEL_DATABASE_DIALECT` | DB dialect | `mysql` |
-| `SKYPANEL_PANEL_DATABASE_URL` | Connection string | — |
-| `SKYPANEL_PANEL_SETTINGS_COMPANYNAME` | Brand | `Aether Panel` |
-| `SKYPANEL_PANEL_REGISTRATIONENABLED` | Open registration | `true` |
-| `SKYPANEL_PANEL_SETTINGS_DEFAULTTHEME` | Default theme | `SkyPanel` |
+### Where `config.json` lives
 
-### User
-
-Runs as non-root user `SkyPanel` (UID 1000). Data directories are created with `mkdir -p` in the build and assigned to `SkyPanel:SkyPanel`.
-
-### Volumes
-
-| Path in container | Purpose |
-|---|---|
-| `/etc/SkyPanel` | Configuration (config.json) |
-| `/var/lib/SkyPanel` | Runtime data (servers, backups, cache, logs) |
-| `/var/log/SkyPanel` | Logs |
-
-> **Note:** The frontend (`/var/www/SkyPanel`) is **no longer a volume**. It is copied at build time (`COPY`) from `client/frontend/dist` and replaced on every image rebuild, avoiding an anonymous volume with stale files. The `client/frontend/dist` folder is also embedded in the Go binary (`go:embed all:dist`), and `panel.web.files` can override the embedded FS.
+The panel reads `/etc/SkyPanel/config.json` if it exists and otherwise `config.json` in its working directory (`/var/lib/SkyPanel`). `docker-compose.yml` mounts `./storage/skypanel-config` over `/etc/SkyPanel`; when that folder is empty it hides the image's file and the panel uses `./storage/skypanel-data/config.json`. Changes made in **Settings** are saved to whichever file is in use.
 
 ## Production (`docker-compose.yml`)
 
-```yaml
-services:
-  mysql:
-    image: mariadb:10.11
-    environment:
-      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-skypanel_secret}
-      - MYSQL_DATABASE=${DB_DATABASE:-skypanel}
-      - MYSQL_USER=${DB_USER:-skypanel}
-      - MYSQL_PASSWORD=${DB_PASSWORD:-skypanel_secret}
-    volumes:
-      - ./storage/mysql-data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD}"]
+| Service | Container | Image | Ports | Data |
+|---|---|---|---|---|
+| `mysql` | `skypanel-mysql` | `mariadb:10.11` | `${DB_BIND_ADDRESS:-127.0.0.1}:3307 → 3306` | `./storage/mysql-data` |
+| `skypanel` | `skypanel` | Built from the `Dockerfile` | `8080:8080`, `5657:5657` | `./storage/skypanel-config`, `./storage/skypanel-data`, `./storage/skypanel-logs` |
+| `adminer` | `skypanel-adminer` | `adminer:4` | `127.0.0.1:8081 → 8080` | — |
 
-  skypanel:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        - version=dev-docker
-        - sha=local-build
-    ports:
-      - "8080:8080"
-      - "5657:5657"
-    volumes:
-      - ./storage/skypanel-config:/etc/SkyPanel
-      - ./storage/skypanel-data:/var/lib/SkyPanel
-      - ./storage/skypanel-logs:/var/log/SkyPanel
-      - //var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - SKYPANEL_PANEL_DATABASE_DIALECT=mysql
-      - SKYPANEL_PANEL_DATABASE_URL=${DB_USER:-skypanel}:${DB_PASSWORD:-skypanel_secret}@tcp(mysql:3306)/${DB_DATABASE:-skypanel}?charset=utf8&parseTime=true
-    depends_on:
-      mysql:
-        condition: service_healthy
-```
+All data lives in host folders under `./storage/` (not named volumes). MariaDB credentials come from `.env`: `DB_ROOT_PASSWORD`, `DB_DATABASE`, `DB_USER`, `DB_PASSWORD` (defaults `skypanel_secret`/`skypanel`, public values that must be changed; see [Method 2](../setup/01-installation.md#method-2-docker-compose-by-hand)).
+
+**`skypanel` service:**
+
+- Waits for MariaDB to be healthy (`depends_on: condition: service_healthy`) and has `stop_grace_period: 90s`: when stopping, the panel asks every game server to stop (up to 60 s) so they save.
+- Extra mounts: the Docker socket, `./.git` at `/repo/.git` (read-only, to check the deployed commit) and the host's `/proc` at `/host/proc` (read-only, to measure the node's network traffic).
+- Healthcheck: `wget --spider http://localhost:8080/`.
+- Networks: `skypanel-network` (panel, MariaDB and Adminer) and `skypanel-servers` (fixed name; the game servers' network, shared with MariaDB and the panel).
+
+**`skypanel` environment variables:**
+
+| Variable | Value | Effect |
+|---|---|---|
+| `GIN_MODE` | `release` | Gin mode |
+| `SKYPANEL_PLATFORM` | `docker` | If the daemon cannot start, the web panel keeps running |
+| `SKYPANEL_DOCKER_ROOT` | empty | `docker.root` |
+| `SKYPANEL_DOCKER_DISALLOWHOST` | `true` | Containers only |
+| `SKYPANEL_DAEMON_HOSTPROC` | `/host/proc` | Host `/proc` for the node's network traffic |
+| `SKYPANEL_DOCKER_SERVERSNETWORK` | `skypanel-servers` | Game servers' network |
+| `SKYPANEL_WEB_HOST` | `0.0.0.0:8080` | Listen address |
+| `SKYPANEL_PANEL_DATABASE_DIALECT` | `mysql` | Dialect |
+| `SKYPANEL_PANEL_DATABASE_URL` | `${DB_USER}:${DB_PASSWORD}@tcp(mysql:3306)/${DB_DATABASE}?charset=utf8&parseTime=true` | Connection |
+| `SKYPANEL_TEMPLATES_URL` | `https://templates.aetherpanel.es/templates.json` | Template repository |
+
+The file ships with commented-out lines for a secondary node (`SKYPANEL_PANEL_ENABLE=false`, `SKYPANEL_TOKEN_PUBLIC=…`) and for Turnstile. Public registration and the theme are deliberately not set here: an environment variable always wins over what Settings saved.
+
+**Local changes.** `docker-compose.yml` is tracked in git and updates restore it (except the two secondary node lines). Your own changes go in `docker-compose.override.yml`, which Compose merges automatically; to replace a port list use `ports: !override` (Docker Compose 2.24.4 or later). The installer writes that file when ports change, with `--bind` or with an external database.
 
 ## Development (`docker-compose.dev.yml`)
 
-```yaml
-services:
-  skypanel:
-    container_name: skypanel-dev
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        - version=dev-local
-        - sha=dev
-    ports:
-      - "8080:8080"
-      - "5657:5657"
-    volumes:
-      - ./dev-data/data:/var/lib/SkyPanel:z
-      - ./dev-data/logs:/var/log/SkyPanel:z
-      - /var/run/docker.sock:/var/run/docker.sock:z
-    privileged: true
-    user: "0:0"
-    environment:
-      - GIN_MODE=debug
-      - SKYPANEL_LOGS_LEVEL=DEBUG
-      # SQLite by default (no DB service required)
-```
+A single service, `skypanel` (container `skypanel-dev`), built with `version=dev-local`, `sha=dev`:
 
-## Useful Commands
+- Ports `8080` and `5657`; data in `./dev-data/data` and logs in `./dev-data/logs`; Docker socket mounted.
+- `privileged: true`, `user: "0:0"`, `restart: "no"`, network `skypanel-dev`.
+- Variables: `GIN_MODE=debug`, `SKYPANEL_PLATFORM=docker`, `SKYPANEL_WEB_HOST=0.0.0.0:8080`, `SKYPANEL_PANEL_SETTINGS_COMPANYNAME=Aether Panel` and `SKYPANEL_LOGS_LEVEL=DEBUG` (the last one maps to no configuration key and has no effect).
 
-```bash
-# Start production
-docker-compose up -d
+> **Limitation:** this file defines no database and no `SKYPANEL_PANEL_DATABASE_URL`, and does not mount `/etc/SkyPanel`, so the image's `config.json` is used (MySQL at `mysql:3306`). Since the `entrypoint` waits for MySQL, the container exits after 60 seconds as it stands. To use it, add a MariaDB service named `mysql` on the same network (or point `SKYPANEL_PANEL_DATABASE_URL` at an existing one).
 
-# Start development
-docker-compose -f docker-compose.dev.yml up -d
+## Game server base images
 
-# View logs
-docker-compose logs -f
+`docker/runtime-images/` holds the images templates use. CI publishes them as `ghcr.io/aether-panel/<name>` (`amd64` and `arm64`) from `main` and `dev2.0`, tagged with the branch, `sha-<commit>` and `latest` on `main`.
 
-# Stop
-docker-compose down
+| Image | Base | Contents |
+|---|---|---|
+| `ghcr.io/aether-panel/ubuntu` | `ubuntu:24.04` | `ca-certificates`, `curl`, `git`, `unzip`, `wget`, `xz-utils`, `zip`; `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1` |
+| `ghcr.io/aether-panel/steamcmd` | `steamcmd/steamcmd:ubuntu-22` | i386 libraries for SteamCMD, `xvfb`, `curl`, `wget`, `unzip`, `zip`; `HOME=/home/container` |
+| `ghcr.io/aether-panel/generic` | `ubuntu:24.04` | `bash`, `ca-certificates`, `curl`, `git`, `unzip`, `wget`, `xz-utils`, `zip`; working directory `/home/container` |
+| `ghcr.io/aether-panel/php:<version>` | `php:<version>-cli` (8.2, 8.3, 8.4) | Composer 2, `git`, `unzip`, `zip`, `curl` and the extensions `bcmath`, `exif`, `gd`, `intl`, `mysqli`, `opcache`, `pcntl`, `pdo_mysql`, `pdo_pgsql`, `pgsql`, `redis`, `sockets`, `zip`; production `php.ini`. One image per version, tagged with it. Used by the PHP and Laravel templates |
 
-# Create admin user
-docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email admin@example.com --admin
+All of them create the `container` user and run as it. Every Docker node downloads the first three and keeps them up to date in the background (`docker.prefetchImages`, with those three by default); the PHP one is pulled the first time a server uses it, so the first server using one does not wait.
 
-# Interactive shell
-docker exec -it skypanel sh
+The panel image is published as `ghcr.io/aether-panel/panel` (`amd64` and `arm64`) from `main` only, tagged `main`, `sha-<commit>` and `latest`. The installer does not use it: it builds the image on the server.
 
-# View version
-docker exec skypanel /SkyPanel/bin/SkyPanel version
+## Helper tools
 
-# Execute CLI command
-docker exec skypanel /SkyPanel/bin/SkyPanel version
+| Dockerfile | Final base | What it does |
+|---|---|---|
+| `Dockerfile-curseforge` | `eclipse-temurin:25-alpine` | Builds `tools/curseforge` (`curseforgetester`), which checks CurseForge modpacks |
+| `Dockerfile-templatetester` | `ubuntu:26.04` | Builds `tools/templatetester` and adds Mono, Node.js 20, i386 libraries and utilities to test templates |
+| `Dockerfile-formatter` | `alpine` | Builds `tools/formatter`, which rewrites the JSON files of a template repository (`-workDir`) in the standard field order |
 
-# Rebuild image
-docker-compose build
+## Commands
 
-# Update image
-docker-compose pull
-```
-
-## Multi-Platform Build
-
-The Dockerfile supports multi-architecture builds via `tonistiigi/xx`:
+Everyday commands are in the [Quick reference](./DOCKER-QUICKREF.md). Building for another architecture:
 
 ```bash
-# Build for linux/amd64
 docker build --platform linux/amd64 -t skypanel:latest .
-
-# Build for linux/arm64
 docker build --platform linux/arm64 -t skypanel:latest .
 ```
 
-## Custom Configuration
-
-The default configuration is in `config.docker.json` with MySQL. To use SQLite in production, change the environment variables:
-
-```yaml
-environment:
-  - SKYPANEL_PANEL_DATABASE_DIALECT=sqlite3
-  # SKYPANEL_PANEL_DATABASE_URL not required (default: file:skypanel.db)
-  # Remove depends_on: mysql
-```
-
-## Auxiliary Dockerfiles
-
-### `Dockerfile-curseforge`
-Image for the CurseForge tester. Built with CGO, Eclipse Temurin 25 (Java) runtime. Used to verify CurseForge modpacks.
-
-### `Dockerfile-templatetester`
-Heavy image for testing templates. Includes Mono (for SteamCMD), Node.js 20, GCC, zip/unzip, and i386 dependencies. Builds the `templatetester` tool.
-
-### `Dockerfile-formatter`
-Minimal image for formatting Go code. Builds the `formatter` tool and runs it on the source code.
-
 ## Troubleshooting
 
-### Error: "Bind for 0.0.0.0:8080 failed: port is already allocated"
-Change the port mapping:
+### "Bind for 0.0.0.0:8080 failed: port is already allocated"
+
+Another process uses the port. Change the mapping in `docker-compose.override.yml` (Docker Compose 2.24.4 or later):
+
 ```yaml
-ports:
-  - "9000:8080"
+services:
+  skypanel:
+    ports: !override
+      - "9000:8080"
+      - "5657:5657"
 ```
 
-### Error: "permission denied" when connecting the Docker socket
-Ensure the container user has permissions. In production:
-```yaml
-user: "0:0"  # Temporary
-```
-In development, it's already configured with `privileged: true` and `user: "0:0"`.
+With the installer, use `--port` / `--sftp-port`.
 
-### Error: MySQL connection refused
-The entrypoint waits up to 60s. Verify:
+### "permission denied" on the Docker socket
+
+The host's socket belongs to `root:docker`. In `docker-compose.yml` the panel runs as root (`user: "0:0"`), which avoids the problem; `docker-compose.dev.yml` also uses `privileged: true`. See [Docker socket and permissions](./DOCKER-SUDO-FIX.md).
+
+### The panel cannot reach MySQL
+
+The `entrypoint` waits up to 60 seconds. Check:
+
 ```bash
 docker logs skypanel
 docker logs skypanel-mysql
 ```
 
-### Changes do not persist
-Verify the volumes:
+If you changed the `.env` passwords after the database was created, MariaDB still uses the old ones: see [Troubleshooting](../setup/troubleshooting.md#access-denied-after-changing-env).
+
+### Data does not persist
+
+Data lives in `./storage/` next to `docker-compose.yml`. Check that the containers were created from that folder:
+
 ```bash
-docker volume ls
-docker inspect skypanel | grep Mounts
+docker inspect skypanel --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
 ```

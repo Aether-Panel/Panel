@@ -134,8 +134,9 @@ func Trigger() (containerID string, err error) {
 	resp, err := cli.ContainerCreate(ctx, client.ContainerCreateOptions{
 		Name: "",
 		Config: &container.Config{
-			Image: Image,
-			Cmd:   Command,
+			Image:  Image,
+			Cmd:    Command,
+			Labels: map[string]string{Label: "true"},
 		},
 		HostConfig: &container.HostConfig{
 			NetworkMode: "host",
