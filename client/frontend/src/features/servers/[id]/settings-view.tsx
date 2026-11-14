@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -65,6 +65,38 @@ function useRowIds(length: number) {
   ids.length = length;
   const remove = (idx: number) => { ids.splice(idx, 1); };
   return [ids, remove] as const;
+}
+
+function buildStartupCommandPreview(isMinecraftJava: boolean, definition: any, variables: Record<string, any>, jvmArgs: string): string {
+  if (!isMinecraftJava) return '';
+  const run = definition?.run;
+  if (!run?.command) return '';
+  let cmd = '';
+  if (typeof run.command === 'string') {
+    cmd = run.command;
+  } else if (Array.isArray(run.command)) {
+    const match = run.command.find((c: any) => typeof c === 'object' && (!c.if || c.if.includes("env != 'host'") || c.if.includes('docker'))) || run.command[0];
+    cmd = typeof match === 'string' ? match : (match?.command || '');
+  }
+  if (!cmd) return '';
+
+  const mem = (variables?.['memory']?.value as number) || 2048;
+  const jvm = jvmArgs.trim();
+  const javaVer = (variables?.['javaversion']?.value as string) || '21';
+
+  let preview = cmd
+    .replace(/\$\{memory\}/g, String(mem))
+    .replace(/\$\{javaversion\}/g, javaVer)
+    .replace(/\$\{jvmArgs\}/g, jvm);
+
+  if (jvm && !cmd.includes('${jvmArgs}')) {
+    if (preview.includes('-jar ')) {
+      preview = preview.replace('-jar ', `${jvm} -jar `);
+    } else if (preview.includes('@libraries/')) {
+      preview = preview.replace('@libraries/', `${jvm} @libraries/`);
+    }
+  }
+  return preview;
 }
 
 export default function SettingsView({ serverId, serverStatus, onPortsSaved }: Readonly<SettingsViewProps>) {
@@ -366,38 +398,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
     }));
 
   const jvmArgsValue = (localSettings.variables['jvmArgs']?.value as string) ?? '';
-
-  const startupCommandPreview = useMemo(() => {
-    if (!isMinecraftJava) return '';
-    const run = localSettings?.definition?.run;
-    if (!run?.command) return '';
-    let cmd = '';
-    if (typeof run.command === 'string') {
-      cmd = run.command;
-    } else if (Array.isArray(run.command)) {
-      const match = run.command.find((c: any) => typeof c === 'object' && (!c.if || c.if.includes("env != 'host'") || c.if.includes('docker'))) || run.command[0];
-      cmd = typeof match === 'string' ? match : (match?.command || '');
-    }
-    if (!cmd) return '';
-
-    const mem = (localSettings.variables['memory']?.value as number) || 2048;
-    const jvm = jvmArgsValue.trim();
-    const javaVer = (localSettings.variables['javaversion']?.value as string) || '21';
-
-    let preview = cmd
-      .replace(/\$\{memory\}/g, String(mem))
-      .replace(/\$\{javaversion\}/g, javaVer)
-      .replace(/\$\{jvmArgs\}/g, jvm);
-
-    if (jvm && !cmd.includes('${jvmArgs}')) {
-      if (preview.includes('-jar ')) {
-        preview = preview.replace('-jar ', `${jvm} -jar `);
-      } else if (preview.includes('@libraries/')) {
-        preview = preview.replace('@libraries/', `${jvm} @libraries/`);
-      }
-    }
-    return preview;
-  }, [isMinecraftJava, localSettings?.definition, localSettings?.variables, jvmArgsValue]);
+  const startupCommandPreview = buildStartupCommandPreview(isMinecraftJava, localSettings.definition, localSettings.variables, jvmArgsValue);
 
   const resourceFields = [
     { key: 'cpu', label: t('servers.settings.cpuLabel'), unit: '%', defaultVal: 100, hint: t('servers.settings.cpuHint') },
