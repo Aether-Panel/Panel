@@ -2029,6 +2029,23 @@
     "@radix-ui/react-use-is-hydrated" "0.1.3"
     "@radix-ui/react-use-layout-effect" "1.1.4"
 
+"@radix-ui/react-roving-focus@1.2.1":
+  version "1.2.1"
+  resolved "https://registry.yarnpkg.com/@radix-ui/react-roving-focus/-/react-roving-focus-1.2.1.tgz#679a2f1b4c6cdf3ea02cf3dd919a3b7aca7317f0"
+  integrity sha512-UwraORzVUeEPMclhO1p0vz0qI+TbdDLO9i+FiOqhJyHKwdpCRCck9yVEscUnAMIzCiuNoQa8D4A9bIpOPXGt6Q==
+  dependencies:
+    "@radix-ui/primitive" "1.2.0"
+    "@radix-ui/react-collection" "1.2.0"
+    "@radix-ui/react-compose-refs" "1.1.5"
+    "@radix-ui/react-context" "1.3.0"
+    "@radix-ui/react-direction" "1.2.0"
+    "@radix-ui/react-id" "1.1.4"
+    "@radix-ui/react-primitive" "2.2.0"
+    "@radix-ui/react-use-callback-ref" "1.1.5"
+    "@radix-ui/react-use-controllable-state" "1.3.0"
+    "@radix-ui/react-use-is-hydrated" "0.1.3"
+    "@radix-ui/react-use-layout-effect" "1.1.4"
+
 "@radix-ui/react-scroll-area@^1.4.0":
   version "1.4.0"
   resolved "https://registry.yarnpkg.com/@radix-ui/react-scroll-area/-/react-scroll-area-1.4.0.tgz#2441c06836b6f81b086a28ce5e6a2da64d0c43e2"
@@ -2106,19 +2123,19 @@
     "@radix-ui/react-use-controllable-state" "1.3.0"
     "@radix-ui/react-use-size" "1.1.5"
 
-"@radix-ui/react-tabs@^1.1.3":
-  version "1.1.22"
-  resolved "https://registry.yarnpkg.com/@radix-ui/react-tabs/-/react-tabs-1.1.22.tgz#c98b38860506f145c5a7c785d5474f516509d47e"
-  integrity sha512-GmVH+P3wx1ZPMuH7WajQzygZIbqgnsb5h8z4Ow3sQMuDqgcqISSBNom6MLVNJvfrkuJTtqfXc3ZolHjX+w0CHg==
+"@radix-ui/react-tabs@^1.2.1":
+  version "1.2.1"
+  resolved "https://registry.yarnpkg.com/@radix-ui/react-tabs/-/react-tabs-1.2.1.tgz#4f6f81508265b1c92b209ba6614b290e1f747a68"
+  integrity sha512-hRoJlode+hg5ZNlR+3tkfkUliIybdTpD5lkAvHQ9yaXseGf7XVO9Ib2GPEIOuaJJbo7YWYbNpDDRfo8Dhf6/xA==
   dependencies:
-    "@radix-ui/primitive" "1.1.7"
-    "@radix-ui/react-context" "1.2.2"
-    "@radix-ui/react-direction" "1.1.5"
+    "@radix-ui/primitive" "1.2.0"
+    "@radix-ui/react-context" "1.3.0"
+    "@radix-ui/react-direction" "1.2.0"
     "@radix-ui/react-id" "1.1.4"
     "@radix-ui/react-presence" "1.1.11"
-    "@radix-ui/react-primitive" "2.1.11"
-    "@radix-ui/react-roving-focus" "1.1.20"
-    "@radix-ui/react-use-controllable-state" "1.2.6"
+    "@radix-ui/react-primitive" "2.2.0"
+    "@radix-ui/react-roving-focus" "1.2.1"
+    "@radix-ui/react-use-controllable-state" "1.3.0"
 
 "@radix-ui/react-tooltip@^1.4.1":
   version "1.4.1"
@@ -3703,9 +3720,9 @@ glob-parent@^6.0.2:
     is-glob "^4.0.3"
 
 glob@^10.3.7, glob@^14.0.2:
-  version "14.0.4"
-  resolved "https://registry.yarnpkg.com/glob/-/glob-14.0.4.tgz#008a99c94b6e617b5f13fe9784adef2a78af977e"
-  integrity sha512-mMiwNKoJZ4HAIRVJxotO6LsNRReA30gQwP9E2/p94tfLv+jygCNpKDjhhSL6OLY6LE371EZm5EAf7RpYuUqlsw==
+  version "14.0.6"
+  resolved "https://registry.yarnpkg.com/glob/-/glob-14.0.6.tgz#40f3f37b4bbd06ad274ba87be801b59dcea71164"
+  integrity sha512-OwXjVP2svY5EyLY75Vek96C8qK43gqrt4xsZ+qSILdnaEiJPXkd62mcfUSNx/TQErQRdu5uM5kF67sfONragKw==
   dependencies:
     minimatch "^11.0.5"
     minipass "^7.1.3"
@@ -4102,9 +4119,9 @@ micromatch@^4.0.8:
     picomatch "^2.3.1"
 
 minimatch@^11.0.1, minimatch@^11.0.5:
-  version "11.0.5"
-  resolved "https://registry.yarnpkg.com/minimatch/-/minimatch-11.0.5.tgz#29589e94fc4d84193b2a31b082b0ec67b5ea1d42"
-  integrity sha512-snPlVppFcYWfLLFQGhDxUyBcHNtMlWmn3jtj7pEaO+DP8pqL0IvAzXhMYmn1z9ASNtgmwLBdFxSf4tMUB0OTKA==
+  version "11.0.8"
+  resolved "https://registry.yarnpkg.com/minimatch/-/minimatch-11.0.8.tgz#715fc3509cd7f76ed9af2f702a98411b1b0288c8"
+  integrity sha512-nFQuYSTVrGvysVBps5Ih+0BdnYFN/Cj3C816r6+p7yK+FHrVLGE4O4N9AFwykrlNlvM2HYt+Rad1Uiro6h88Ig==
   dependencies:
     "@isaacs/nonrecursive-glob-match" "^1.1.0"
     brace-expansion "^5.0.12"
