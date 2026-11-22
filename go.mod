@@ -15,7 +15,7 @@ require (
 	github.com/go-co-op/gocron/v2 v2.23.2
 	github.com/go-git/go-git/v5 v5.19.3
 	github.com/go-gormigrate/gormigrate/v2 v2.1.7
-	github.com/go-sql-driver/mysql v1.10.1
+	github.com/go-sql-driver/mysql v1.10.2
 	github.com/gofrs/uuid/v5 v5.5.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/cel-go v0.31.0
