@@ -29,7 +29,7 @@ require (
 	github.com/mailjet/mailjet-apiv3-go/v4 v4.1.0
 	github.com/mholt/archives v0.1.5
 	github.com/minio/minio-go/v7 v7.4.1
-	github.com/moby/moby/api v1.56.1
+	github.com/moby/moby/api v1.57.0
 	github.com/moby/moby/client v0.6.2
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/pkg/sftp v1.13.12
