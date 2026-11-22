@@ -17,7 +17,7 @@
     "fast-uri": "^4.2.3",
     "sharp": "^0.35.0",
     "svgo": "^4.0.2",
-    "postcss": "^8.5.18",
+    "postcss": "^8.5.33",
     "brace-expansion": "^5.0.9",
     "cookie": "2.0.1",
     "adm-zip": "^0.6.0",
@@ -41,7 +41,7 @@
     "dompurify": "^3.4.17",
     "fast-uri": "^4.2.3",
     "js-yaml": "^5.4.3",
-    "postcss": "^8.5.18",
+    "postcss": "^8.5.33",
     "postcss-selector-parser": "^7.1.6",
     "sharp": "^0.35.0",
     "svgo": "^4.0.2"
