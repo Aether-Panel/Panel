@@ -41,7 +41,7 @@
     "cmdk": "1.1.1",
     "monaco-editor": "^0.57.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8",
+    "react-dom": "^19.3.1",
     "react-hook-form": "^7.90.0",
     "recharts": "^2.15.1",
     "sileo": "^0.1.6",
